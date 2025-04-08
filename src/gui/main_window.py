@@ -39,6 +39,9 @@ class MainWindow(QMainWindow):
         self.total_results = 0
         self.current_query = ""
         
+        # Search state
+        self.is_searching = False
+        
         # Connect loader signals
         self.loader.progress_updated.connect(self.update_status)
         self.loader.loading_finished.connect(self.on_loading_finished)
@@ -180,12 +183,19 @@ class MainWindow(QMainWindow):
             
     def search_torrents(self):
         """Search for torrents using the search input"""
+        if self.is_searching:
+            return
+            
         query = self.search_input.text().strip()
         if not query:
             logger.warning("Empty search query")
             return
             
         try:
+            self.is_searching = True
+            self.search_button.setEnabled(False)
+            self.search_input.setEnabled(False)
+            
             # Reset pagination when starting a new search
             self.current_page = 0
             self.current_query = query
@@ -211,6 +221,11 @@ class MainWindow(QMainWindow):
             logger.error(f"Error during search: {str(e)}")
             self.status_bar.showMessage("Search failed")
             QMessageBox.critical(self, "Search Error", f"Failed to search: {str(e)}")
+            
+        finally:
+            self.is_searching = False
+            self.search_button.setEnabled(True)
+            self.search_input.setEnabled(True)
             
     def show_search_results(self, results: list[SearchResult]):
         """Display search results in the table"""
@@ -240,22 +255,26 @@ class MainWindow(QMainWindow):
             
     def previous_page(self):
         """Go to previous page of results"""
-        if self.current_page > 0:
+        if self.current_page > 0 and not self.is_searching:
             self.current_page -= 1
             self.load_current_page()
             
     def next_page(self):
         """Go to next page of results"""
-        if self.current_page < self.total_pages - 1:
+        if self.current_page < self.total_pages - 1 and not self.is_searching:
             self.current_page += 1
             self.load_current_page()
             
     def load_current_page(self):
         """Load the current page of results"""
-        if not self.current_query:
+        if not self.current_query or self.is_searching:
             return
             
         try:
+            self.is_searching = True
+            self.search_button.setEnabled(False)
+            self.search_input.setEnabled(False)
+            
             logger.info(f"Loading page {self.current_page + 1} for query: {self.current_query}")
             self.status_bar.showMessage(f"Loading page {self.current_page + 1}...")
             
@@ -269,6 +288,11 @@ class MainWindow(QMainWindow):
             logger.error(f"Error loading page: {str(e)}")
             self.status_bar.showMessage("Failed to load page")
             QMessageBox.critical(self, "Page Load Error", f"Failed to load page: {str(e)}")
+            
+        finally:
+            self.is_searching = False
+            self.search_button.setEnabled(True)
+            self.search_input.setEnabled(True)
             
     def download_selected(self):
         """Download selected torrent"""

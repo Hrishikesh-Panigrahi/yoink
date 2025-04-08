@@ -74,14 +74,10 @@ class SearchUtil:
                 logger.warning(f"No results found for query: {query}")
                 return [], 0, 0
                 
-            # Get total results from the first request
-            total_url = f"{base_url}/count"
-            total_params = {'q': query}
-            total_response = self.session.get(total_url, params=total_params, timeout=10)
-            total_response.raise_for_status()
-            total_data = total_response.json()
-            
-            total_results = int(total_data.get('total', 0))
+            # Estimate total results based on current page results
+            # If we got a full page, assume there are more pages
+            has_more = len(data) >= self.items_per_page
+            total_results = (page + 1) * self.items_per_page if has_more else page * self.items_per_page + len(data)
             total_pages = (total_results + self.items_per_page - 1) // self.items_per_page
             
             results = []
@@ -101,7 +97,7 @@ class SearchUtil:
                         seeds=int(item.get('seeders', 0)),
                         leeches=int(item.get('leechers', 0)),
                         upload_date=datetime.fromtimestamp(int(item.get('added', 0))).strftime('%Y-%m-%d %H:%M:%S'),
-                        magnet_link=f"magnet:?xt=urn:btih:{item.get('info_hash', '')}&dn={item.get('name', 'Unknown')}",
+                        magnet_link=self._build_magnet_link(item.get('info_hash', ''), item.get('name', 'Unknown')),
                         source='The Pirate Bay',
                         category=item.get('category', 'All'),
                         verified=item.get('status', '') == 'vip'
@@ -122,6 +118,24 @@ class SearchUtil:
         except Exception as e:
             logger.error(f"Unexpected error during search: {e}")
             return [], 0, 0
+
+    def _build_magnet_link(self, info_hash: str, name: str) -> str:
+        """Build a magnet link with trackers"""
+        if not info_hash:
+            return ""
+            
+        trackers = [
+            "udp://tracker.coppersurfer.tk:6969/announce",
+            "udp://9.rarbg.to:2920/announce",
+            "udp://tracker.opentrackr.org:1337",
+            "udp://tracker.internetwarriors.net:1337/announce",
+            "udp://tracker.leechers-paradise.org:6969/announce",
+            "udp://tracker.pirateparty.gr:6969/announce",
+            "udp://tracker.cyberia.is:6969/announce"
+        ]
+        
+        tracker_params = "&".join(f"tr={tracker}" for tracker in trackers)
+        return f"magnet:?xt=urn:btih:{info_hash}&dn={name}&{tracker_params}"
 
     def _format_size(self, size_bytes: int) -> str:
         """Convert bytes to human readable format"""
