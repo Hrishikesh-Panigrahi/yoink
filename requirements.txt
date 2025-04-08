@@ -1,0 +1,6 @@
+libtorrent==2.0.11
+PyQt6==6.5.0
+SQLAlchemy==2.0.0
+requests==2.31.0
+pillow==10.0.0
+python-magic==0.4.27 
