@@ -6,9 +6,10 @@ import logging
 from datetime import datetime
 from .logger import setup_logger
 from urllib.parse import quote
+from functools import lru_cache
 
 # Set up logger
-logger = setup_logger('search_util')
+logger = setup_logger('search')
 
 @dataclass
 class SearchResult:
@@ -27,77 +28,82 @@ class SearchUtil:
     """Utility class for searching torrents using The Pirate Bay API"""
     
     def __init__(self):
+        self.base_url = "https://apibay.org"
+        self.last_request_time = 0
+        self.min_request_interval = 1.0  # Minimum time between requests in seconds
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
-        self.last_request_time = 0
-        self.min_request_interval = 2  # Minimum seconds between requests
-        self.items_per_page = 30  # Reduced items per page for better usability
 
-    def _wait_for_rate_limit(self):
-        """Ensure we don't exceed rate limits"""
+    def _rate_limit(self):
+        """Implement rate limiting"""
         current_time = time.time()
         time_since_last_request = current_time - self.last_request_time
         if time_since_last_request < self.min_request_interval:
             time.sleep(self.min_request_interval - time_since_last_request)
         self.last_request_time = time.time()
 
+    @lru_cache(maxsize=100)
     def search_torrents(self, query: str, page: int = 1) -> Tuple[List[SearchResult], int, int]:
-        """Search for torrents using The Pirate Bay API"""
-        try:
-            # Encode query for URL
-            encoded_query = quote(query)
+        """Search for torrents with caching"""
+        if not query.strip():
+            return [], 0, 0
             
-            # Make request to search endpoint
-            response = requests.get(f'https://apibay.org/q.php?q={encoded_query}&cat=0')
+        try:
+            self._rate_limit()
+            
+            # Search endpoint - using the correct endpoint and parameters
+            search_url = f"{self.base_url}/q.php"
+            params = {
+                'q': query,
+                'cat': '0',  # All categories
+                'page': str(page),
+                'limit': '30'
+            }
+            
+            response = self.session.get(search_url, params=params, timeout=10)
             response.raise_for_status()
             
-            # Parse results
-            results = response.json()
-            if not results or (isinstance(results, list) and len(results) == 1 and results[0].get('name') == 'No results returned'):
-                logger.info(f"No results found for query: {query}")
+            data = response.json()
+            if not isinstance(data, list):
+                logger.error(f"Invalid response format: {data}")
                 return [], 0, 0
                 
-            # Calculate pagination
-            items_per_page = 30
-            total_results = len(results)
-            total_pages = (total_results + items_per_page - 1) // items_per_page
-            
-            # Get results for current page
-            start_idx = (page - 1) * items_per_page
-            end_idx = min(start_idx + items_per_page, total_results)
-            page_results = results[start_idx:end_idx]
-            
-            # Convert to SearchResult objects
-            search_results = []
-            for result in page_results:
+            results = []
+            for item in data:
                 try:
-                    # Build magnet link
-                    info_hash = result.get('info_hash', '')
-                    name = result.get('name', '')
-                    magnet = self._build_magnet_link(info_hash, name)
-                    
-                    # Create search result
-                    search_results.append(SearchResult(
-                        title=name,
-                        size=self._format_size(int(result.get('size', 0))),
-                        seeds=int(result.get('seeders', 0)),
-                        leeches=int(result.get('leechers', 0)),
-                        upload_date=datetime.fromtimestamp(int(result.get('added', 0))).strftime('%Y-%m-%d %H:%M:%S'),
-                        magnet_link=magnet,
-                        source="The Pirate Bay"
-                    ))
+                    # Skip if no info hash
+                    if 'info_hash' not in item:
+                        continue
+                        
+                    magnet = self._build_magnet_link(item['info_hash'], item['name'])
+                    result = SearchResult(
+                        title=item['name'],
+                        size=self._format_size(int(item['size'])),
+                        seeds=int(item['seeders']),
+                        leeches=int(item['leechers']),
+                        upload_date=datetime.fromtimestamp(int(item['added'])).strftime('%Y-%m-%d %H:%M:%S'),
+                        source="The Pirate Bay",
+                        magnet_link=magnet
+                    )
+                    results.append(result)
                 except Exception as e:
-                    logger.error(f"Error parsing result: {e}")
+                    logger.error(f"Error parsing search result: {e}")
                     continue
+                    
+            # Estimate total results and pages
+            total_results = len(data) * 10  # Rough estimate
+            total_pages = (total_results + 29) // 30  # Ceiling division
             
-            logger.info(f"Found {total_results} results for query: {query} (page {page} of {total_pages})")
-            return search_results, total_results, total_pages
+            return results, total_results, total_pages
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Search request failed: {e}")
+            return [], 0, 0
         except Exception as e:
-            logger.error(f"Error searching torrents: {e}")
-            raise
+            logger.error(f"Search error: {e}")
+            return [], 0, 0
 
     def _build_magnet_link(self, info_hash: str, name: str) -> str:
         """Build a magnet link with common trackers"""

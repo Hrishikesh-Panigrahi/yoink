@@ -93,6 +93,11 @@ class MainWindow(QMainWindow):
         self.api_health_timer.timeout.connect(self.update_api_health)
         self.api_health_timer.start(10000)  # Check every 10 seconds
         
+        # Set up torrent list update timer
+        self.torrent_update_timer = QTimer()
+        self.torrent_update_timer.timeout.connect(self.update_torrent_list)
+        self.torrent_update_timer.start(2000)  # Update every 2 seconds
+        
         # Initial API health check
         self.update_api_health()
         
@@ -294,52 +299,55 @@ class MainWindow(QMainWindow):
 
     def update_torrent_list(self):
         """Update torrent list in background thread"""
-        # Create and start update worker
-        self.update_worker = TorrentUpdateWorker(self.torrent_manager)
-        self.update_worker.finished.connect(self.on_update_completed)
-        self.update_worker.error.connect(self.on_update_error)
-        self.update_worker.start()
+        if not self.update_worker or not self.update_worker.isRunning():
+            self.update_worker = TorrentUpdateWorker(self.torrent_manager)
+            self.update_worker.finished.connect(self.on_update_completed)
+            self.update_worker.error.connect(self.on_update_error)
+            self.update_worker.start()
 
     def on_update_completed(self, torrents):
         """Handle torrent list update completion"""
         try:
+            if not self.downloads_table.isVisible():
+                return  # Skip update if downloads tab is not visible
+                
             self.downloads_table.setRowCount(len(torrents))
             
             for row, (hash, torrent) in enumerate(torrents):
-                self.downloads_table.setItem(row, 0, QTableWidgetItem(torrent.name))
-                self.downloads_table.setItem(row, 1, QTableWidgetItem(torrent.size))
-                
-                # Add progress bar
-                progress = QProgressBar()
-                progress.setValue(int(torrent.progress))
-                progress.setTextVisible(True)
-                progress.setFormat(f"{progress.value()}%")
-                self.downloads_table.setCellWidget(row, 2, progress)
-                
-                self.downloads_table.setItem(row, 3, QTableWidgetItem(torrent.download_speed))
-                self.downloads_table.setItem(row, 4, QTableWidgetItem(str(torrent.seeds)))
-                self.downloads_table.setItem(row, 5, QTableWidgetItem(str(torrent.peers)))
-                self.downloads_table.setItem(row, 6, QTableWidgetItem(torrent.status))
-                
-                # Add action buttons
-                actions_widget = QWidget()
-                actions_layout = QHBoxLayout(actions_widget)
-                actions_layout.setContentsMargins(0, 0, 0, 0)
-                
-                if torrent.status == "Downloading":
-                    pause_button = QPushButton("Pause")
-                    pause_button.clicked.connect(lambda checked, h=hash: self.pause_selected_torrent(h))
-                    actions_layout.addWidget(pause_button)
-                elif torrent.status == "Paused":
-                    resume_button = QPushButton("Resume")
-                    resume_button.clicked.connect(lambda checked, h=hash: self.resume_selected_torrent(h))
-                    actions_layout.addWidget(resume_button)
-                
-                delete_button = QPushButton("Delete")
-                delete_button.clicked.connect(lambda checked, h=hash: self.delete_selected_torrent(h))
-                actions_layout.addWidget(delete_button)
-                
-                self.downloads_table.setCellWidget(row, 7, actions_widget)
+                # Only update if the row exists and values have changed
+                if row < self.downloads_table.rowCount():
+                    current_name = self.downloads_table.item(row, 0)
+                    if not current_name or current_name.text() != torrent.name:
+                        self.downloads_table.setItem(row, 0, QTableWidgetItem(torrent.name))
+                    
+                    current_size = self.downloads_table.item(row, 1)
+                    if not current_size or current_size.text() != torrent.size:
+                        self.downloads_table.setItem(row, 1, QTableWidgetItem(torrent.size))
+                    
+                    # Update progress bar only if value changed
+                    progress_widget = self.downloads_table.cellWidget(row, 2)
+                    if not progress_widget or progress_widget.value() != int(torrent.progress):
+                        progress = QProgressBar()
+                        progress.setValue(int(torrent.progress))
+                        progress.setTextVisible(True)
+                        progress.setFormat(f"{progress.value()}%")
+                        self.downloads_table.setCellWidget(row, 2, progress)
+                    
+                    current_speed = self.downloads_table.item(row, 3)
+                    if not current_speed or current_speed.text() != torrent.download_speed:
+                        self.downloads_table.setItem(row, 3, QTableWidgetItem(torrent.download_speed))
+                    
+                    current_seeds = self.downloads_table.item(row, 4)
+                    if not current_seeds or current_seeds.text() != str(torrent.seeds):
+                        self.downloads_table.setItem(row, 4, QTableWidgetItem(str(torrent.seeds)))
+                    
+                    current_peers = self.downloads_table.item(row, 5)
+                    if not current_peers or current_peers.text() != str(torrent.peers):
+                        self.downloads_table.setItem(row, 5, QTableWidgetItem(str(torrent.peers)))
+                    
+                    current_status = self.downloads_table.item(row, 6)
+                    if not current_status or current_status.text() != torrent.status:
+                        self.downloads_table.setItem(row, 6, QTableWidgetItem(torrent.status))
                 
         except Exception as e:
             logger.error(f"Error updating downloads table: {e}")

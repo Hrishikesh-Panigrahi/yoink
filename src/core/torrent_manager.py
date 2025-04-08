@@ -6,9 +6,31 @@ from datetime import datetime
 from utils.logger import setup_logger
 from pathlib import Path
 from core.database_manager import DatabaseManager
+import threading
+import time
 
 # Set up logger
 logger = setup_logger('torrent_manager')
+
+class SessionThread(threading.Thread):
+    """Thread to handle libtorrent session operations"""
+    def __init__(self, session: lt.session):
+        super().__init__()
+        self.session = session
+        self.running = True
+        self.daemon = True
+
+    def run(self):
+        while self.running:
+            try:
+                self.session.post_torrent_updates()
+                time.sleep(0.1)  # Update every 100ms
+            except Exception as e:
+                logger.error(f"Error in session thread: {e}")
+                time.sleep(1)  # Wait longer on error
+
+    def stop(self):
+        self.running = False
 
 @dataclass
 class TorrentInfo:
@@ -91,6 +113,9 @@ class TorrentManager:
     def __init__(self):
         """Initialize the torrent manager"""
         self.session = lt.session()
+        self.session_thread = SessionThread(self.session)
+        self.session_thread.start()
+        
         self.torrents = {}  # hash -> (handle, info)
         self.save_path = str(Path.home() / "Downloads")
         self.db_manager = DatabaseManager()
@@ -98,6 +123,12 @@ class TorrentManager:
         
         # Load saved torrents
         self._load_saved_torrents()
+
+    def __del__(self):
+        """Cleanup when the manager is destroyed"""
+        if hasattr(self, 'session_thread'):
+            self.session_thread.stop()
+            self.session_thread.join(timeout=1.0)
 
     def _load_saved_torrents(self):
         """Load saved torrents from the database"""
@@ -249,40 +280,10 @@ class TorrentManager:
         """Get information about all torrents"""
         try:
             results = []
-            for handle in self.torrents.values():
+            for hash, (handle, info) in self.torrents.items():
                 try:
-                    status = handle.status()
-                    info = handle.get_torrent_info()
-                    
-                    # Get torrent state
-                    state_str = "Unknown"
-                    if status.paused:
-                        state_str = "Paused"
-                    elif status.errc:
-                        state_str = "Error"
-                    elif status.is_seeding:
-                        state_str = "Seeding"
-                    elif status.is_downloading:
-                        state_str = "Downloading"
-                    elif status.is_finished:
-                        state_str = "Finished"
-                        
-                    # Format size
-                    size_bytes = info.total_size()
-                    size_str = self._format_size(size_bytes)
-                    
-                    # Get upload date
-                    upload_date = datetime.fromtimestamp(info.creation_date()).strftime('%Y-%m-%d %H:%M:%S')
-                    
-                    results.append(TorrentInfo(
-                        name=handle.name(),
-                        size=size_str,
-                        seeds=status.num_seeds,
-                        peers=status.num_peers,
-                        upload_date=upload_date,
-                        status=state_str,
-                        hash=handle.info_hash().to_string()
-                    ))
+                    info.update_from_handle(handle)
+                    results.append(info)
                 except Exception as e:
                     logger.error(f"Error getting torrent info: {str(e)}")
                     continue
@@ -322,10 +323,4 @@ class TorrentManager:
             return None
         except Exception as e:
             logger.error(f"Error getting torrent by hash: {e}")
-            return None
-        
-    def set_save_path(self, path: str):
-        """Set the default save path for new torrents."""
-        self.save_path = path
-        for handle in self.torrents.values():
-            handle.move_storage(path) 
+            return None 
