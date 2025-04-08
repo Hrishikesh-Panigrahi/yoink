@@ -33,6 +33,12 @@ class MainWindow(QMainWindow):
         self.db_manager = DatabaseManager()
         self.loader = Loader()
         
+        # Pagination state
+        self.current_page = 0
+        self.total_pages = 0
+        self.total_results = 0
+        self.current_query = ""
+        
         # Connect loader signals
         self.loader.progress_updated.connect(self.update_status)
         self.loader.loading_finished.connect(self.on_loading_finished)
@@ -86,6 +92,18 @@ class MainWindow(QMainWindow):
         top_bar.addLayout(api_health_layout)
         
         layout.addLayout(top_bar)
+        
+        # Create pagination controls
+        pagination_layout = QHBoxLayout()
+        self.prev_button = QPushButton("Previous")
+        self.prev_button.clicked.connect(self.previous_page)
+        self.next_button = QPushButton("Next")
+        self.next_button.clicked.connect(self.next_page)
+        self.page_label = QLabel("Page 0 of 0")
+        pagination_layout.addWidget(self.prev_button)
+        pagination_layout.addWidget(self.page_label)
+        pagination_layout.addWidget(self.next_button)
+        layout.addLayout(pagination_layout)
         
         # Torrent list table
         self.torrent_table = QTableWidget()
@@ -168,17 +186,26 @@ class MainWindow(QMainWindow):
             return
             
         try:
+            # Reset pagination when starting a new search
+            self.current_page = 0
+            self.current_query = query
+            
             logger.info(f"Searching for: {query}")
             self.status_bar.showMessage(f"Searching for '{query}'...")
             
             # Perform search
-            results = self.search_util.search_torrents(query)
+            results, total_results, total_pages = self.search_util.search_torrents(query, self.current_page)
+            
+            # Update pagination state
+            self.total_results = total_results
+            self.total_pages = total_pages
             
             # Display results
             self.show_search_results(results)
             
-            # Update status
-            self.status_bar.showMessage(f"Found {len(results)} results for '{query}'")
+            # Update status and pagination
+            self.status_bar.showMessage(f"Found {total_results} results for '{query}' (Page {self.current_page + 1} of {total_pages})")
+            self.update_pagination_controls()
             
         except Exception as e:
             logger.error(f"Error during search: {str(e)}")
@@ -200,6 +227,48 @@ class MainWindow(QMainWindow):
             
             # Store magnet link in the item data
             self.torrent_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, result.magnet_link)
+            
+    def update_pagination_controls(self):
+        """Update pagination controls state"""
+        self.prev_button.setEnabled(self.current_page > 0)
+        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
+        
+        if self.total_pages > 0:
+            self.page_label.setText(f"Page {self.current_page + 1} of {self.total_pages}")
+        else:
+            self.page_label.setText("No results")
+            
+    def previous_page(self):
+        """Go to previous page of results"""
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.load_current_page()
+            
+    def next_page(self):
+        """Go to next page of results"""
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.load_current_page()
+            
+    def load_current_page(self):
+        """Load the current page of results"""
+        if not self.current_query:
+            return
+            
+        try:
+            logger.info(f"Loading page {self.current_page + 1} for query: {self.current_query}")
+            self.status_bar.showMessage(f"Loading page {self.current_page + 1}...")
+            
+            results, _, _ = self.search_util.search_torrents(self.current_query, self.current_page)
+            self.show_search_results(results)
+            
+            self.update_pagination_controls()
+            self.status_bar.showMessage(f"Page {self.current_page + 1} of {self.total_pages}")
+            
+        except Exception as e:
+            logger.error(f"Error loading page: {str(e)}")
+            self.status_bar.showMessage("Failed to load page")
+            QMessageBox.critical(self, "Page Load Error", f"Failed to load page: {str(e)}")
             
     def download_selected(self):
         """Download selected torrent"""
