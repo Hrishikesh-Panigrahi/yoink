@@ -3,10 +3,12 @@ from typing import List, Dict, Tuple
 import json
 from dataclasses import dataclass
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 import logging
 from requests.exceptions import RequestException
 from .logger import setup_logger
+import threading
+import re
 
 # Set up logger
 logger = setup_logger('search_util')
@@ -36,8 +38,9 @@ class SearchUtil:
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         
-        # API endpoints (using more reliable alternatives)
+        # API endpoints
         self.apis = {
+            '1337x': 'https://apibay.org/api.php',  # 1337x API
             'nyaa': 'https://nyaa.si/api/search',
             'anime': 'https://animetosho.org/api/search',
             'torlock': 'https://www.torlock.com/api/search'
@@ -45,9 +48,10 @@ class SearchUtil:
         
         # API health status
         self.api_status = {
-            'nyaa': APIStatus('Nyaa', False, 0),
-            'anime': APIStatus('AnimeTosho', False, 0),
-            'torlock': APIStatus('TorLock', False, 0)
+            '1337x': APIStatus('1337x', True, 0),  # Start as healthy
+            'nyaa': APIStatus('Nyaa', True, 0),  # Start as healthy
+            'anime': APIStatus('AnimeTosho', True, 0),  # Start as healthy
+            'torlock': APIStatus('TorLock', True, 0)  # Start as healthy
         }
         
         # Rate limiting
@@ -55,10 +59,28 @@ class SearchUtil:
         self.min_request_interval = 1.0  # seconds
         self.health_check_interval = 60.0  # seconds
         
+        # Start background health check
+        self._start_background_health_check()
+        
         logger.debug(f"SearchUtil initialized with {len(self.apis)} API endpoints")
         
-    def check_api_health(self, api_name: str) -> bool:
-        """Check if an API endpoint is healthy"""
+    def _start_background_health_check(self):
+        """Start background thread for API health checks"""
+        def health_check_worker():
+            while True:
+                for api_name in self.apis.keys():
+                    try:
+                        self._check_single_api_health(api_name)
+                    except Exception as e:
+                        logger.error(f"Error checking {api_name} health: {str(e)}")
+                time.sleep(self.health_check_interval)
+
+        health_check_thread = threading.Thread(target=health_check_worker, daemon=True)
+        health_check_thread.start()
+        logger.info("Started background API health check thread")
+
+    def _check_single_api_health(self, api_name: str):
+        """Check health of a single API endpoint"""
         current_time = time.time()
         status = self.api_status[api_name]
         
@@ -68,7 +90,9 @@ class SearchUtil:
             
         try:
             logger.debug(f"Checking health of {api_name} API")
-            if api_name == 'nyaa':
+            if api_name == '1337x':
+                response = self.session.get(f"{self.apis[api_name]}?info_hash=test", timeout=5)
+            elif api_name == 'nyaa':
                 response = self.session.get(f"{self.apis[api_name]}?q=test", timeout=5)
             elif api_name == 'anime':
                 response = self.session.get(f"{self.apis[api_name]}?q=test", timeout=5)
@@ -86,6 +110,10 @@ class SearchUtil:
             
         status.last_check = current_time
         return status.is_healthy
+
+    def check_api_health(self, api_name: str) -> bool:
+        """Get current health status of an API endpoint"""
+        return self.api_status[api_name].is_healthy
         
     def get_healthy_apis(self) -> List[APIStatus]:
         """Get status of all APIs"""
@@ -124,6 +152,51 @@ class SearchUtil:
             logger.error(f"API request failed for {api_name}: {str(e)}")
             raise
             
+    def search_1337x(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
+        """Search 1337x with pagination"""
+        logger.info(f"Searching 1337x for: {query} (page {page})")
+        try:
+            params = {
+                'info_hash': '',
+                'name': query,
+                'page': page,
+                'limit': per_page,
+                'category': '0',  # All categories
+                'sort': 'seeds',
+                'order': 'desc'
+            }
+            
+            response = self.session.get(self.apis['1337x'], params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            total_results = len(data) if isinstance(data, list) else 0
+            
+            for item in data:
+                try:
+                    # Convert size from string (e.g., "1.5 GB") to bytes
+                    size_str = item.get('size', '0 B')
+                    size_bytes = self._parse_size(size_str)
+                    
+                    results.append(SearchResult(
+                        name=item.get('name', ''),
+                        size=size_bytes,
+                        seeds=int(item.get('seeders', 0)),
+                        peers=int(item.get('leechers', 0)),
+                        magnet_link=item.get('magnet', ''),
+                        source='1337x'
+                    ))
+                except Exception as e:
+                    logger.error(f"Error parsing 1337x result: {str(e)}")
+                    continue
+                    
+            logger.info(f"1337x search returned {len(results)} results (total: {total_results})")
+            return results, total_results
+        except Exception as e:
+            logger.error(f"1337x search error: {str(e)}", exc_info=True)
+            return [], 0
+
     def search_nyaa(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
         """Search Nyaa.si with pagination"""
         logger.info(f"Searching Nyaa for: {query} (page {page})")
@@ -226,6 +299,7 @@ class SearchUtil:
         
         # Search all healthy APIs
         sources = [
+            ('1337x', self.search_1337x),
             ('nyaa', self.search_nyaa),
             ('anime', self.search_anime),
             ('torlock', self.search_torlock)
@@ -259,4 +333,26 @@ class SearchUtil:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
-        return f"{size_bytes:.1f} PB" 
+        return f"{size_bytes:.1f} PB"
+
+    def _parse_size(self, size_str: str) -> int:
+        """Convert size string to bytes"""
+        try:
+            parts = size_str.strip().split()
+            if len(parts) != 2:
+                return 0
+                
+            value = float(parts[0])
+            unit = parts[1].upper()
+            
+            multipliers = {
+                'B': 1,
+                'KB': 1024,
+                'MB': 1024**2,
+                'GB': 1024**3,
+                'TB': 1024**4
+            }
+            
+            return int(value * multipliers.get(unit, 1))
+        except Exception:
+            return 0 

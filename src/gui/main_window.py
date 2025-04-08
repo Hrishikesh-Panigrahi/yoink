@@ -156,16 +156,19 @@ class MainWindow(QMainWindow):
         
         top_bar.addLayout(search_layout)
         
-        # API Health Status
-        self.api_health_label = QLabel()
+        # API Health Status with small indicator
+        api_health_layout = QHBoxLayout()
+        self.api_health_label = QLabel("Checking APIs...")
         self.api_health_label.setStyleSheet("""
             QLabel {
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-weight: bold;
+                padding: 2px 5px;
+                border-radius: 2px;
+                font-size: 10px;
+                color: #666;
             }
         """)
-        top_bar.addWidget(self.api_health_label, alignment=Qt.AlignmentFlag.AlignRight)
+        api_health_layout.addWidget(self.api_health_label, alignment=Qt.AlignmentFlag.AlignRight)
+        top_bar.addLayout(api_health_layout)
         
         layout.addLayout(top_bar)
         
@@ -243,48 +246,51 @@ class MainWindow(QMainWindow):
         """Update the API health status indicator"""
         try:
             api_status = self.search_util.get_healthy_apis()
-            healthy_count = sum(1 for api in api_status if api.is_healthy)
-            total_count = len(api_status)
+            healthy_apis = sum(1 for api in api_status if api.is_healthy)
+            total_apis = len(api_status)
             
-            # Update the health status label
-            if healthy_count == 0:
-                status_text = f"APIs: {healthy_count}/{total_count} online"
-                status_color = "#ef4444"  # Red
-            elif healthy_count < total_count:
-                status_text = f"APIs: {healthy_count}/{total_count} online"
-                status_color = "#f59e0b"  # Yellow
+            if healthy_apis == 0:
+                self.api_health_label.setText("No APIs available")
+                self.api_health_label.setStyleSheet("""
+                    QLabel {
+                        padding: 2px 5px;
+                        border-radius: 2px;
+                        font-size: 10px;
+                        color: white;
+                        background-color: #ef4444;
+                    }
+                """)
+            elif healthy_apis == total_apis:
+                self.api_health_label.setText("All APIs healthy")
+                self.api_health_label.setStyleSheet("""
+                    QLabel {
+                        padding: 2px 5px;
+                        border-radius: 2px;
+                        font-size: 10px;
+                        color: white;
+                        background-color: #22c55e;
+                    }
+                """)
             else:
-                status_text = f"APIs: {healthy_count}/{total_count} online"
-                status_color = "#10b981"  # Green
+                self.api_health_label.setText(f"{healthy_apis}/{total_apis} APIs healthy")
+                self.api_health_label.setStyleSheet("""
+                    QLabel {
+                        padding: 2px 5px;
+                        border-radius: 2px;
+                        font-size: 10px;
+                        color: white;
+                        background-color: #f59e0b;
+                    }
+                """)
                 
-            self.api_health_label.setText(status_text)
-            self.api_health_label.setStyleSheet(f"""
-                QLabel {{
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-weight: bold;
-                    color: white;
-                    background-color: {status_color};
-                }}
-            """)
-            
-            # Show tooltip with detailed status
-            tooltip = "API Status:\n"
-            for api in api_status:
-                status = "✓ Online" if api.is_healthy else "✗ Offline"
-                error = f"\nError: {api.error_message}" if not api.is_healthy else ""
-                tooltip += f"{api.name}: {status}{error}\n"
-            self.api_health_label.setToolTip(tooltip)
-            
-            logger.debug(f"Updated API health status: {healthy_count}/{total_count} APIs online")
         except Exception as e:
             logger.error(f"Error updating API health status: {str(e)}", exc_info=True)
             self.api_health_label.setText("API Status: Error")
             self.api_health_label.setStyleSheet("""
                 QLabel {
-                    padding: 5px 10px;
-                    border-radius: 3px;
-                    font-weight: bold;
+                    padding: 2px 5px;
+                    border-radius: 2px;
+                    font-size: 10px;
                     color: white;
                     background-color: #ef4444;
                 }
