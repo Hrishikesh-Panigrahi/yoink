@@ -2,7 +2,7 @@ import sys
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLineEdit, QTableWidget, QTableWidgetItem,
                              QHeaderView, QLabel, QProgressBar, QMenu, QMessageBox, QStatusBar,
-                             QSpinBox, QTabWidget, QFileDialog, QDialog)
+                             QSpinBox, QTabWidget, QFileDialog, QDialog, QFrame)
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QIcon, QAction
 from core.torrent_manager import TorrentManager
@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QApplication
 from utils.logger import setup_logger
 import threading
 from utils.loader import Loader
+from pathlib import Path
 
 # Set up logger
 logger = setup_logger('main_window')
@@ -235,6 +236,56 @@ class MainWindow(QMainWindow):
         # Downloads tab
         downloads_tab = QWidget()
         downloads_layout = QVBoxLayout(downloads_tab)
+        
+        # Download directory selector
+        dir_selector = QWidget()
+        dir_layout = QHBoxLayout(dir_selector)
+        dir_layout.setContentsMargins(5, 5, 5, 5)
+        
+        self.dir_label = QLabel(f"Download Directory: {self.download_dir}")
+        self.dir_label.setStyleSheet("""
+            QLabel {
+                background-color: #f8fafc;
+                color: #1e293b;
+                padding: 6px 10px;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+        """)
+        
+        change_dir_button = QPushButton("Change Directory")
+        change_dir_button.clicked.connect(self.change_download_directory)
+        change_dir_button.setStyleSheet("""
+            QPushButton {
+                padding: 6px 12px;
+                background-color: #0ea5e9;
+                border: none;
+                border-radius: 4px;
+                color: white;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #0284c7;
+            }
+            QPushButton:pressed {
+                background-color: #0369a1;
+            }
+        """)
+        
+        dir_layout.addWidget(self.dir_label, stretch=1)
+        dir_layout.addWidget(change_dir_button)
+        
+        downloads_layout.addWidget(dir_selector)
+        
+        # Add a separator line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet("background-color: #e2e8f0; margin: 5px 0px;")
+        downloads_layout.addWidget(separator)
         
         # Active downloads table
         self.downloads_table = QTableWidget()
@@ -611,31 +662,46 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage("Ready")
 
     def load_download_directory(self) -> str:
-        """Load the download directory from settings"""
+        """Load download directory from settings or use default"""
         try:
-            return self.torrent_manager.save_path
+            saved_dir = self.db_manager.get_setting("download_directory")
+            if saved_dir and os.path.isdir(saved_dir):
+                logger.info(f"Loaded saved download directory: {saved_dir}")
+                return saved_dir
         except Exception as e:
-            logger.error(f"Error loading download directory: {e}")
-            return os.path.expanduser('~/Downloads')
-
-    def set_download_directory(self):
-        """Open dialog to set download directory"""
-        directory = QFileDialog.getExistingDirectory(
-            self,
-            "Select Download Directory",
-            self.download_dir,
-            QFileDialog.Option.ShowDirsOnly
-        )
+            logger.error(f"Error loading download directory setting: {e}")
         
-        if directory:
-            try:
-                self.download_dir = directory
-                self.torrent_manager.set_save_path(directory)
-                self.status_bar.showMessage(f"Download Directory: {directory}")
-                logger.info(f"Download directory set to: {directory}")
-            except Exception as e:
-                logger.error(f"Error saving download directory: {e}")
-                QMessageBox.critical(self, "Error", f"Failed to save download directory: {str(e)}")
+        # Use default directory if no saved directory or error
+        default_dir = str(Path.home() / "Downloads")
+        logger.info(f"Using default download directory: {default_dir}")
+        return default_dir
+
+    def change_download_directory(self):
+        """Open a dialog to change the download directory"""
+        try:
+            current_dir = self.torrent_manager.save_path
+            new_dir = QFileDialog.getExistingDirectory(
+                self,
+                "Select Download Directory",
+                current_dir,
+                QFileDialog.Option.ShowDirsOnly
+            )
+            
+            if new_dir:
+                self.torrent_manager.set_save_path(new_dir)
+                logger.info(f"Download directory changed to: {new_dir}")
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Download directory changed to:\n{new_dir}"
+                )
+        except Exception as e:
+            logger.error(f"Error changing download directory: {e}")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Failed to change download directory:\n{str(e)}"
+            )
 
     def view_torrent_details(self, row: int):
         """Show details dialog for selected torrent"""

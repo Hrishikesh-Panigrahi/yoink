@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from utils.logger import setup_logger
 from pathlib import Path
-from core.database_manager import DatabaseManager
+from database.database import DatabaseManager
 import threading
 import time
 
@@ -187,9 +187,11 @@ class TorrentManager:
         self.session_thread = SessionThread(self.session)
         self.session_thread.start()
         
-        self.torrents = {}  # hash -> (handle, info)
-        self.save_path = str(Path.home() / "Downloads")
-        self.db_manager = DatabaseManager()
+        self.torrents = {}  # info_hash -> (torrent, info)
+        self.save_path = None
+        self.db = DatabaseManager()
+        # Set initial save path from database
+        self.save_path = self.db.get_default_download_dir()
         logger.info(f"Initialized TorrentManager with save path: {self.save_path}")
         
         # Load saved torrents
@@ -204,26 +206,27 @@ class TorrentManager:
     def _load_saved_torrents(self):
         """Load saved torrents from the database"""
         try:
-            saved_torrents = self.db_manager.get_all_torrents()
+            saved_torrents = self.db.get_all_torrents()
             for torrent in saved_torrents:
                 try:
-                    # Add torrent to session
+                    # Add torrent to session with its original save path
                     params = lt.parse_magnet_uri(torrent.magnet_link)
-                    params.save_path = torrent.save_path or self.save_path
+                    params.save_path = torrent.save_path  # Use the saved path from database
                     
                     handle = self.session.add_torrent(params)
                     hash = handle.info_hash().to_string()
                     
-                    # Create torrent info
+                    # Create torrent info with the original save path
                     info = TorrentInfo(
                         name=torrent.name,
                         size="Calculating...",
-                        status="Queued"
+                        status="Queued",
+                        save_path=torrent.save_path
                     )
                     
                     # Store in memory
                     self.torrents[hash] = (handle, info)
-                    logger.info(f"Loaded saved torrent: {info.name}")
+                    logger.info(f"Loaded saved torrent: {info.name} with save path: {torrent.save_path}")
                     
                 except Exception as e:
                     logger.error(f"Error loading saved torrent {torrent.name}: {e}")
@@ -235,30 +238,42 @@ class TorrentManager:
     def add_torrent(self, magnet_link: str) -> Optional[str]:
         """Add a new torrent from magnet link"""
         try:
+            # Parse magnet link
             params = lt.parse_magnet_uri(magnet_link)
             params.save_path = self.save_path
             
+            # Add to libtorrent session
             handle = self.session.add_torrent(params)
             hash = handle.info_hash().to_string()
             
+            # Create torrent info
             info = TorrentInfo(
                 name=handle.name() or params.name,
                 size="Calculating...",
-                status="Queued"
+                status="Queued",
+                save_path=self.save_path
             )
             
             # Store in memory
             self.torrents[hash] = (handle, info)
             
-            # Save to database
-            self.db_manager.add_torrent(
-                hash=hash,
-                name=info.name,
-                magnet_link=magnet_link,
-                save_path=self.save_path
-            )
+            try:
+                # Save to database
+                self.db.add_torrent(
+                    name=info.name,
+                    magnet_link=magnet_link,
+                    info_hash=hash,
+                    size=0,  # Will be updated when we get the torrent info
+                    save_path=self.save_path
+                )
+                logger.info(f"Added torrent: {info.name} with save path: {self.save_path}")
+            except Exception as db_error:
+                logger.error(f"Database error while adding torrent: {db_error}")
+                # Remove from libtorrent session if database save failed
+                self.session.remove_torrent(handle)
+                del self.torrents[hash]
+                raise
             
-            logger.info(f"Added torrent: {info.name}")
             return hash
             
         except Exception as e:
@@ -328,7 +343,7 @@ class TorrentManager:
                 del self.torrents[hash]
                 
                 # Remove from database
-                self.db_manager.remove_torrent(hash)
+                self.db.remove_torrent(hash)
                 
                 logger.info(f"Removed torrent: {info.name}")
                 return True
@@ -338,18 +353,17 @@ class TorrentManager:
             return False
 
     def set_save_path(self, path: str):
-        """Set the default save path for new torrents."""
+        """Set the save path for new torrents and update the database setting.
+        This only affects new torrents, existing torrents continue with their original paths."""
         try:
+            if not os.path.exists(path):
+                os.makedirs(path)
             self.save_path = path
-            # Update save path for existing torrents
-            for hash, (handle, _) in self.torrents.items():
-                try:
-                    handle.move_storage(path)
-                except Exception as e:
-                    logger.error(f"Error moving torrent {hash} to new path: {e}")
-            logger.info(f"Set save path to: {path}")
+            self.db.set_setting('default_download_dir', path)
+            logger.info(f"Save path updated to: {path} for new downloads")
         except Exception as e:
             logger.error(f"Error setting save path: {e}")
+            raise
 
     def get_torrents(self) -> List[TorrentInfo]:
         """Get information about all torrents"""

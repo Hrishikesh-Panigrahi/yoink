@@ -11,13 +11,11 @@ from utils.logger import setup_logger
 # Set up logger
 logger = setup_logger('database')
 
-Base = declarative_base()
-
 class Setting(Base):
     """Settings table"""
     __tablename__ = 'settings'
     
-    key = Column(String, primary_key=True)
+    key = Column(String(50), primary_key=True)
     value = Column(Text)
 
 class DownloadHistory(Base):
@@ -25,22 +23,32 @@ class DownloadHistory(Base):
     __tablename__ = 'download_history'
     
     id = Column(Integer, primary_key=True)
-    name = Column(String)
+    name = Column(String(255))
     magnet = Column(Text)
-    size = Column(String)
-    status = Column(String)
+    size = Column(String(50))
+    status = Column(String(20))
     progress = Column(Float, default=0.0)
-    download_speed = Column(String)
+    download_speed = Column(String(50))
     added_date = Column(DateTime, default=datetime.utcnow)
     completed_date = Column(DateTime, nullable=True)
-    save_path = Column(String)
+    save_path = Column(String(255))
     error = Column(Text, nullable=True)
 
 class DatabaseManager:
     def __init__(self, db_path: str = "torrent.db"):
         logger.info(f"Initializing DatabaseManager with database path: {db_path}")
+        
+        # Create database directory if it doesn't exist
+        db_dir = os.path.dirname(db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+            
         self.engine = create_engine(f'sqlite:///{db_path}')
+        
+        # Create all tables
         Base.metadata.create_all(self.engine)
+        logger.info("Database schema initialized")
+        
         self.Session = sessionmaker(bind=self.engine)
         logger.debug("Database engine and session maker initialized")
         
@@ -48,9 +56,17 @@ class DatabaseManager:
         return self.Session()
         
     def add_torrent(self, name: str, magnet_link: str, info_hash: str, size: int, save_path: str) -> Torrent:
+        """Add a new torrent to the database"""
         logger.info(f"Adding new torrent: {name} (hash: {info_hash})")
         try:
             with self.get_session() as session:
+                # Check if torrent already exists
+                existing = session.query(Torrent).filter_by(info_hash=info_hash).first()
+                if existing:
+                    logger.info(f"Torrent already exists: {name}")
+                    return existing
+                
+                # Create new torrent
                 torrent = Torrent(
                     name=name,
                     magnet_link=magnet_link,
@@ -276,4 +292,28 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error clearing download history: {e}")
             self.get_session().rollback()
+            raise
+
+    def get_default_download_dir(self) -> str:
+        """Get the default download directory from settings"""
+        try:
+            default_dir = self.get_setting('default_download_dir')
+            if not default_dir:
+                # If no default directory is set, use the user's downloads folder
+                default_dir = os.path.expanduser("~/Downloads")
+                self.set_setting('default_download_dir', default_dir)
+            return default_dir
+        except Exception as e:
+            logger.error(f"Error getting default download directory: {e}")
+            return os.path.expanduser("~/Downloads")
+
+    def set_default_download_dir(self, directory: str):
+        """Set the default download directory in settings"""
+        try:
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            self.set_setting('default_download_dir', directory)
+            logger.info(f"Default download directory set to: {directory}")
+        except Exception as e:
+            logger.error(f"Error setting default download directory: {e}")
             raise 
