@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QProgressBar
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPainterPath
 import math
 
@@ -20,7 +20,7 @@ class LoadingDialog(QDialog):
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.message_label.setStyleSheet("""
             QLabel {
-                color: #2c3e50;
+                color: #2d3748;
                 font-size: 14px;
                 font-weight: bold;
             }
@@ -30,13 +30,14 @@ class LoadingDialog(QDialog):
         self.progress_bar = QProgressBar()
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 2px solid #3498db;
+                border: 2px solid #4299e1;
                 border-radius: 5px;
                 text-align: center;
-                background-color: #ecf0f1;
+                background-color: #f7fafc;
+                color: #2d3748;
             }
             QProgressBar::chunk {
-                background-color: #3498db;
+                background-color: #4299e1;
                 border-radius: 3px;
             }
         """)
@@ -65,13 +66,14 @@ class LoadingDialog(QDialog):
         
         # Draw background with rounded corners
         path = QPainterPath()
-        path.addRoundedRect(self.rect(), 10, 10)
+        rect = QRectF(self.rect())
+        path.addRoundedRect(rect, 10, 10)
         
         # Set background color with slight transparency
         painter.fillPath(path, QColor(255, 255, 255, 240))
         
         # Draw border
-        painter.setPen(QColor(200, 200, 200))
+        painter.setPen(QColor(226, 232, 240))  # #e2e8f0
         painter.drawPath(path)
         
     def update_message(self, message):

@@ -20,42 +20,83 @@ class MainWindow(QMainWindow):
         # Set application style
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f5f6fa;
+                background-color: #f0f2f5;
             }
             QLineEdit {
                 padding: 8px;
-                border: 2px solid #dcdde1;
+                border: 2px solid #cbd5e0;
                 border-radius: 5px;
                 background-color: white;
                 font-size: 14px;
+                color: #2d3748;
             }
             QLineEdit:focus {
-                border-color: #3498db;
+                border-color: #4299e1;
             }
             QPushButton {
                 padding: 8px 15px;
-                background-color: #3498db;
+                background-color: #4299e1;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 font-size: 14px;
+                font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #2980b9;
+                background-color: #3182ce;
+            }
+            QPushButton:pressed {
+                background-color: #2b6cb0;
             }
             QTableWidget {
-                border: 1px solid #dcdde1;
+                border: 1px solid #e2e8f0;
                 border-radius: 5px;
                 background-color: white;
+                gridline-color: #e2e8f0;
             }
             QTableWidget::item {
                 padding: 5px;
+                color: #2d3748;
+            }
+            QTableWidget::item:selected {
+                background-color: #ebf8ff;
+                color: #2c5282;
             }
             QHeaderView::section {
-                background-color: #f5f6fa;
-                padding: 5px;
+                background-color: #f7fafc;
+                padding: 8px;
                 border: none;
+                border-bottom: 1px solid #e2e8f0;
                 font-weight: bold;
+                color: #4a5568;
+            }
+            QProgressBar {
+                border: 1px solid #e2e8f0;
+                border-radius: 3px;
+                text-align: center;
+                background-color: #f7fafc;
+                color: #2d3748;
+            }
+            QProgressBar::chunk {
+                background-color: #4299e1;
+                border-radius: 2px;
+            }
+            QStatusBar {
+                background-color: #f7fafc;
+                color: #4a5568;
+            }
+            QMenu {
+                background-color: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #2d3748;
+            }
+            QMenu::item:selected {
+                background-color: #ebf8ff;
+                color: #2c5282;
             }
         """)
         
