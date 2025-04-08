@@ -3,4 +3,6 @@ PyQt6==6.9.0
 SQLAlchemy==2.0.0
 requests==2.31.0
 pillow==10.0.0
-python-magic==0.4.27 
+python-magic==0.4.27
+aiohttp==3.11.16
+beautifulsoup4==4.13.3 

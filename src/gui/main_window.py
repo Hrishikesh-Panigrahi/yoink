@@ -23,103 +23,14 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         logger.info("Initializing MainWindow")
-        self.setWindowTitle("Torrent App")
-        self.setMinimumSize(800, 600)
         
-        # Set application style
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f0f2f5;
-            }
-            QLineEdit {
-                padding: 8px;
-                border: 2px solid #cbd5e0;
-                border-radius: 5px;
-                background-color: white;
-                font-size: 14px;
-                color: #2d3748;
-            }
-            QLineEdit:focus {
-                border-color: #4299e1;
-            }
-            QPushButton {
-                padding: 8px 15px;
-                background-color: #4299e1;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3182ce;
-            }
-            QPushButton:pressed {
-                background-color: #2b6cb0;
-            }
-            QTableWidget {
-                border: 1px solid #e2e8f0;
-                border-radius: 5px;
-                background-color: white;
-                gridline-color: #e2e8f0;
-            }
-            QTableWidget::item {
-                padding: 5px;
-                color: #2d3748;
-            }
-            QTableWidget::item:selected {
-                background-color: #ebf8ff;
-                color: #2c5282;
-            }
-            QHeaderView::section {
-                background-color: #f7fafc;
-                padding: 8px;
-                border: none;
-                border-bottom: 1px solid #e2e8f0;
-                font-weight: bold;
-                color: #4a5568;
-            }
-            QProgressBar {
-                border: 1px solid #e2e8f0;
-                border-radius: 3px;
-                text-align: center;
-                background-color: #f7fafc;
-                color: #2d3748;
-            }
-            QProgressBar::chunk {
-                background-color: #4299e1;
-                border-radius: 2px;
-            }
-            QStatusBar {
-                background-color: #f7fafc;
-                color: #4a5568;
-            }
-            QMenu {
-                background-color: white;
-                border: 1px solid #e2e8f0;
-                border-radius: 5px;
-            }
-            QMenu::item {
-                padding: 8px 20px;
-                color: #2d3748;
-            }
-            QMenu::item:selected {
-                background-color: #ebf8ff;
-                color: #2c5282;
-            }
-        """)
+        self.setWindowTitle("Torrent App")
+        self.setGeometry(100, 100, 800, 600)
         
         # Initialize components
-        logger.debug("Initializing components")
-        self.torrent_manager = TorrentManager()
-        self.db_manager = DatabaseManager()
         self.search_util = SearchUtil()
+        self.torrent_manager = TorrentManager()
         self.loader = Loader()
-        
-        # Pagination state
-        self.current_page = 1
-        self.total_results = 0
-        self.results_per_page = 20
         
         # Connect loader signals
         self.loader.progress_updated.connect(self.update_status)
@@ -139,9 +50,7 @@ class MainWindow(QMainWindow):
         logger.info("MainWindow initialization completed")
         
     def setup_ui(self):
-        """Set up the user interface"""
-        logger.debug("Setting up UI components")
-        
+        """Setup the main UI components"""
         # Create central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -155,12 +64,10 @@ class MainWindow(QMainWindow):
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search torrents...")
         self.search_input.returnPressed.connect(self.search_torrents)
-        search_layout.addWidget(self.search_input)
-        
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.search_torrents)
+        search_layout.addWidget(self.search_input)
         search_layout.addWidget(self.search_button)
-        
         top_bar.addLayout(search_layout)
         
         # API Health Status with small indicator
@@ -170,7 +77,7 @@ class MainWindow(QMainWindow):
             QLabel {
                 padding: 2px 5px;
                 border-radius: 2px;
-                font-size: 10px;
+                font-size: 12px;
                 color: #666;
             }
         """)
@@ -179,57 +86,10 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(top_bar)
         
-        # Pagination controls
-        pagination_layout = QHBoxLayout()
-        
-        self.prev_page_btn = QPushButton("Previous")
-        self.prev_page_btn.clicked.connect(self.previous_page)
-        self.prev_page_btn.setEnabled(False)
-        pagination_layout.addWidget(self.prev_page_btn)
-        
-        self.page_spin = QSpinBox()
-        self.page_spin.setMinimum(1)
-        self.page_spin.valueChanged.connect(self.page_changed)
-        pagination_layout.addWidget(self.page_spin)
-        
-        self.total_pages_label = QLabel("of 1")
-        pagination_layout.addWidget(self.total_pages_label)
-        
-        self.next_page_btn = QPushButton("Next")
-        self.next_page_btn.clicked.connect(self.next_page)
-        self.next_page_btn.setEnabled(False)
-        pagination_layout.addWidget(self.next_page_btn)
-        
-        self.results_per_page_spin = QSpinBox()
-        self.results_per_page_spin.setMinimum(10)
-        self.results_per_page_spin.setMaximum(100)
-        self.results_per_page_spin.setValue(20)
-        self.results_per_page_spin.valueChanged.connect(self.results_per_page_changed)
-        pagination_layout.addWidget(QLabel("Results per page:"))
-        pagination_layout.addWidget(self.results_per_page_spin)
-        
-        pagination_layout.addStretch()
-        layout.addLayout(pagination_layout)
-        
-        # Search results table
-        self.results_table = QTableWidget()
-        self.results_table.setColumnCount(5)
-        self.results_table.setHorizontalHeaderLabels(["Name", "Size", "Seeds", "Peers", "Source"])
-        self.results_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.results_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.results_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.results_table.customContextMenuRequested.connect(self.show_context_menu)
-        layout.addWidget(self.results_table)
-        
-        # Download button
-        self.download_button = QPushButton("Download Selected")
-        self.download_button.clicked.connect(self.download_selected)
-        layout.addWidget(self.download_button)
-        
-        # Active torrents table
+        # Torrent list table
         self.torrent_table = QTableWidget()
         self.torrent_table.setColumnCount(5)
-        self.torrent_table.setHorizontalHeaderLabels(["Name", "Progress", "Download Speed", "Upload Speed", "Status"])
+        self.torrent_table.setHorizontalHeaderLabels(["Name", "Size", "Seeds", "Peers", "Source"])
         self.torrent_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.torrent_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.torrent_table.customContextMenuRequested.connect(self.show_context_menu)
@@ -238,9 +98,6 @@ class MainWindow(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("Ready")
-        
-        logger.debug("UI setup completed")
         
     def setup_timer(self):
         """Set up timer for updating torrent list"""
@@ -250,56 +107,54 @@ class MainWindow(QMainWindow):
         self.update_timer.start(1000)  # Update every second
         
     def update_api_health(self):
-        """Update the API health status indicator"""
+        """Update API health status indicator"""
         try:
-            api_status = self.search_util.get_healthy_apis()
-            healthy_apis = sum(1 for api in api_status if api.is_healthy)
-            total_apis = len(api_status)
+            healthy_apis = [api for api, status in self.search_util.api_status.items() if status.is_healthy]
+            total_apis = len(self.search_util.api_status)
             
-            if healthy_apis == 0:
-                self.api_health_label.setText("No APIs available")
-                self.api_health_label.setStyleSheet("""
-                    QLabel {
-                        padding: 2px 5px;
-                        border-radius: 2px;
-                        font-size: 10px;
-                        color: white;
-                        background-color: #ef4444;
-                    }
-                """)
-            elif healthy_apis == total_apis:
+            if len(healthy_apis) == total_apis:
                 self.api_health_label.setText("All APIs healthy")
                 self.api_health_label.setStyleSheet("""
                     QLabel {
+                        background-color: #4ade80;
+                        color: #064e3b;
                         padding: 2px 5px;
                         border-radius: 2px;
-                        font-size: 10px;
-                        color: white;
-                        background-color: #22c55e;
+                        font-size: 12px;
+                    }
+                """)
+            elif len(healthy_apis) > 0:
+                self.api_health_label.setText(f"{len(healthy_apis)}/{total_apis} APIs healthy")
+                self.api_health_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #fbbf24;
+                        color: #92400e;
+                        padding: 2px 5px;
+                        border-radius: 2px;
+                        font-size: 12px;
                     }
                 """)
             else:
-                self.api_health_label.setText(f"{healthy_apis}/{total_apis} APIs healthy")
+                self.api_health_label.setText("No APIs available")
                 self.api_health_label.setStyleSheet("""
                     QLabel {
+                        background-color: #f87171;
+                        color: #991b1b;
                         padding: 2px 5px;
                         border-radius: 2px;
-                        font-size: 10px;
-                        color: white;
-                        background-color: #f59e0b;
+                        font-size: 12px;
                     }
                 """)
-                
         except Exception as e:
-            logger.error(f"Error updating API health status: {str(e)}", exc_info=True)
+            logger.error(f"Error updating API health status: {str(e)}")
             self.api_health_label.setText("API Status: Error")
             self.api_health_label.setStyleSheet("""
                 QLabel {
+                    background-color: #f87171;
+                    color: #991b1b;
                     padding: 2px 5px;
                     border-radius: 2px;
-                    font-size: 10px;
-                    color: white;
-                    background-color: #ef4444;
+                    font-size: 12px;
                 }
             """)
             
@@ -312,146 +167,86 @@ class MainWindow(QMainWindow):
             return
             
         logger.info(f"Searching for: {query}")
-        self.loader.start("Searching torrents...")
         
-        # Start search in a separate thread
-        self.search_util.search_torrents(
-            query,
-            on_progress=lambda api: self.loader.update(f"Searching {api}..."),
-            on_complete=self.show_search_results
-        )
-        
-    def show_search_results(self, results):
-        """Display search results in a new window"""
-        self.loader.stop()
-        
-        if not results:
-            logger.warning("No search results found")
-            QMessageBox.information(self, "No Results", "No torrents found matching your search.")
-            return
-            
-        logger.info(f"Found {len(results)} search results")
+        # Disable search controls
+        self.search_input.setEnabled(False)
+        self.search_button.setEnabled(False)
         
         # Clear previous results
-        self.results_table.setRowCount(0)
+        self.torrent_table.setRowCount(0)
         
-        # Add new results
-        for result in results:
-            row = self.results_table.rowCount()
-            self.results_table.insertRow(row)
-            
-            # Name
-            name_item = QTableWidgetItem(result.name)
-            name_item.setToolTip(result.name)
-            self.results_table.setItem(row, 0, name_item)
-            
-            # Size
-            size_item = QTableWidgetItem(self.search_util.format_size(result.size))
-            self.results_table.setItem(row, 1, size_item)
-            
-            # Seeds
-            seeds_item = QTableWidgetItem(str(result.seeds))
-            self.results_table.setItem(row, 2, seeds_item)
-            
-            # Peers
-            peers_item = QTableWidgetItem(str(result.peers))
-            self.results_table.setItem(row, 3, peers_item)
-            
-            # Source
-            source_item = QTableWidgetItem(result.source)
-            self.results_table.setItem(row, 4, source_item)
-            
-            # Store magnet link in the item data
-            name_item.setData(Qt.UserRole, result.magnet_link)
-            
-        # Update status bar
-        self.status_bar.showMessage(f"Found {len(results)} results")
+        # Start the loader
+        self.loader.start("Searching torrents...")
         
-    def update_pagination_controls(self):
-        """Update pagination controls based on total results"""
-        total_pages = (self.total_results + self.results_per_page - 1) // self.results_per_page
-        self.page_spin.setMaximum(max(1, total_pages))
-        self.total_pages_label.setText(f"of {total_pages}")
-        
-        self.prev_page_btn.setEnabled(self.current_page > 1)
-        self.next_page_btn.setEnabled(self.current_page < total_pages)
-        
-    def previous_page(self):
-        """Go to previous page"""
-        if self.current_page > 1:
-            self.current_page -= 1
-            self.page_spin.setValue(self.current_page)
-            self.refresh_search()
-            
-    def next_page(self):
-        """Go to next page"""
-        total_pages = (self.total_results + self.results_per_page - 1) // self.results_per_page
-        if self.current_page < total_pages:
-            self.current_page += 1
-            self.page_spin.setValue(self.current_page)
-            self.refresh_search()
-            
-    def page_changed(self, value):
-        """Handle page number change"""
-        self.current_page = value
-        self.refresh_search()
-        
-    def results_per_page_changed(self, value):
-        """Handle results per page change"""
-        self.results_per_page = value
-        self.current_page = 1
-        self.page_spin.setValue(1)
-        self.refresh_search()
-        
-    def refresh_search(self):
-        """Refresh search results for current page"""
-        query = self.search_input.text().strip()
-        if query:
-            try:
-                logger.info(f"Refreshing search results for page {self.current_page}")
-                results, total = self.search_util.search_torrents(
-                    query,
-                    page=self.current_page,
-                    per_page=self.results_per_page
-                )
-                self.total_results = total
-                self.update_pagination_controls()
-                self.show_search_results(results)
-            except Exception as e:
-                logger.error(f"Error refreshing search: {str(e)}", exc_info=True)
-                QMessageBox.critical(self, "Error", f"Failed to refresh search: {str(e)}")
-                
-    def download_selected(self):
-        """Download selected torrents"""
-        selected_rows = self.results_table.selectedItems()
-        if not selected_rows:
-            logger.warning("No torrents selected for download")
-            QMessageBox.warning(self, "Error", "Please select torrents to download")
-            return
-            
         try:
-            logger.info("Starting download of selected torrents")
-            for item in selected_rows:
-                row = item.row()
-                name = self.results_table.item(row, 0).text()
-                source = self.results_table.item(row, 4).text()
-                
-                # Find the corresponding SearchResult
-                for result in self.current_results:
-                    if result.name == name and result.source == source:
-                        success = self.torrent_manager.add_torrent(result.magnet_link)
-                        if success:
-                            logger.info(f"Added torrent: {name}")
-                        else:
-                            logger.error(f"Failed to add torrent: {name}")
-                        break
-                        
-            self.update_torrent_list()
-            logger.info("Download process completed")
+            # Start search in a separate thread
+            self.search_util.search_torrents(
+                query,
+                on_progress=self.loader.update,
+                on_complete=self.show_search_results
+            )
         except Exception as e:
-            logger.error(f"Download error: {str(e)}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Download failed: {str(e)}")
+            logger.error(f"Error starting search: {str(e)}")
+            self.loader.stop()
+            self.search_input.setEnabled(True)
+            self.search_button.setEnabled(True)
+            QMessageBox.critical(self, "Error", f"Failed to start search: {str(e)}")
             
+    def show_search_results(self, results):
+        """Display search results in the table"""
+        try:
+            if not results:
+                logger.warning("No search results found")
+                QMessageBox.information(self, "No Results", "No torrents found matching your search.")
+                return
+                
+            logger.info(f"Found {len(results)} search results")
+            
+            # Clear previous results
+            self.torrent_table.setRowCount(0)
+            
+            # Add new results
+            for result in results:
+                row = self.torrent_table.rowCount()
+                self.torrent_table.insertRow(row)
+                
+                # Name
+                name_item = QTableWidgetItem(result.name)
+                name_item.setToolTip(result.name)
+                self.torrent_table.setItem(row, 0, name_item)
+                
+                # Size
+                size_item = QTableWidgetItem(self.search_util.format_size(result.size))
+                self.torrent_table.setItem(row, 1, size_item)
+                
+                # Seeds
+                seeds_item = QTableWidgetItem(str(result.seeds))
+                self.torrent_table.setItem(row, 2, seeds_item)
+                
+                # Peers
+                peers_item = QTableWidgetItem(str(result.peers))
+                self.torrent_table.setItem(row, 3, peers_item)
+                
+                # Source
+                source_item = QTableWidgetItem(result.source)
+                self.torrent_table.setItem(row, 4, source_item)
+                
+                # Store magnet link in the item data
+                name_item.setData(Qt.ItemDataRole.UserRole, result.magnet_link)
+                
+            # Update status bar
+            self.status_bar.showMessage(f"Found {len(results)} results")
+            
+        except Exception as e:
+            logger.error(f"Error displaying search results: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to display results: {str(e)}")
+            
+        finally:
+            # Stop the loader and re-enable search controls
+            self.loader.stop()
+            self.search_input.setEnabled(True)
+            self.search_button.setEnabled(True)
+        
     def update_torrent_list(self):
         """Update the list of active torrents"""
         try:
@@ -460,9 +255,9 @@ class MainWindow(QMainWindow):
             
             for row, torrent in enumerate(torrents):
                 self.torrent_table.setItem(row, 0, QTableWidgetItem(torrent.name))
-                self.torrent_table.setItem(row, 1, QTableWidgetItem(f"{torrent.progress:.1f}%"))
-                self.torrent_table.setItem(row, 2, QTableWidgetItem(self.format_speed(torrent.download_rate)))
-                self.torrent_table.setItem(row, 3, QTableWidgetItem(self.format_speed(torrent.upload_rate)))
+                self.torrent_table.setItem(row, 1, QTableWidgetItem(self.format_size(torrent.size)))
+                self.torrent_table.setItem(row, 2, QTableWidgetItem(str(torrent.seeds)))
+                self.torrent_table.setItem(row, 3, QTableWidgetItem(str(torrent.peers)))
                 self.torrent_table.setItem(row, 4, QTableWidgetItem(torrent.state))
         except Exception as e:
             logger.error(f"Error updating torrent list: {str(e)}", exc_info=True)
@@ -543,14 +338,14 @@ class MainWindow(QMainWindow):
             logger.error(f"Error deleting torrent: {str(e)}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Failed to delete torrent: {str(e)}")
             
-    def format_speed(self, bytes_per_second: int) -> str:
-        """Format speed in human-readable format"""
-        if bytes_per_second < 1024:
-            return f"{bytes_per_second} B/s"
-        elif bytes_per_second < 1024 * 1024:
-            return f"{bytes_per_second/1024:.1f} KB/s"
+    def format_size(self, bytes: int) -> str:
+        """Format size in human-readable format"""
+        if bytes < 1024:
+            return f"{bytes} B"
+        elif bytes < 1024 * 1024:
+            return f"{bytes/1024:.1f} KB"
         else:
-            return f"{bytes_per_second/(1024*1024):.1f} MB/s"
+            return f"{bytes/(1024*1024):.1f} MB"
 
     def update_status(self, message: str):
         """Update the status bar with the current message"""
