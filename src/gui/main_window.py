@@ -5,9 +5,11 @@ from PyQt6.QtCore import Qt, QTimer
 from core.torrent_manager import TorrentManager
 from database.database import DatabaseManager
 from utils.search import SearchUtil
+from .loading_dialog import LoadingDialog
 import os
 import logging
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QIcon
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -15,48 +17,93 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Torrent App")
         self.setMinimumSize(800, 600)
         
-        # Initialize managers
+        # Set application style
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #f5f6fa;
+            }
+            QLineEdit {
+                padding: 8px;
+                border: 2px solid #dcdde1;
+                border-radius: 5px;
+                background-color: white;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border-color: #3498db;
+            }
+            QPushButton {
+                padding: 8px 15px;
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QTableWidget {
+                border: 1px solid #dcdde1;
+                border-radius: 5px;
+                background-color: white;
+            }
+            QTableWidget::item {
+                padding: 5px;
+            }
+            QHeaderView::section {
+                background-color: #f5f6fa;
+                padding: 5px;
+                border: none;
+                font-weight: bold;
+            }
+        """)
+        
+        # Initialize components
         self.torrent_manager = TorrentManager()
         self.db_manager = DatabaseManager()
         self.search_util = SearchUtil()
         
-        # Setup UI
-        self.setup_ui()
-        
-        # Setup timer for updates
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.update_torrent_list)
-        self.update_timer.start(1000)  # Update every second
-        
-    def setup_ui(self):
         # Create central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
         
-        # Search section
+        # Create search bar
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search torrents...")
+        self.search_input.setPlaceholderText("Search for torrents...")
         self.search_input.returnPressed.connect(self.search_torrents)
+        
         search_button = QPushButton("Search")
         search_button.clicked.connect(self.search_torrents)
+        
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(search_button)
-        layout.addLayout(search_layout)
         
-        # Torrent list
+        # Create torrent list table
         self.torrent_table = QTableWidget()
-        self.torrent_table.setColumnCount(7)
+        self.torrent_table.setColumnCount(5)
         self.torrent_table.setHorizontalHeaderLabels([
-            "Name", "Size", "Progress", "Seeds", "Peers", "Status", "Speed"
+            "Name", "Size", "Progress", "Speed", "Status"
         ])
         self.torrent_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.torrent_table.customContextMenuRequested.connect(self.show_context_menu)
+        
+        # Add widgets to layout
+        layout.addLayout(search_layout)
         layout.addWidget(self.torrent_table)
         
-        # Status bar
+        # Create status bar
         self.statusBar().showMessage("Ready")
+        
+        # Set up timer for updating torrent list
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_torrent_list)
+        self.update_timer.start(1000)  # Update every second
+        
+        # Initial torrent list update
+        self.update_torrent_list()
         
     def search_torrents(self):
         query = self.search_input.text().strip()
@@ -65,12 +112,9 @@ class MainWindow(QMainWindow):
             return
             
         # Show loading dialog
-        loading_dialog = QMessageBox(self)
-        loading_dialog.setWindowTitle("Searching")
-        loading_dialog.setText("Searching for torrents...\nThis may take a few moments.")
-        loading_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        loading_dialog = LoadingDialog(self, "Searching for torrents...")
         loading_dialog.show()
-        QApplication.processEvents()  # Ensure the dialog is shown
+        QApplication.processEvents()
         
         try:
             results = self.search_util.search_torrents(query)
@@ -167,12 +211,10 @@ class MainWindow(QMainWindow):
             progress.setValue(int(torrent.progress))
             self.torrent_table.setCellWidget(i, 2, progress)
             
-            self.torrent_table.setItem(i, 3, QTableWidgetItem(str(torrent.num_seeds)))
-            self.torrent_table.setItem(i, 4, QTableWidgetItem(str(torrent.num_peers)))
-            self.torrent_table.setItem(i, 5, QTableWidgetItem(torrent.state))
-            self.torrent_table.setItem(i, 6, QTableWidgetItem(
+            self.torrent_table.setItem(i, 3, QTableWidgetItem(
                 f"↓ {self.search_util.format_size(torrent.download_rate)}/s"
             ))
+            self.torrent_table.setItem(i, 4, QTableWidgetItem(torrent.state))
             
     def show_context_menu(self, position):
         menu = QMenu()
