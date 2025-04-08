@@ -2,6 +2,9 @@ import requests
 from typing import List, Dict
 import json
 from dataclasses import dataclass
+import time
+from urllib.parse import quote
+import logging
 
 @dataclass
 class SearchResult:
@@ -17,29 +20,131 @@ class SearchUtil:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+        self.session = requests.Session()
+        self.session.headers.update(self.headers)
+        
+        # API endpoints
+        self.apis = {
+            'yts': 'https://yts.mx/api/v2/list_movies.json',
+            'piratebay': 'https://apibay.org/search.php',
+            'limetorrents': 'https://api.limetorrents.pro/api/v1/search'
+        }
+        
+        # Rate limiting
+        self.last_request_time = {}
+        self.min_request_interval = 1.0  # seconds
+        
+    def _rate_limit(self, api_name: str):
+        """Implement rate limiting for API requests"""
+        current_time = time.time()
+        if api_name in self.last_request_time:
+            time_since_last = current_time - self.last_request_time[api_name]
+            if time_since_last < self.min_request_interval:
+                time.sleep(self.min_request_interval - time_since_last)
+        self.last_request_time[api_name] = time.time()
+        
+    def search_yts(self, query: str) -> List[SearchResult]:
+        """Search YTS (YIFY) for movies"""
+        try:
+            self._rate_limit('yts')
+            params = {
+                'query_term': query,
+                'sort_by': 'seeds',
+                'order_by': 'desc',
+                'limit': 20
+            }
+            response = self.session.get(self.apis['yts'], params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            for movie in data.get('data', {}).get('movies', []):
+                for torrent in movie.get('torrents', []):
+                    results.append(SearchResult(
+                        name=f"{movie['title']} ({movie['year']}) - {torrent['quality']}",
+                        size=int(torrent['size_bytes']),
+                        seeds=torrent.get('seeds', 0),
+                        peers=torrent.get('peers', 0),
+                        magnet_link=torrent['url'],
+                        source='YTS'
+                    ))
+            return results
+        except Exception as e:
+            logging.error(f"YTS search error: {str(e)}")
+            return []
+            
+    def search_piratebay(self, query: str) -> List[SearchResult]:
+        """Search The Pirate Bay"""
+        try:
+            self._rate_limit('piratebay')
+            params = {
+                'q': query,
+                'cat': '0',  # All categories
+                'order': 'desc',
+                'by': 'seeds'
+            }
+            response = self.session.get(self.apis['piratebay'], params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            for item in data:
+                results.append(SearchResult(
+                    name=item['name'],
+                    size=int(item['size']),
+                    seeds=int(item['seeders']),
+                    peers=int(item['leechers']),
+                    magnet_link=f"magnet:?xt=urn:btih:{item['info_hash']}&dn={quote(item['name'])}",
+                    source='The Pirate Bay'
+                ))
+            return results
+        except Exception as e:
+            logging.error(f"PirateBay search error: {str(e)}")
+            return []
+            
+    def search_limetorrents(self, query: str) -> List[SearchResult]:
+        """Search LimeTorrents"""
+        try:
+            self._rate_limit('limetorrents')
+            params = {
+                'query': query,
+                'limit': 20,
+                'sort': 'seeds',
+                'order': 'desc'
+            }
+            response = self.session.get(self.apis['limetorrents'], params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            for item in data.get('items', []):
+                results.append(SearchResult(
+                    name=item['name'],
+                    size=int(item['size']),
+                    seeds=item.get('seeds', 0),
+                    peers=item.get('peers', 0),
+                    magnet_link=item['magnet'],
+                    source='LimeTorrents'
+                ))
+            return results
+        except Exception as e:
+            logging.error(f"LimeTorrents search error: {str(e)}")
+            return []
         
     def search_torrents(self, query: str, limit: int = 20) -> List[SearchResult]:
         """
         Search for torrents across multiple sources.
-        This is a placeholder implementation. In a real app, you would:
-        1. Implement proper API calls to torrent search sites
-        2. Handle rate limiting and errors
-        3. Parse responses correctly
-        4. Consider legal implications
         """
-        # This is a mock implementation
-        # In a real app, you would implement proper API calls
-        return [
-            SearchResult(
-                name=f"Sample Torrent {i}",
-                size=1024 * 1024 * 100,  # 100 MB
-                seeds=10 + i,
-                peers=5 + i,
-                magnet_link=f"magnet:?xt=urn:btih:example{i}",
-                source="Example Source"
-            )
-            for i in range(limit)
-        ]
+        all_results = []
+        
+        # Search all sources
+        all_results.extend(self.search_yts(query))
+        all_results.extend(self.search_piratebay(query))
+        all_results.extend(self.search_limetorrents(query))
+        
+        # Sort by seeds and limit results
+        all_results.sort(key=lambda x: x.seeds, reverse=True)
+        return all_results[:limit]
         
     def format_size(self, size_bytes: int) -> str:
         """Format file size in human-readable format."""

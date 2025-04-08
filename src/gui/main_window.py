@@ -2,9 +2,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLineEdit, QTableWidget, QTableWidgetItem,
                              QLabel, QProgressBar, QMenu, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer
-from ..core.torrent_manager import TorrentManager
-from ..database.database import DatabaseManager
-from ..utils.search import SearchUtil
+from core.torrent_manager import TorrentManager
+from database.database import DatabaseManager
+from utils.search import SearchUtil
 import os
 
 class MainWindow(QMainWindow):
@@ -67,42 +67,68 @@ class MainWindow(QMainWindow):
     def show_search_results(self, results):
         dialog = QMessageBox(self)
         dialog.setWindowTitle("Search Results")
+        dialog.setMinimumWidth(800)
         
         # Create a table widget for results
         table = QTableWidget()
-        table.setColumnCount(5)
+        table.setColumnCount(6)
         table.setHorizontalHeaderLabels([
-            "Name", "Size", "Seeds", "Peers", "Source"
+            "Name", "Size", "Seeds", "Peers", "Source", "Quality"
         ])
         
         table.setRowCount(len(results))
         for i, result in enumerate(results):
-            table.setItem(i, 0, QTableWidgetItem(result.name))
+            # Store magnet link as user data
+            name_item = QTableWidgetItem(result.name)
+            name_item.setData(Qt.ItemDataRole.UserRole, result.magnet_link)
+            table.setItem(i, 0, name_item)
+            
             table.setItem(i, 1, QTableWidgetItem(self.search_util.format_size(result.size)))
             table.setItem(i, 2, QTableWidgetItem(str(result.seeds)))
             table.setItem(i, 3, QTableWidgetItem(str(result.peers)))
             table.setItem(i, 4, QTableWidgetItem(result.source))
             
-        dialog.layout().addWidget(table)
+            # Extract quality from name if available
+            quality = "N/A"
+            if "1080p" in result.name:
+                quality = "1080p"
+            elif "720p" in result.name:
+                quality = "720p"
+            elif "4K" in result.name or "2160p" in result.name:
+                quality = "4K"
+            table.setItem(i, 5, QTableWidgetItem(quality))
+            
+        # Adjust column widths
+        table.resizeColumnsToContents()
         
         # Add download button
         download_btn = QPushButton("Download Selected")
         download_btn.clicked.connect(lambda: self.download_selected(table))
-        dialog.layout().addWidget(download_btn)
         
+        # Create layout
+        layout = QVBoxLayout()
+        layout.addWidget(table)
+        layout.addWidget(download_btn)
+        
+        dialog.setLayout(layout)
         dialog.exec()
         
     def download_selected(self, table):
-        selected_rows = table.selectedItems()
-        if not selected_rows:
+        selected_items = table.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Warning", "Please select a torrent to download")
             return
             
-        row = selected_rows[0].row()
+        row = selected_items[0].row()
         magnet_link = table.item(row, 0).data(Qt.ItemDataRole.UserRole)
         
         if magnet_link:
-            self.torrent_manager.add_torrent(magnet_link)
-            self.update_torrent_list()
+            try:
+                self.torrent_manager.add_torrent(magnet_link)
+                self.update_torrent_list()
+                self.statusBar().showMessage("Torrent added successfully", 3000)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to add torrent: {str(e)}")
             
     def update_torrent_list(self):
         torrents = self.torrent_manager.get_all_torrents()
