@@ -68,19 +68,21 @@ class DatabaseManager:
             raise
             
     def update_torrent_status(self, info_hash: str, status: str):
-        logger.debug(f"Updating torrent status: {info_hash} -> {status}")
+        """Update the status of a torrent in the database"""
         try:
             with self.get_session() as session:
                 torrent = session.query(Torrent).filter_by(info_hash=info_hash).first()
                 if torrent:
                     torrent.status = status
                     session.commit()
-                    logger.debug(f"Status updated successfully for torrent: {torrent.name}")
+                    logger.info(f"Updated torrent status: {info_hash} -> {status}")
+                    return True
                 else:
-                    logger.warning(f"Torrent not found with hash: {info_hash}")
+                    logger.warning(f"Torrent not found: {info_hash}")
+                    return False
         except Exception as e:
-            logger.error(f"Failed to update torrent status: {str(e)}", exc_info=True)
-            raise
+            logger.error(f"Error updating torrent status: {e}")
+            return False
                 
     def add_torrent_files(self, info_hash: str, files: list):
         logger.info(f"Adding files for torrent: {info_hash}")

@@ -110,47 +110,28 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
         
-        # Top bar with search and API health
-        top_bar = QHBoxLayout()
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # Search tab
+        search_tab = QWidget()
+        search_layout = QVBoxLayout(search_tab)
         
         # Search bar
-        search_layout = QHBoxLayout()
+        search_bar = QWidget()
+        search_bar_layout = QHBoxLayout(search_bar)
+        search_bar_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search torrents...")
         self.search_input.returnPressed.connect(self.search_torrents)
+        
         self.search_button = QPushButton("Search")
         self.search_button.clicked.connect(self.search_torrents)
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(self.search_button)
-        top_bar.addLayout(search_layout)
         
-        # Download directory button
-        self.download_dir_button = QPushButton("Set Download Directory")
-        self.download_dir_button.clicked.connect(self.set_download_directory)
-        top_bar.addWidget(self.download_dir_button)
-        
-        # API Health Status
-        api_health_layout = QHBoxLayout()
-        self.api_health_label = QLabel("Checking APIs...")
-        self.api_health_label.setStyleSheet("""
-            QLabel {
-                padding: 2px 5px;
-                border-radius: 2px;
-                font-size: 12px;
-                color: #666;
-            }
-        """)
-        api_health_layout.addWidget(self.api_health_label, alignment=Qt.AlignmentFlag.AlignRight)
-        top_bar.addLayout(api_health_layout)
-        
-        layout.addLayout(top_bar)
-        
-        # Tab widget for search results and downloads
-        self.tab_widget = QTabWidget()
-        
-        # Search results tab
-        search_tab = QWidget()
-        search_layout = QVBoxLayout(search_tab)
+        search_bar_layout.addWidget(self.search_input)
+        search_bar_layout.addWidget(self.search_button)
+        search_layout.addWidget(search_bar)
         
         # Pagination controls
         pagination_layout = QHBoxLayout()
@@ -168,7 +149,16 @@ class MainWindow(QMainWindow):
         self.search_table = QTableWidget()
         self.search_table.setColumnCount(7)
         self.search_table.setHorizontalHeaderLabels(["Name", "Size", "Seeds", "Peers", "Upload Date", "Source", "Actions"])
-        self.search_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        
+        # Set column widths for search table
+        self.search_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Name
+        self.search_table.setColumnWidth(1, 100)  # Size
+        self.search_table.setColumnWidth(2, 60)   # Seeds
+        self.search_table.setColumnWidth(3, 60)   # Peers
+        self.search_table.setColumnWidth(4, 120)  # Upload Date
+        self.search_table.setColumnWidth(5, 80)   # Source
+        self.search_table.setColumnWidth(6, 150)  # Actions
+        
         self.search_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.search_table.customContextMenuRequested.connect(self.show_search_context_menu)
         search_layout.addWidget(self.search_table)
@@ -179,9 +169,22 @@ class MainWindow(QMainWindow):
         
         # Active downloads table
         self.downloads_table = QTableWidget()
-        self.downloads_table.setColumnCount(8)
-        self.downloads_table.setHorizontalHeaderLabels(["Name", "Size", "Progress", "Speed", "Seeds", "Peers", "Status", "Actions"])
-        self.downloads_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.downloads_table.setColumnCount(9)
+        self.downloads_table.setHorizontalHeaderLabels([
+            "Name", "Size", "Progress", "Speed", "Seeds", "Peers", "Status", "ETA", "Actions"
+        ])
+        
+        # Set column widths for downloads table
+        self.downloads_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Name
+        self.downloads_table.setColumnWidth(1, 100)  # Size
+        self.downloads_table.setColumnWidth(2, 150)  # Progress
+        self.downloads_table.setColumnWidth(3, 100)  # Speed
+        self.downloads_table.setColumnWidth(4, 60)   # Seeds
+        self.downloads_table.setColumnWidth(5, 60)   # Peers
+        self.downloads_table.setColumnWidth(6, 100)  # Status
+        self.downloads_table.setColumnWidth(7, 80)   # ETA
+        self.downloads_table.setColumnWidth(8, 150)  # Actions
+        
         self.downloads_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.downloads_table.customContextMenuRequested.connect(self.show_downloads_context_menu)
         downloads_layout.addWidget(self.downloads_table)
@@ -195,6 +198,11 @@ class MainWindow(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        
+        # Add API health label to status bar
+        self.api_health_label = QLabel("API Status: Checking...")
+        self.status_bar.addPermanentWidget(self.api_health_label)
+        
         self.status_bar.showMessage(f"Download Directory: {self.download_dir}")
         
     def setup_timer(self):
@@ -314,40 +322,65 @@ class MainWindow(QMainWindow):
             self.downloads_table.setRowCount(len(torrents))
             
             for row, (hash, torrent) in enumerate(torrents):
-                # Only update if the row exists and values have changed
-                if row < self.downloads_table.rowCount():
-                    current_name = self.downloads_table.item(row, 0)
-                    if not current_name or current_name.text() != torrent.name:
-                        self.downloads_table.setItem(row, 0, QTableWidgetItem(torrent.name))
-                    
-                    current_size = self.downloads_table.item(row, 1)
-                    if not current_size or current_size.text() != torrent.size:
-                        self.downloads_table.setItem(row, 1, QTableWidgetItem(torrent.size))
-                    
-                    # Update progress bar only if value changed
-                    progress_widget = self.downloads_table.cellWidget(row, 2)
-                    if not progress_widget or progress_widget.value() != int(torrent.progress):
-                        progress = QProgressBar()
-                        progress.setValue(int(torrent.progress))
-                        progress.setTextVisible(True)
-                        progress.setFormat(f"{progress.value()}%")
-                        self.downloads_table.setCellWidget(row, 2, progress)
-                    
-                    current_speed = self.downloads_table.item(row, 3)
-                    if not current_speed or current_speed.text() != torrent.download_speed:
-                        self.downloads_table.setItem(row, 3, QTableWidgetItem(torrent.download_speed))
-                    
-                    current_seeds = self.downloads_table.item(row, 4)
-                    if not current_seeds or current_seeds.text() != str(torrent.seeds):
-                        self.downloads_table.setItem(row, 4, QTableWidgetItem(str(torrent.seeds)))
-                    
-                    current_peers = self.downloads_table.item(row, 5)
-                    if not current_peers or current_peers.text() != str(torrent.peers):
-                        self.downloads_table.setItem(row, 5, QTableWidgetItem(str(torrent.peers)))
-                    
-                    current_status = self.downloads_table.item(row, 6)
-                    if not current_status or current_status.text() != torrent.status:
-                        self.downloads_table.setItem(row, 6, QTableWidgetItem(torrent.status))
+                # Always update the row to ensure buttons are refreshed
+                self.downloads_table.setItem(row, 0, QTableWidgetItem(torrent.name))
+                self.downloads_table.setItem(row, 1, QTableWidgetItem(torrent.size))
+                
+                # Update progress bar
+                progress = QProgressBar()
+                progress.setValue(int(torrent.progress))
+                progress.setTextVisible(True)
+                progress.setFormat(f"{progress.value()}%")
+                self.downloads_table.setCellWidget(row, 2, progress)
+                
+                self.downloads_table.setItem(row, 3, QTableWidgetItem(torrent.download_speed))
+                self.downloads_table.setItem(row, 4, QTableWidgetItem(str(torrent.seeds)))
+                self.downloads_table.setItem(row, 5, QTableWidgetItem(str(torrent.peers)))
+                
+                # Update status with color
+                status_item = QTableWidgetItem(torrent.status)
+                if torrent.status == "Downloading":
+                    status_item.setForeground(Qt.GlobalColor.green)
+                elif torrent.status == "Paused":
+                    status_item.setForeground(Qt.GlobalColor.yellow)
+                elif torrent.status == "Seeding":
+                    status_item.setForeground(Qt.GlobalColor.blue)
+                elif torrent.status == "Finished":
+                    status_item.setForeground(Qt.GlobalColor.darkGreen)
+                elif "Error" in torrent.status:
+                    status_item.setForeground(Qt.GlobalColor.red)
+                
+                # Add tooltip with detailed status info
+                tooltip = f"Status: {torrent.status}\n"
+                if torrent.error:
+                    tooltip += f"Error: {torrent.error}\n"
+                tooltip += f"Progress: {torrent.progress:.1f}%\n"
+                tooltip += f"Speed: {torrent.download_speed}\n"
+                tooltip += f"Seeds: {torrent.seeds}, Peers: {torrent.peers}"
+                status_item.setToolTip(tooltip)
+                
+                self.downloads_table.setItem(row, 6, status_item)
+                self.downloads_table.setItem(row, 7, QTableWidgetItem(torrent.eta))
+                
+                # Always recreate action buttons to ensure they match current status
+                actions_widget = QWidget()
+                actions_layout = QHBoxLayout(actions_widget)
+                actions_layout.setContentsMargins(0, 0, 0, 0)
+                
+                if torrent.status == "Downloading":
+                    pause_button = QPushButton("Pause")
+                    pause_button.clicked.connect(lambda checked, h=hash: self.pause_selected_torrent(h))
+                    actions_layout.addWidget(pause_button)
+                elif torrent.status == "Paused":
+                    resume_button = QPushButton("Resume")
+                    resume_button.clicked.connect(lambda checked, h=hash: self.resume_selected_torrent(h))
+                    actions_layout.addWidget(resume_button)
+                
+                delete_button = QPushButton("Delete")
+                delete_button.clicked.connect(lambda checked, h=hash: self.delete_selected_torrent(h))
+                actions_layout.addWidget(delete_button)
+                
+                self.downloads_table.setCellWidget(row, 8, actions_widget)
                 
         except Exception as e:
             logger.error(f"Error updating downloads table: {e}")
@@ -494,6 +527,7 @@ class MainWindow(QMainWindow):
                 logger.info(f"Pausing torrent: {info.name}")
                 if self.torrent_manager.pause_torrent(hash):
                     self.status_bar.showMessage(f"Paused: {info.name}")
+                    # Force immediate update of the torrent list to show the new status
                     self.update_torrent_list()
                 else:
                     raise Exception("Failed to pause torrent")
@@ -509,6 +543,7 @@ class MainWindow(QMainWindow):
                 logger.info(f"Resuming torrent: {info.name}")
                 if self.torrent_manager.resume_torrent(hash):
                     self.status_bar.showMessage(f"Resumed: {info.name}")
+                    # Force immediate update of the torrent list to show the new status
                     self.update_torrent_list()
                 else:
                     raise Exception("Failed to resume torrent")

@@ -46,26 +46,55 @@ class TorrentInfo:
     error: str = ""
     save_path: str = ""
     added_time: datetime = field(default_factory=datetime.now)
+    eta: str = "Unknown"  # Added ETA field
     
     def update_from_handle(self, handle: lt.torrent_handle):
         """Update torrent info from libtorrent handle"""
         try:
             status = handle.status()
-            info = handle.get_torrent_info()
             
-            if info:
-                self.size = self._format_size(info.total_size())
-            else:
-                self.size = "Unknown"
-                
+            # Don't update status if it's already "Paused"
+            if self.status != "Paused":
+                if status.paused:
+                    self.status = "Paused"
+                else:
+                    self.status = self._get_state_string(status.state)
+            
+            # Update other fields
             self.progress = status.progress * 100
             self.download_speed = self._format_speed(status.download_rate)
             self.upload_speed = self._format_speed(status.upload_rate)
             self.seeds = status.num_seeds
             self.peers = status.num_peers
-            self.status = self._get_state_string(status.state)
             self.save_path = status.save_path
             self.error = str(status.error) if status.error else ""
+            
+            # Update size if we have the info
+            try:
+                info = handle.get_torrent_info()
+                if info:
+                    self.size = self._format_size(info.total_size())
+            except Exception:
+                self.size = "Unknown"
+            
+            # Calculate ETA
+            if self.status == "Downloading" and status.download_rate > 0:
+                try:
+                    info = handle.get_torrent_info()
+                    if info:
+                        remaining_bytes = info.total_size() * (1 - status.progress)
+                        eta_seconds = remaining_bytes / status.download_rate
+                        self.eta = self._format_time(eta_seconds)
+                    else:
+                        self.eta = "Unknown"
+                except Exception:
+                    self.eta = "Unknown"
+            elif self.status == "Seeding":
+                self.eta = "Seeding"
+            elif self.status == "Paused":
+                self.eta = "Paused"
+            else:
+                self.eta = "Unknown"
             
         except Exception as e:
             logger.error(f"Error updating torrent info: {e}")
@@ -108,6 +137,23 @@ class TorrentInfo:
             lt.torrent_status.checking_resume_data: "Checking Resume Data"
         }
         return states.get(state, "Unknown")
+
+    def _format_time(self, seconds: float) -> str:
+        """Format time in seconds to human readable string"""
+        if seconds < 0 or seconds == float('inf'):
+            return "Unknown"
+            
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            return f"{minutes}m"
+        elif seconds < 86400:
+            hours = int(seconds / 3600)
+            return f"{hours}h"
+        else:
+            days = int(seconds / 86400)
+            return f"{days}d"
 
 class TorrentManager:
     def __init__(self):
@@ -222,8 +268,10 @@ class TorrentManager:
         """Pause a torrent"""
         try:
             if hash in self.torrents:
-                handle, _ = self.torrents[hash]
+                handle, info = self.torrents[hash]
                 handle.pause()
+                # Update the info object's status directly
+                info.status = "Paused"
                 logger.info(f"Paused torrent: {handle.name()}")
                 return True
             return False
@@ -235,8 +283,10 @@ class TorrentManager:
         """Resume a torrent"""
         try:
             if hash in self.torrents:
-                handle, _ = self.torrents[hash]
+                handle, info = self.torrents[hash]
                 handle.resume()
+                # Update the info object's status directly
+                info.status = "Downloading"
                 logger.info(f"Resumed torrent: {handle.name()}")
                 return True
             return False
@@ -302,7 +352,9 @@ class TorrentManager:
         return f"{size_bytes:.1f} PB"
 
     def _get_state_string(self, state: int) -> str:
-        state_map = {
+        """Convert libtorrent state to string"""
+        states = {
+            lt.torrent_status.queued_for_checking: "Queued",
             lt.torrent_status.checking_files: "Checking",
             lt.torrent_status.downloading_metadata: "Downloading Metadata",
             lt.torrent_status.downloading: "Downloading",
@@ -311,7 +363,7 @@ class TorrentManager:
             lt.torrent_status.allocating: "Allocating",
             lt.torrent_status.checking_resume_data: "Checking Resume Data"
         }
-        return state_map.get(state, "Unknown")
+        return states.get(state, "Unknown")
         
     def get_torrent_by_hash(self, hash: str) -> Optional[TorrentInfo]:
         """Get torrent info by hash"""
