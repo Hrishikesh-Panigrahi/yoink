@@ -689,6 +689,11 @@ class MainWindow(QMainWindow):
             
             if new_dir:
                 self.torrent_manager.set_save_path(new_dir)
+                self.download_dir = new_dir
+                # Update the directory label
+                self.dir_label.setText(f"Download Directory: {new_dir}")
+                # Update the status bar
+                self.status_bar.showMessage(f"Download Directory: {new_dir}")
                 logger.info(f"Download directory changed to: {new_dir}")
                 QMessageBox.information(
                     self,
