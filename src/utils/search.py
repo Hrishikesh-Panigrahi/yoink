@@ -9,6 +9,8 @@ from requests.exceptions import RequestException
 from .logger import setup_logger
 import threading
 import re
+from bs4 import BeautifulSoup
+from .loader import Loader
 
 # Set up logger
 logger = setup_logger('search_util')
@@ -31,33 +33,49 @@ class APIStatus:
 
 class SearchUtil:
     def __init__(self):
+        self.logger = setup_logger('search_util')
+        self.loader = Loader("Searching torrents...")
+        
+        # API endpoints
+        self.api_urls = {
+            '1337x': 'https://1337x.to',
+            'YTS': 'https://yts.mx/api/v2',
+            'Nyaa': 'https://nyaa.si',
+            'AnimeTosho': 'https://animetosho.org'
+        }
+        
+        # API search methods
+        self.apis = {
+            '1337x': self.search_1337x,
+            'YTS': self.search_yts,
+            'Nyaa': self.search_nyaa,
+            'AnimeTosho': self.search_animetosho
+        }
+        
         logger.info("Initializing SearchUtil")
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         
-        # API endpoints
-        self.apis = {
-            '1337x': 'https://apibay.org/api.php',  # 1337x API
-            'nyaa': 'https://nyaa.si/api/search',
-            'anime': 'https://animetosho.org/api/search',
-            'torlock': 'https://www.torlock.com/api/search'
-        }
-        
         # API health status
         self.api_status = {
-            '1337x': APIStatus('1337x', True, 0),  # Start as healthy
-            'nyaa': APIStatus('Nyaa', True, 0),  # Start as healthy
-            'anime': APIStatus('AnimeTosho', True, 0),  # Start as healthy
-            'torlock': APIStatus('TorLock', True, 0)  # Start as healthy
+            '1337x': APIStatus('1337x', True, 0),
+            'YTS': APIStatus('YTS', True, 0),
+            'Nyaa': APIStatus('Nyaa', True, 0),
+            'AnimeTosho': APIStatus('AnimeTosho', True, 0)
         }
         
-        # Rate limiting
+        # Rate limiting and timeouts
         self.last_request_time = {}
-        self.min_request_interval = 1.0  # seconds
-        self.health_check_interval = 60.0  # seconds
+        self.min_request_interval = 2.0  # Increased to avoid rate limiting
+        self.health_check_interval = 120.0  # Increased to reduce API load
+        self.request_timeout = 20.0  # Increased for slower connections
         
         # Start background health check
         self._start_background_health_check()
@@ -91,15 +109,22 @@ class SearchUtil:
         try:
             logger.debug(f"Checking health of {api_name} API")
             if api_name == '1337x':
-                response = self.session.get(f"{self.apis[api_name]}?info_hash=test", timeout=5)
-            elif api_name == 'nyaa':
-                response = self.session.get(f"{self.apis[api_name]}?q=test", timeout=5)
-            elif api_name == 'anime':
-                response = self.session.get(f"{self.apis[api_name]}?q=test", timeout=5)
-            elif api_name == 'torlock':
-                response = self.session.get(f"{self.apis[api_name]}?q=test", timeout=5)
+                response = self.session.get(self.api_urls[api_name], timeout=self.request_timeout)
+            elif api_name == 'YTS':
+                response = self.session.get(self.api_urls[api_name], timeout=self.request_timeout)
+            elif api_name == 'Nyaa':
+                response = self.session.get(self.api_urls[api_name], timeout=self.request_timeout)
+            elif api_name == 'AnimeTosho':
+                response = self.session.get(self.api_urls[api_name], timeout=self.request_timeout)
                 
             response.raise_for_status()
+            
+            # Additional check for YTS API response format
+            if api_name == 'YTS':
+                data = response.json()
+                if not isinstance(data, dict) or 'status' not in data:
+                    raise ValueError("Invalid YTS API response format")
+                    
             status.is_healthy = True
             status.error_message = ""
             logger.info(f"{api_name} API is healthy")
@@ -133,226 +158,341 @@ class SearchUtil:
         self.last_request_time[api_name] = time.time()
         
     def _make_request(self, api_name: str, url: str, params: dict) -> dict:
-        """Make an API request with error handling"""
+        """Make an API request with error handling and retries"""
         if not self.check_api_health(api_name):
             raise Exception(f"{api_name} API is currently unavailable")
             
+        max_retries = 3
+        retry_delay = 1.0
+        
+        for attempt in range(max_retries):
+            try:
+                self._rate_limit(api_name)
+                logger.info(f"Making request to {api_name}: {url} (attempt {attempt + 1}/{max_retries})")
+                logger.debug(f"Request parameters: {params}")
+                
+                response = self.session.get(url, params=params, timeout=self.request_timeout)
+                response.raise_for_status()
+                
+                data = response.json()
+                logger.debug(f"Received response from {api_name}: {len(str(data))} bytes")
+                return data
+            except RequestException as e:
+                logger.warning(f"API request failed for {api_name} (attempt {attempt + 1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (attempt + 1))
+                    continue
+                logger.error(f"All retries failed for {api_name}")
+                raise
+            
+    def _parse_size(self, size_str: str) -> int:
+        """Convert size string to bytes"""
         try:
-            self._rate_limit(api_name)
-            logger.info(f"Making request to {api_name}: {url}")
-            logger.debug(f"Request parameters: {params}")
-            
-            response = self.session.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            logger.debug(f"Received response from {api_name}: {len(str(data))} bytes")
-            return data
-        except RequestException as e:
-            logger.error(f"API request failed for {api_name}: {str(e)}")
-            raise
-            
-    def search_1337x(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
-        """Search 1337x with pagination"""
-        logger.info(f"Searching 1337x for: {query} (page {page})")
-        try:
-            params = {
-                'info_hash': '',
-                'name': query,
-                'page': page,
-                'limit': per_page,
-                'category': '0',  # All categories
-                'sort': 'seeds',
-                'order': 'desc'
+            size_str = size_str.lower().strip()
+            if not size_str:
+                return 0
+                
+            multipliers = {
+                'kb': 1024,
+                'mb': 1024 * 1024,
+                'gb': 1024 * 1024 * 1024,
+                'tb': 1024 * 1024 * 1024 * 1024
             }
             
-            response = self.session.get(self.apis['1337x'], params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            results = []
-            total_results = len(data) if isinstance(data, list) else 0
-            
-            for item in data:
-                try:
-                    # Convert size from string (e.g., "1.5 GB") to bytes
-                    size_str = item.get('size', '0 B')
-                    size_bytes = self._parse_size(size_str)
+            for unit, multiplier in multipliers.items():
+                if unit in size_str:
+                    try:
+                        number = float(size_str.replace(unit, '').strip())
+                        return int(number * multiplier)
+                    except ValueError:
+                        return 0
+            return 0
+        except Exception as e:
+            logger.error(f"Error parsing size string '{size_str}': {str(e)}")
+            return 0
+
+    def search_torrents(self, query: str, on_progress=None, on_complete=None):
+        """Search for torrents across all available APIs"""
+        self.logger.info(f"Starting search for: {query}")
+        self.loader.start()
+        
+        all_results = []
+        total_results = 0
+        api_count = len(self.apis)
+        
+        try:
+            for i, (api_name, search_func) in enumerate(self.apis.items(), 1):
+                if on_progress:
+                    on_progress(api_name)
                     
-                    results.append(SearchResult(
-                        name=item.get('name', ''),
-                        size=size_bytes,
-                        seeds=int(item.get('seeders', 0)),
-                        peers=int(item.get('leechers', 0)),
-                        magnet_link=item.get('magnet', ''),
-                        source='1337x'
-                    ))
+                try:
+                    results, count = search_func(query)
+                    if results:
+                        all_results.extend(results)
+                        total_results += count
+                        self.logger.info(f"Found {len(results)} results from {api_name}")
                 except Exception as e:
-                    logger.error(f"Error parsing 1337x result: {str(e)}")
+                    self.logger.error(f"Error searching {api_name}: {str(e)}", exc_info=True)
                     continue
                     
-            logger.info(f"1337x search returned {len(results)} results (total: {total_results})")
+            # Sort results by number of seeds
+            if all_results:
+                all_results.sort(key=lambda x: x.seeds if hasattr(x, 'seeds') else 0, reverse=True)
+            
+            if on_complete:
+                on_complete(all_results)
+                
+            return all_results, total_results
+            
+        finally:
+            self.loader.stop()
+
+    def search_1337x(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
+        """Search 1337x for torrents"""
+        self.logger.info(f"Searching 1337x for: {query} (page {page})")
+        try:
+            search_url = f"{self.api_urls['1337x']}/search/{quote(query)}/{page}/"
+            response = self.session.get(search_url, timeout=self.request_timeout)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+            
+            # Find all torrent rows
+            for row in soup.select('tbody tr'):
+                try:
+                    name_cell = row.select_one('td.name')
+                    if not name_cell:
+                        continue
+                        
+                    name = name_cell.select_one('a:nth-of-type(2)').text.strip()
+                    size = self._parse_size(row.select_one('td.size').text.strip())
+                    seeds = int(row.select_one('td.seeds').text.strip())
+                    peers = int(row.select_one('td.leeches').text.strip())
+                    
+                    # Get the torrent details page URL
+                    details_url = urljoin(self.api_urls['1337x'], name_cell.select_one('a:nth-of-type(2)')['href'])
+                    
+                    # Get magnet link from details page
+                    details_response = self.session.get(details_url, timeout=self.request_timeout)
+                    details_soup = BeautifulSoup(details_response.text, 'html.parser')
+                    magnet_link = details_soup.select_one('a[href^="magnet:"]')['href']
+                    
+                    results.append(SearchResult(
+                        name=name,
+                        size=size,
+                        seeds=seeds,
+                        peers=peers,
+                        magnet_link=magnet_link,
+                        source='1337x'
+                    ))
+                    
+                    if len(results) >= per_page:
+                        break
+                        
+                except Exception as e:
+                    self.logger.error(f"Error parsing 1337x result row: {str(e)}")
+                    continue
+                    
+            # Get total results count
+            pagination = soup.select_one('div.pagination')
+            total_results = len(results)  # Default to current page count
+            if pagination:
+                try:
+                    last_page = max(int(a.text) for a in pagination.select('a') if a.text.isdigit())
+                    total_results = last_page * per_page
+                except Exception as e:
+                    self.logger.error(f"Error parsing 1337x pagination: {str(e)}")
+                    
+            self.logger.info(f"1337x search returned {len(results)} results (total: {total_results})")
             return results, total_results
+            
         except Exception as e:
-            logger.error(f"1337x search error: {str(e)}", exc_info=True)
+            self.logger.error(f"1337x search error: {str(e)}", exc_info=True)
             return [], 0
 
     def search_nyaa(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
-        """Search Nyaa.si with pagination"""
-        logger.info(f"Searching Nyaa for: {query} (page {page})")
+        """Search Nyaa for torrents"""
+        self.logger.info(f"Searching Nyaa for: {query} (page {page})")
+        try:
+            search_url = f"{self.api_urls['Nyaa']}/?f=0&c=0_0&q={quote(query)}&p={page}"
+            response = self.session.get(search_url, timeout=self.request_timeout)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+            
+            # Find all torrent rows
+            for row in soup.select('table.torrent-list tbody tr'):
+                try:
+                    name = row.select_one('td:nth-child(2) a').text.strip()
+                    size = self._parse_size(row.select_one('td:nth-child(4)').text.strip())
+                    seeds = int(row.select_one('td:nth-child(6)').text.strip())
+                    peers = int(row.select_one('td:nth-child(7)').text.strip())
+                    magnet_link = row.select_one('td:nth-child(3) a[href^="magnet:"]')['href']
+                    
+                    results.append(SearchResult(
+                        name=name,
+                        size=size,
+                        seeds=seeds,
+                        peers=peers,
+                        magnet_link=magnet_link,
+                        source='Nyaa'
+                    ))
+                    
+                    if len(results) >= per_page:
+                        break
+                        
+                except Exception as e:
+                    self.logger.error(f"Error parsing Nyaa result row: {str(e)}")
+                    continue
+                    
+            # Get total results count
+            total_results = len(results)  # Default to current page count
+            try:
+                pagination = soup.select_one('ul.pagination')
+                if pagination:
+                    last_page = max(int(a.text) for a in pagination.select('a') if a.text.isdigit())
+                    total_results = last_page * per_page
+            except Exception as e:
+                self.logger.error(f"Error parsing Nyaa pagination: {str(e)}")
+                
+            self.logger.info(f"Nyaa search returned {len(results)} results (total: {total_results})")
+            return results, total_results
+            
+        except Exception as e:
+            self.logger.error(f"Nyaa search error: {str(e)}", exc_info=True)
+            return [], 0
+
+    def search_animetosho(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
+        """Search AnimeTosho for torrents"""
+        self.logger.info(f"Searching AnimeTosho for: {query} (page {page})")
+        try:
+            search_url = f"{self.api_urls['AnimeTosho']}/search?q={quote(query)}&offset={(page-1)*per_page}"
+            response = self.session.get(search_url, timeout=self.request_timeout)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+            
+            # Find all torrent entries
+            for entry in soup.select('div.home_list_entry'):
+                try:
+                    name = entry.select_one('div.link a').text.strip()
+                    size_text = entry.select_one('div.size').text.strip()
+                    size = self._parse_size(size_text)
+                    
+                    # Seeds and peers are not always available
+                    seeds_text = entry.select_one('span.stats_seeds')
+                    peers_text = entry.select_one('span.stats_peers')
+                    seeds = int(seeds_text.text) if seeds_text else 0
+                    peers = int(peers_text.text) if peers_text else 0
+                    
+                    magnet_link = entry.select_one('a[href^="magnet:"]')['href']
+                    
+                    results.append(SearchResult(
+                        name=name,
+                        size=size,
+                        seeds=seeds,
+                        peers=peers,
+                        magnet_link=magnet_link,
+                        source='AnimeTosho'
+                    ))
+                    
+                    if len(results) >= per_page:
+                        break
+                        
+                except Exception as e:
+                    self.logger.error(f"Error parsing AnimeTosho result: {str(e)}")
+                    continue
+                    
+            # Get total results count from pagination info
+            total_results = len(results)  # Default to current page count
+            try:
+                pagination_text = soup.select_one('div.pager_info')
+                if pagination_text:
+                    match = re.search(r'of (\d+)', pagination_text.text)
+                    if match:
+                        total_results = int(match.group(1))
+            except Exception as e:
+                self.logger.error(f"Error parsing AnimeTosho pagination: {str(e)}")
+                
+            self.logger.info(f"AnimeTosho search returned {len(results)} results (total: {total_results})")
+            return results, total_results
+            
+        except Exception as e:
+            self.logger.error(f"AnimeTosho search error: {str(e)}", exc_info=True)
+            return [], 0
+
+    def search_yts(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
+        """Search YTS for torrents"""
+        self.logger.info(f"Searching YTS for: {query} (page {page})")
         try:
             params = {
-                'q': query,
+                'query_term': query,
                 'page': page,
                 'limit': per_page,
-                'sort': 'seeders',
-                'order': 'desc'
+                'sort_by': 'seeds',
+                'order_by': 'desc'
             }
-            data = self._make_request('nyaa', self.apis['nyaa'], params)
             
+            response = self.session.get(f"{self.api_urls['YTS']}/list_movies.json", params=params, timeout=self.request_timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not isinstance(data, dict) or 'status' not in data or data['status'] != 'ok':
+                raise ValueError("Invalid YTS API response")
+                
             results = []
-            total_results = data.get('total', 0)
+            movie_data = data.get('data', {})
+            movies = movie_data.get('movies', [])
+            total_results = movie_data.get('movie_count', 0)
             
-            for item in data.get('items', []):
-                results.append(SearchResult(
-                    name=item['name'],
-                    size=int(item['size']),
-                    seeds=int(item.get('seeders', 0)),
-                    peers=int(item.get('leechers', 0)),
-                    magnet_link=item['magnet'],
-                    source='Nyaa'
-                ))
-            logger.info(f"Nyaa search returned {len(results)} results (total: {total_results})")
-            return results, total_results
-        except Exception as e:
-            logger.error(f"Nyaa search error: {str(e)}", exc_info=True)
-            return [], 0
-            
-    def search_anime(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
-        """Search AnimeTosho with pagination"""
-        logger.info(f"Searching AnimeTosho for: {query} (page {page})")
-        try:
-            params = {
-                'q': query,
-                'offset': (page - 1) * per_page,
-                'limit': per_page
-            }
-            data = self._make_request('anime', self.apis['anime'], params)
-            
-            results = []
-            total_results = data.get('total', 0)
-            
-            for item in data.get('items', []):
-                results.append(SearchResult(
-                    name=item['title'],
-                    size=int(item['size']),
-                    seeds=int(item.get('seeds', 0)),
-                    peers=int(item.get('peers', 0)),
-                    magnet_link=item['magnet'],
-                    source='AnimeTosho'
-                ))
-            logger.info(f"AnimeTosho search returned {len(results)} results (total: {total_results})")
-            return results, total_results
-        except Exception as e:
-            logger.error(f"AnimeTosho search error: {str(e)}", exc_info=True)
-            return [], 0
-            
-    def search_torlock(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
-        """Search TorLock with pagination"""
-        logger.info(f"Searching TorLock for: {query} (page {page})")
-        try:
-            params = {
-                'q': query,
-                'page': page,
-                'per_page': per_page,
-                'orderby': 'seeds',
-                'order': 'desc'
-            }
-            data = self._make_request('torlock', self.apis['torlock'], params)
-            
-            results = []
-            total_results = data.get('total', 0)
-            
-            for item in data.get('items', []):
-                results.append(SearchResult(
-                    name=item['name'],
-                    size=int(item['size']),
-                    seeds=int(item.get('seeds', 0)),
-                    peers=int(item.get('peers', 0)),
-                    magnet_link=item['magnet'],
-                    source='TorLock'
-                ))
-            logger.info(f"TorLock search returned {len(results)} results (total: {total_results})")
-            return results, total_results
-        except Exception as e:
-            logger.error(f"TorLock search error: {str(e)}", exc_info=True)
-            return [], 0
-        
-    def search_torrents(self, query: str, page: int = 1, per_page: int = 20) -> Tuple[List[SearchResult], int]:
-        """
-        Search for torrents across multiple sources with pagination.
-        Returns a tuple of (results, total_count)
-        """
-        logger.info(f"Starting search for query: {query} (page {page})")
-        all_results = []
-        total_results = 0
-        
-        # Search all healthy APIs
-        sources = [
-            ('1337x', self.search_1337x),
-            ('nyaa', self.search_nyaa),
-            ('anime', self.search_anime),
-            ('torlock', self.search_torlock)
-        ]
-        
-        for api_name, search_func in sources:
-            if self.check_api_health(api_name):
+            for movie in movies:
                 try:
-                    logger.info(f"Searching {api_name}...")
-                    results, total = search_func(query, page, per_page)
-                    all_results.extend(results)
-                    total_results += total
+                    # Get the best quality torrent
+                    torrents = sorted(movie.get('torrents', []), 
+                                   key=lambda x: self._parse_size(x.get('size', '0')), 
+                                   reverse=True)
+                    if not torrents:
+                        continue
+                        
+                    best_torrent = torrents[0]
+                    name = f"{movie.get('title', '')} ({movie.get('year', '')}) - {best_torrent.get('quality', '')}"
+                    size = self._parse_size(best_torrent.get('size', '0'))
+                    seeds = int(best_torrent.get('seeds', 0))
+                    peers = int(best_torrent.get('peers', 0))
+                    
+                    # Construct magnet link
+                    hash = best_torrent.get('hash', '')
+                    if not hash:
+                        continue
+                        
+                    magnet_link = f"magnet:?xt=urn:btih:{hash}&dn={quote(name)}&tr=udp://tracker.openbittorrent.com:80"
+                    
+                    results.append(SearchResult(
+                        name=name,
+                        size=size,
+                        seeds=seeds,
+                        peers=peers,
+                        magnet_link=magnet_link,
+                        source='YTS'
+                    ))
                 except Exception as e:
-                    logger.error(f"Error searching {api_name}: {str(e)}", exc_info=True)
+                    self.logger.error(f"Error parsing YTS movie result: {str(e)}")
                     continue
-            else:
-                logger.warning(f"Skipping {api_name} as it is unhealthy")
-        
-        # Sort by seeds and limit results
-        all_results.sort(key=lambda x: x.seeds, reverse=True)
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        final_results = all_results[start_idx:end_idx]
-        
-        logger.info(f"Total results found: {len(final_results)} (total across all sources: {total_results})")
-        return final_results, total_results
-        
+                    
+            self.logger.info(f"YTS search returned {len(results)} results (total: {total_results})")
+            return results, total_results
+            
+        except Exception as e:
+            self.logger.error(f"YTS search error: {str(e)}", exc_info=True)
+            return [], 0
+
     def format_size(self, size_bytes: int) -> str:
         """Format file size in human-readable format."""
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
-        return f"{size_bytes:.1f} PB"
-
-    def _parse_size(self, size_str: str) -> int:
-        """Convert size string to bytes"""
-        try:
-            parts = size_str.strip().split()
-            if len(parts) != 2:
-                return 0
-                
-            value = float(parts[0])
-            unit = parts[1].upper()
-            
-            multipliers = {
-                'B': 1,
-                'KB': 1024,
-                'MB': 1024**2,
-                'GB': 1024**3,
-                'TB': 1024**4
-            }
-            
-            return int(value * multipliers.get(unit, 1))
-        except Exception:
-            return 0 
+        return f"{size_bytes:.1f} PB" 

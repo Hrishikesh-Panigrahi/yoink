@@ -13,6 +13,8 @@ import os
 import logging
 from PyQt6.QtWidgets import QApplication
 from utils.logger import setup_logger
+import threading
+from utils.loader import Loader
 
 # Set up logger
 logger = setup_logger('main_window')
@@ -112,11 +114,16 @@ class MainWindow(QMainWindow):
         self.torrent_manager = TorrentManager()
         self.db_manager = DatabaseManager()
         self.search_util = SearchUtil()
+        self.loader = Loader()
         
         # Pagination state
         self.current_page = 1
         self.total_results = 0
         self.results_per_page = 20
+        
+        # Connect loader signals
+        self.loader.progress_updated.connect(self.update_status)
+        self.loader.loading_finished.connect(self.on_loading_finished)
         
         self.setup_ui()
         self.setup_timer()
@@ -297,60 +304,69 @@ class MainWindow(QMainWindow):
             """)
             
     def search_torrents(self):
-        """Search for torrents"""
+        """Search for torrents using the search input"""
         query = self.search_input.text().strip()
         if not query:
             logger.warning("Empty search query")
-            QMessageBox.warning(self, "Error", "Please enter a search query")
+            QMessageBox.warning(self, "Warning", "Please enter a search query")
             return
             
-        try:
-            # Check if any APIs are available
-            api_status = self.search_util.get_healthy_apis()
-            healthy_apis = sum(1 for api in api_status if api.is_healthy)
-            
-            if healthy_apis == 0:
-                logger.error("No healthy APIs available")
-                QMessageBox.critical(self, "Error", "No search APIs are currently available. Please try again later.")
-                return
-                
-            logger.info(f"Searching for: {query}")
-            self.status_bar.showMessage("Searching...")
-            
-            # Reset pagination
-            self.current_page = 1
-            self.page_spin.setValue(1)
-            
-            # Perform search
-            results, total = self.search_util.search_torrents(
-                query,
-                page=self.current_page,
-                per_page=self.results_per_page
-            )
-            
-            self.total_results = total
-            self.update_pagination_controls()
-            self.show_search_results(results)
-            
-            logger.info(f"Search completed: {len(results)} results found")
-            self.status_bar.showMessage(f"Found {total} results")
-        except Exception as e:
-            logger.error(f"Search error: {str(e)}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Search failed: {str(e)}")
-            self.status_bar.showMessage("Search failed")
-            
-    def show_search_results(self, results):
-        """Display search results in the table"""
-        logger.debug(f"Displaying {len(results)} search results")
-        self.results_table.setRowCount(len(results))
+        logger.info(f"Searching for: {query}")
+        self.loader.start("Searching torrents...")
         
-        for row, result in enumerate(results):
-            self.results_table.setItem(row, 0, QTableWidgetItem(result.name))
-            self.results_table.setItem(row, 1, QTableWidgetItem(self.search_util.format_size(result.size)))
-            self.results_table.setItem(row, 2, QTableWidgetItem(str(result.seeds)))
-            self.results_table.setItem(row, 3, QTableWidgetItem(str(result.peers)))
-            self.results_table.setItem(row, 4, QTableWidgetItem(result.source))
+        # Start search in a separate thread
+        self.search_util.search_torrents(
+            query,
+            on_progress=lambda api: self.loader.update(f"Searching {api}..."),
+            on_complete=self.show_search_results
+        )
+        
+    def show_search_results(self, results):
+        """Display search results in a new window"""
+        self.loader.stop()
+        
+        if not results:
+            logger.warning("No search results found")
+            QMessageBox.information(self, "No Results", "No torrents found matching your search.")
+            return
             
+        logger.info(f"Found {len(results)} search results")
+        
+        # Clear previous results
+        self.results_table.setRowCount(0)
+        
+        # Add new results
+        for result in results:
+            row = self.results_table.rowCount()
+            self.results_table.insertRow(row)
+            
+            # Name
+            name_item = QTableWidgetItem(result.name)
+            name_item.setToolTip(result.name)
+            self.results_table.setItem(row, 0, name_item)
+            
+            # Size
+            size_item = QTableWidgetItem(self.search_util.format_size(result.size))
+            self.results_table.setItem(row, 1, size_item)
+            
+            # Seeds
+            seeds_item = QTableWidgetItem(str(result.seeds))
+            self.results_table.setItem(row, 2, seeds_item)
+            
+            # Peers
+            peers_item = QTableWidgetItem(str(result.peers))
+            self.results_table.setItem(row, 3, peers_item)
+            
+            # Source
+            source_item = QTableWidgetItem(result.source)
+            self.results_table.setItem(row, 4, source_item)
+            
+            # Store magnet link in the item data
+            name_item.setData(Qt.UserRole, result.magnet_link)
+            
+        # Update status bar
+        self.status_bar.showMessage(f"Found {len(results)} results")
+        
     def update_pagination_controls(self):
         """Update pagination controls based on total results"""
         total_pages = (self.total_results + self.results_per_page - 1) // self.results_per_page
@@ -534,4 +550,12 @@ class MainWindow(QMainWindow):
         elif bytes_per_second < 1024 * 1024:
             return f"{bytes_per_second/1024:.1f} KB/s"
         else:
-            return f"{bytes_per_second/(1024*1024):.1f} MB/s" 
+            return f"{bytes_per_second/(1024*1024):.1f} MB/s"
+
+    def update_status(self, message: str):
+        """Update the status bar with the current message"""
+        self.status_bar.showMessage(message)
+        
+    def on_loading_finished(self):
+        """Handle loading finished event"""
+        self.status_bar.showMessage("Ready") 
