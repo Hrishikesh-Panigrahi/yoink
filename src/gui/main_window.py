@@ -6,6 +6,8 @@ from core.torrent_manager import TorrentManager
 from database.database import DatabaseManager
 from utils.search import SearchUtil
 import os
+import logging
+from PyQt6.QtWidgets import QApplication
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -57,12 +59,35 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Ready")
         
     def search_torrents(self):
-        query = self.search_input.text()
+        query = self.search_input.text().strip()
         if not query:
+            QMessageBox.warning(self, "Warning", "Please enter a search term")
             return
             
-        results = self.search_util.search_torrents(query)
-        self.show_search_results(results)
+        # Show loading dialog
+        loading_dialog = QMessageBox(self)
+        loading_dialog.setWindowTitle("Searching")
+        loading_dialog.setText("Searching for torrents...\nThis may take a few moments.")
+        loading_dialog.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        loading_dialog.show()
+        QApplication.processEvents()  # Ensure the dialog is shown
+        
+        try:
+            results = self.search_util.search_torrents(query)
+            loading_dialog.close()
+            
+            if not results:
+                QMessageBox.information(self, "No Results", 
+                    "No torrents found. Try a different search term.")
+                return
+                
+            self.show_search_results(results)
+            
+        except Exception as e:
+            loading_dialog.close()
+            QMessageBox.critical(self, "Error", 
+                f"An error occurred while searching: {str(e)}\nPlease try again later.")
+            logging.error(f"Search error: {str(e)}")
         
     def show_search_results(self, results):
         dialog = QMessageBox(self)

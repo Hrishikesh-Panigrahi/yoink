@@ -5,6 +5,11 @@ from dataclasses import dataclass
 import time
 from urllib.parse import quote
 import logging
+from requests.exceptions import RequestException
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
@@ -43,19 +48,28 @@ class SearchUtil:
                 time.sleep(self.min_request_interval - time_since_last)
         self.last_request_time[api_name] = time.time()
         
+    def _make_request(self, api_name: str, url: str, params: dict) -> dict:
+        """Make an API request with error handling"""
+        try:
+            self._rate_limit(api_name)
+            logger.info(f"Making request to {api_name}")
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except RequestException as e:
+            logger.error(f"API request failed for {api_name}: {str(e)}")
+            raise
+            
     def search_yts(self, query: str) -> List[SearchResult]:
         """Search YTS (YIFY) for movies"""
         try:
-            self._rate_limit('yts')
             params = {
                 'query_term': query,
                 'sort_by': 'seeds',
                 'order_by': 'desc',
                 'limit': 20
             }
-            response = self.session.get(self.apis['yts'], params=params)
-            response.raise_for_status()
-            data = response.json()
+            data = self._make_request('yts', self.apis['yts'], params)
             
             results = []
             for movie in data.get('data', {}).get('movies', []):
@@ -68,24 +82,22 @@ class SearchUtil:
                         magnet_link=torrent['url'],
                         source='YTS'
                     ))
+            logger.info(f"YTS search returned {len(results)} results")
             return results
         except Exception as e:
-            logging.error(f"YTS search error: {str(e)}")
+            logger.error(f"YTS search error: {str(e)}")
             return []
             
     def search_piratebay(self, query: str) -> List[SearchResult]:
         """Search The Pirate Bay"""
         try:
-            self._rate_limit('piratebay')
             params = {
                 'q': query,
                 'cat': '0',  # All categories
                 'order': 'desc',
                 'by': 'seeds'
             }
-            response = self.session.get(self.apis['piratebay'], params=params)
-            response.raise_for_status()
-            data = response.json()
+            data = self._make_request('piratebay', self.apis['piratebay'], params)
             
             results = []
             for item in data:
@@ -97,24 +109,22 @@ class SearchUtil:
                     magnet_link=f"magnet:?xt=urn:btih:{item['info_hash']}&dn={quote(item['name'])}",
                     source='The Pirate Bay'
                 ))
+            logger.info(f"PirateBay search returned {len(results)} results")
             return results
         except Exception as e:
-            logging.error(f"PirateBay search error: {str(e)}")
+            logger.error(f"PirateBay search error: {str(e)}")
             return []
             
     def search_limetorrents(self, query: str) -> List[SearchResult]:
         """Search LimeTorrents"""
         try:
-            self._rate_limit('limetorrents')
             params = {
                 'query': query,
                 'limit': 20,
                 'sort': 'seeds',
                 'order': 'desc'
             }
-            response = self.session.get(self.apis['limetorrents'], params=params)
-            response.raise_for_status()
-            data = response.json()
+            data = self._make_request('limetorrents', self.apis['limetorrents'], params)
             
             results = []
             for item in data.get('items', []):
@@ -126,25 +136,40 @@ class SearchUtil:
                     magnet_link=item['magnet'],
                     source='LimeTorrents'
                 ))
+            logger.info(f"LimeTorrents search returned {len(results)} results")
             return results
         except Exception as e:
-            logging.error(f"LimeTorrents search error: {str(e)}")
+            logger.error(f"LimeTorrents search error: {str(e)}")
             return []
         
     def search_torrents(self, query: str, limit: int = 20) -> List[SearchResult]:
         """
         Search for torrents across multiple sources.
         """
+        logger.info(f"Starting search for query: {query}")
         all_results = []
         
         # Search all sources
-        all_results.extend(self.search_yts(query))
-        all_results.extend(self.search_piratebay(query))
-        all_results.extend(self.search_limetorrents(query))
+        sources = [
+            ('YTS', self.search_yts),
+            ('PirateBay', self.search_piratebay),
+            ('LimeTorrents', self.search_limetorrents)
+        ]
+        
+        for source_name, search_func in sources:
+            try:
+                logger.info(f"Searching {source_name}...")
+                results = search_func(query)
+                all_results.extend(results)
+            except Exception as e:
+                logger.error(f"Error searching {source_name}: {str(e)}")
+                continue
         
         # Sort by seeds and limit results
         all_results.sort(key=lambda x: x.seeds, reverse=True)
-        return all_results[:limit]
+        final_results = all_results[:limit]
+        logger.info(f"Total results found: {len(final_results)}")
+        return final_results
         
     def format_size(self, size_bytes: int) -> str:
         """Format file size in human-readable format."""
