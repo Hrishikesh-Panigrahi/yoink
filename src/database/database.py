@@ -1,12 +1,40 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Boolean, Text
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from .models import Base, Torrent, TorrentFile
 import os
+import logging
+from datetime import datetime
 from utils.logger import setup_logger
 
 # Set up logger
 logger = setup_logger('database')
+
+Base = declarative_base()
+
+class Setting(Base):
+    """Settings table"""
+    __tablename__ = 'settings'
+    
+    key = Column(String, primary_key=True)
+    value = Column(Text)
+
+class DownloadHistory(Base):
+    """Download history table"""
+    __tablename__ = 'download_history'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    magnet = Column(Text)
+    size = Column(String)
+    status = Column(String)
+    progress = Column(Float, default=0.0)
+    download_speed = Column(String)
+    added_date = Column(DateTime, default=datetime.utcnow)
+    completed_date = Column(DateTime, nullable=True)
+    save_path = Column(String)
+    error = Column(Text, nullable=True)
 
 class DatabaseManager:
     def __init__(self, db_path: str = "torrent.db"):
@@ -134,4 +162,116 @@ class DatabaseManager:
                     logger.warning(f"Torrent not found with hash: {info_hash}")
         except Exception as e:
             logger.error(f"Failed to delete torrent: {str(e)}", exc_info=True)
+            raise
+
+    def get_setting(self, key: str) -> str:
+        """Get setting value by key"""
+        try:
+            setting = self.get_session().query(Setting).filter_by(key=key).first()
+            return setting.value if setting else None
+        except Exception as e:
+            logger.error(f"Error getting setting {key}: {e}")
+            return None
+
+    def set_setting(self, key: str, value: str):
+        """Set setting value"""
+        try:
+            setting = self.get_session().query(Setting).filter_by(key=key).first()
+            if setting:
+                setting.value = value
+            else:
+                setting = Setting(key=key, value=value)
+                self.get_session().add(setting)
+            self.get_session().commit()
+            logger.info(f"Setting updated: {key}={value}")
+        except Exception as e:
+            logger.error(f"Error setting {key}={value}: {e}")
+            self.get_session().rollback()
+            raise
+
+    def add_download(self, name: str, magnet: str, size: str, save_path: str) -> int:
+        """Add new download to history"""
+        try:
+            download = DownloadHistory(
+                name=name,
+                magnet=magnet,
+                size=size,
+                status="Queued",
+                save_path=save_path
+            )
+            self.get_session().add(download)
+            self.get_session().commit()
+            logger.info(f"Added download to history: {name}")
+            return download.id
+        except Exception as e:
+            logger.error(f"Error adding download to history: {e}")
+            self.get_session().rollback()
+            raise
+
+    def update_download(self, download_id: int, **kwargs):
+        """Update download history entry"""
+        try:
+            download = self.get_session().query(DownloadHistory).filter_by(id=download_id).first()
+            if download:
+                for key, value in kwargs.items():
+                    setattr(download, key, value)
+                    if key == 'status' and value == 'Completed':
+                        download.completed_date = datetime.utcnow()
+                self.get_session().commit()
+                logger.info(f"Updated download history: {download.name}")
+            else:
+                logger.warning(f"Download not found: {download_id}")
+        except Exception as e:
+            logger.error(f"Error updating download history: {e}")
+            self.get_session().rollback()
+            raise
+
+    def get_download_history(self, limit: int = None, status: str = None) -> list:
+        """Get download history with optional filters"""
+        try:
+            query = self.get_session().query(DownloadHistory)
+            if status:
+                query = query.filter_by(status=status)
+            query = query.order_by(DownloadHistory.added_date.desc())
+            if limit:
+                query = query.limit(limit)
+            return query.all()
+        except Exception as e:
+            logger.error(f"Error getting download history: {e}")
+            return []
+
+    def get_active_downloads(self) -> list:
+        """Get list of active downloads"""
+        try:
+            return self.get_session().query(DownloadHistory).filter(
+                DownloadHistory.status.in_(['Queued', 'Downloading', 'Paused'])
+            ).order_by(DownloadHistory.added_date.desc()).all()
+        except Exception as e:
+            logger.error(f"Error getting active downloads: {e}")
+            return []
+
+    def delete_download(self, download_id: int):
+        """Delete download history entry"""
+        try:
+            download = self.get_session().query(DownloadHistory).filter_by(id=download_id).first()
+            if download:
+                self.get_session().delete(download)
+                self.get_session().commit()
+                logger.info(f"Deleted download history: {download.name}")
+            else:
+                logger.warning(f"Download not found: {download_id}")
+        except Exception as e:
+            logger.error(f"Error deleting download history: {e}")
+            self.get_session().rollback()
+            raise
+
+    def clear_download_history(self):
+        """Clear all download history"""
+        try:
+            self.get_session().query(DownloadHistory).delete()
+            self.get_session().commit()
+            logger.info("Download history cleared")
+        except Exception as e:
+            logger.error(f"Error clearing download history: {e}")
+            self.get_session().rollback()
             raise 
