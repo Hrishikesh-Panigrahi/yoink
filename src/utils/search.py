@@ -5,6 +5,7 @@ import time
 import logging
 from datetime import datetime
 from .logger import setup_logger
+from urllib.parse import quote
 
 # Set up logger
 logger = setup_logger('search_util')
@@ -42,88 +43,64 @@ class SearchUtil:
             time.sleep(self.min_request_interval - time_since_last_request)
         self.last_request_time = time.time()
 
-    def search_torrents(self, query: str, page: int = 0, category: Optional[str] = None) -> Tuple[List[SearchResult], int, int]:
-        """
-        Search for torrents using The Pirate Bay API
-        Returns: (results, total_results, total_pages)
-        """
-        if not query.strip():
-            logger.warning("Empty search query")
-            return [], 0, 0
-            
+    def search_torrents(self, query: str, page: int = 1) -> Tuple[List[SearchResult], int, int]:
+        """Search for torrents using The Pirate Bay API"""
         try:
-            self._wait_for_rate_limit()
+            # Encode query for URL
+            encoded_query = quote(query)
             
-            # Using a reliable Pirate Bay API endpoint
-            base_url = "https://apibay.org"
-            search_url = f"{base_url}/q.php"
-            
-            params = {
-                'q': query,
-                'cat': '0',  # All categories
-                'page': str(page),
-                'limit': str(self.items_per_page)
-            }
-            
-            logger.info(f"Searching for: {query} (page {page + 1})")
-            response = self.session.get(search_url, params=params, timeout=10)
+            # Make request to search endpoint
+            response = requests.get(f'https://apibay.org/q.php?q={encoded_query}&cat=0')
             response.raise_for_status()
             
-            data = response.json()
-            if not data or data == []:
-                logger.warning(f"No results found for query: {query}")
+            # Parse results
+            results = response.json()
+            if not results or (isinstance(results, list) and len(results) == 1 and results[0].get('name') == 'No results returned'):
+                logger.info(f"No results found for query: {query}")
                 return [], 0, 0
                 
-            # Estimate total results based on current page results
-            # If we got a full page, assume there are more pages
-            has_more = len(data) >= self.items_per_page
-            total_results = (page + 1) * self.items_per_page if has_more else page * self.items_per_page + len(data)
-            total_pages = (total_results + self.items_per_page - 1) // self.items_per_page
+            # Calculate pagination
+            items_per_page = 30
+            total_results = len(results)
+            total_pages = (total_results + items_per_page - 1) // items_per_page
             
-            results = []
-            for item in data:
+            # Get results for current page
+            start_idx = (page - 1) * items_per_page
+            end_idx = min(start_idx + items_per_page, total_results)
+            page_results = results[start_idx:end_idx]
+            
+            # Convert to SearchResult objects
+            search_results = []
+            for result in page_results:
                 try:
-                    # Skip if item is not a valid torrent
-                    if not isinstance(item, dict) or 'name' not in item:
-                        continue
-                        
-                    # Convert size from bytes to human readable format
-                    size_bytes = int(item.get('size', 0))
-                    size_str = self._format_size(size_bytes)
+                    # Build magnet link
+                    info_hash = result.get('info_hash', '')
+                    name = result.get('name', '')
+                    magnet = self._build_magnet_link(info_hash, name)
                     
-                    result = SearchResult(
-                        title=item.get('name', 'Unknown'),
-                        size=size_str,
-                        seeds=int(item.get('seeders', 0)),
-                        leeches=int(item.get('leechers', 0)),
-                        upload_date=datetime.fromtimestamp(int(item.get('added', 0))).strftime('%Y-%m-%d %H:%M:%S'),
-                        magnet_link=self._build_magnet_link(item.get('info_hash', ''), item.get('name', 'Unknown')),
-                        source='The Pirate Bay',
-                        category=item.get('category', 'All'),
-                        verified=item.get('status', '') == 'vip'
-                    )
-                    results.append(result)
-                except (ValueError, TypeError) as e:
-                    logger.error(f"Error parsing torrent result: {e}")
+                    # Create search result
+                    search_results.append(SearchResult(
+                        title=name,
+                        size=self._format_size(int(result.get('size', 0))),
+                        seeds=int(result.get('seeders', 0)),
+                        leeches=int(result.get('leechers', 0)),
+                        upload_date=datetime.fromtimestamp(int(result.get('added', 0))).strftime('%Y-%m-%d %H:%M:%S'),
+                        magnet_link=magnet,
+                        source="The Pirate Bay"
+                    ))
+                except Exception as e:
+                    logger.error(f"Error parsing result: {e}")
                     continue
             
-            # Sort results by seeds
-            results.sort(key=lambda x: x.seeds, reverse=True)
-            logger.info(f"Found {len(results)} results for query: {query} (page {page + 1} of {total_pages})")
-            return results, total_results, total_pages
+            logger.info(f"Found {total_results} results for query: {query} (page {page} of {total_pages})")
+            return search_results, total_results, total_pages
             
-        except requests.RequestException as e:
-            logger.error(f"Error searching torrents: {e}")
-            return [], 0, 0
         except Exception as e:
-            logger.error(f"Unexpected error during search: {e}")
-            return [], 0, 0
+            logger.error(f"Error searching torrents: {e}")
+            raise
 
     def _build_magnet_link(self, info_hash: str, name: str) -> str:
-        """Build a magnet link with trackers"""
-        if not info_hash:
-            return ""
-            
+        """Build a magnet link with common trackers"""
         trackers = [
             "udp://tracker.coppersurfer.tk:6969/announce",
             "udp://9.rarbg.to:2920/announce",
@@ -134,8 +111,8 @@ class SearchUtil:
             "udp://tracker.cyberia.is:6969/announce"
         ]
         
-        tracker_params = "&".join(f"tr={tracker}" for tracker in trackers)
-        return f"magnet:?xt=urn:btih:{info_hash}&dn={name}&{tracker_params}"
+        tracker_params = "&".join(f"tr={quote(tracker)}" for tracker in trackers)
+        return f"magnet:?xt=urn:btih:{info_hash}&dn={quote(name)}&{tracker_params}"
 
     def _format_size(self, size_bytes: int) -> str:
         """Convert bytes to human readable format"""
@@ -144,6 +121,15 @@ class SearchUtil:
                 return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
         return f"{size_bytes:.1f} PB"
+
+    def get_api_status(self) -> dict:
+        """Get the health status of The Pirate Bay API"""
+        try:
+            response = requests.get('https://apibay.org/health', timeout=10)
+            return {'The Pirate Bay': response.status_code == 200}
+        except Exception as e:
+            logger.error(f"Error checking API health: {e}")
+            return {'The Pirate Bay': False}
 
 # Commented out other API implementations
 """
