@@ -159,6 +159,31 @@ class TorrentManager:
     def __init__(self):
         """Initialize the torrent manager"""
         self.session = lt.session()
+        
+        # Configure session settings
+        settings = {
+            'active_downloads': 4,  # Number of active download threads
+            'active_seeds': 0,      # Disable seeding
+            'active_limit': 8,      # Total number of active torrents
+            'download_rate_limit': 0,  # Download speed limit (0 for unlimited)
+            'upload_rate_limit': 0,    # Upload speed limit (0 for unlimited)
+            'connections_limit': 200,   # Maximum number of connections
+            'alert_mask': lt.alert.category_t.all_categories,  # Enable all alerts
+            'enable_dht': True,         # Enable DHT
+            'enable_lsd': True,         # Enable Local Service Discovery
+            'enable_upnp': True,        # Enable UPnP
+            'enable_natpmp': True       # Enable NAT-PMP
+        }
+        
+        # Apply settings to session
+        self.session.apply_settings(settings)
+        
+        # Start DHT, LSD, and UPnP
+        self.session.start_dht()
+        self.session.start_lsd()
+        self.session.start_upnp()
+        self.session.start_natpmp()
+        
         self.session_thread = SessionThread(self.session)
         self.session_thread.start()
         

@@ -53,6 +53,40 @@ class TorrentUpdateWorker(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
+class NetworkSpeedWorker(QThread):
+    """Worker thread for checking network speed"""
+    speed_updated = pyqtSignal(float, float)  # download_speed, upload_speed
+    error = pyqtSignal(str)
+
+    def __init__(self, torrent_manager):
+        super().__init__()
+        self.torrent_manager = torrent_manager
+        self._is_running = True
+
+    def run(self):
+        while self._is_running:
+            try:
+                # Get session status
+                status = self.torrent_manager.session.status()
+                
+                # Calculate speeds
+                download_speed = status.download_rate / 1024  # Convert to KB/s
+                upload_speed = status.upload_rate / 1024     # Convert to KB/s
+                
+                # Emit speeds
+                self.speed_updated.emit(download_speed, upload_speed)
+                
+            except Exception as e:
+                logger.error(f"Error checking network speed: {e}")
+                self.error.emit(str(e))
+            
+            # Sleep for 1 second before next check
+            self.msleep(1000)
+
+    def stop(self):
+        """Stop the worker thread"""
+        self._is_running = False
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -81,6 +115,9 @@ class MainWindow(QMainWindow):
         self.search_worker = None
         self.update_worker = None
         
+        # Network speed worker
+        self.network_speed_worker = None
+        
         # Connect loader signals
         self.loader.progress_updated.connect(self.update_status)
         self.loader.loading_finished.connect(self.on_loading_finished)
@@ -88,18 +125,13 @@ class MainWindow(QMainWindow):
         self.setup_ui()
         self.setup_timer()
         
-        # Set up API health check timer
-        self.api_health_timer = QTimer()
-        self.api_health_timer.timeout.connect(self.update_api_health)
-        self.api_health_timer.start(10000)  # Check every 10 seconds
-        
         # Set up torrent list update timer
         self.torrent_update_timer = QTimer()
         self.torrent_update_timer.timeout.connect(self.update_torrent_list)
         self.torrent_update_timer.start(2000)  # Update every 2 seconds
         
-        # Initial API health check
-        self.update_api_health()
+        # Start network speed monitoring
+        self.start_network_speed_monitoring()
         
         logger.info("MainWindow initialization completed")
         
@@ -110,12 +142,10 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
         
-        # Create tab widget
-        self.tab_widget = QTabWidget()
-        
-        # Search tab
-        search_tab = QWidget()
-        search_layout = QVBoxLayout(search_tab)
+        # Create top bar for search and network speed
+        top_bar = QWidget()
+        top_bar_layout = QHBoxLayout(top_bar)
+        top_bar_layout.setContentsMargins(0, 0, 0, 0)
         
         # Search bar
         search_bar = QWidget()
@@ -131,19 +161,37 @@ class MainWindow(QMainWindow):
         
         search_bar_layout.addWidget(self.search_input)
         search_bar_layout.addWidget(self.search_button)
-        search_layout.addWidget(search_bar)
         
-        # Pagination controls
-        pagination_layout = QHBoxLayout()
-        self.prev_button = QPushButton("Previous")
-        self.prev_button.clicked.connect(self.previous_page)
-        self.next_button = QPushButton("Next")
-        self.next_button.clicked.connect(self.next_page)
-        self.page_label = QLabel("Page 0 of 0")
-        pagination_layout.addWidget(self.prev_button)
-        pagination_layout.addWidget(self.page_label)
-        pagination_layout.addWidget(self.next_button)
-        search_layout.addLayout(pagination_layout)
+        # Network speed button and label
+        network_widget = QWidget()
+        network_layout = QHBoxLayout(network_widget)
+        network_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.network_speed_label = QLabel("Network Speed: Checking...")
+        self.network_speed_label.setStyleSheet("""
+            QLabel {
+                background-color: #f3f4f6;
+                color: #374151;
+                padding: 3px 6px;
+                border-radius: 4px;
+                font-size: 10px;
+            }
+        """)
+        
+        network_layout.addWidget(self.network_speed_label)
+        
+        # Add widgets to top bar
+        top_bar_layout.addWidget(search_bar)
+        top_bar_layout.addWidget(network_widget)
+        
+        layout.addWidget(top_bar)
+        
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # Search tab
+        search_tab = QWidget()
+        search_layout = QVBoxLayout(search_tab)
         
         # Search results table
         self.search_table = QTableWidget()
@@ -162,6 +210,27 @@ class MainWindow(QMainWindow):
         self.search_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.search_table.customContextMenuRequested.connect(self.show_search_context_menu)
         search_layout.addWidget(self.search_table)
+        
+        # Add pagination controls
+        pagination_widget = QWidget()
+        pagination_layout = QHBoxLayout(pagination_widget)
+        pagination_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.prev_button = QPushButton("Previous")
+        self.prev_button.clicked.connect(self.previous_page)
+        self.prev_button.setEnabled(False)
+        
+        self.page_label = QLabel("Page 0 of 0")
+        
+        self.next_button = QPushButton("Next")
+        self.next_button.clicked.connect(self.next_page)
+        self.next_button.setEnabled(False)
+        
+        pagination_layout.addWidget(self.prev_button)
+        pagination_layout.addWidget(self.page_label)
+        pagination_layout.addWidget(self.next_button)
+        
+        search_layout.addWidget(pagination_widget)
         
         # Downloads tab
         downloads_tab = QWidget()
@@ -198,11 +267,6 @@ class MainWindow(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        
-        # Add API health label to status bar
-        self.api_health_label = QLabel("API Status: Checking...")
-        self.status_bar.addPermanentWidget(self.api_health_label)
-        
         self.status_bar.showMessage(f"Download Directory: {self.download_dir}")
         
     def setup_timer(self):
@@ -212,60 +276,11 @@ class MainWindow(QMainWindow):
         self.update_timer.timeout.connect(self.update_torrent_list)
         self.update_timer.start(2000)  # Refresh every 2 seconds
         
-    def update_api_health(self):
-        """Update API health status indicator"""
-        try:
-            # Get API status from search util
-            api_status = self.search_util.get_api_status()
-            healthy_apis = [api for api, status in api_status.items() if status]
-            total_apis = len(api_status)
-            
-            if len(healthy_apis) == total_apis:
-                self.api_health_label.setText("All APIs healthy")
-                self.api_health_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #4ade80;
-                        color: #064e3b;
-                        padding: 2px 5px;
-                        border-radius: 2px;
-                        font-size: 12px;
-                    }
-                """)
-            elif len(healthy_apis) > 0:
-                self.api_health_label.setText(f"{len(healthy_apis)}/{total_apis} APIs healthy")
-                self.api_health_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #fbbf24;
-                        color: #92400e;
-                        padding: 2px 5px;
-                        border-radius: 2px;
-                        font-size: 12px;
-                    }
-                """)
-            else:
-                self.api_health_label.setText("No APIs available")
-                self.api_health_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #f87171;
-                        color: #991b1b;
-                        padding: 2px 5px;
-                        border-radius: 2px;
-                        font-size: 12px;
-                    }
-                """)
-        except Exception as e:
-            logger.error(f"Error updating API health status: {str(e)}")
-            self.api_health_label.setText("API Status: Error")
-            self.api_health_label.setStyleSheet("""
-                QLabel {
-                    background-color: #f87171;
-                    color: #991b1b;
-                    padding: 2px 5px;
-                    border-radius: 2px;
-                    font-size: 12px;
-                }
-            """)
-            
+        # Set up network speed check timer
+        self.speed_check_timer = QTimer()
+        self.speed_check_timer.timeout.connect(self.check_network_speed)
+        self.speed_check_timer.start(30000)  # Check every 30 seconds
+        
     def search_torrents(self):
         """Search for torrents in background thread"""
         if self.is_searching:
@@ -367,6 +382,7 @@ class MainWindow(QMainWindow):
                 actions_layout = QHBoxLayout(actions_widget)
                 actions_layout.setContentsMargins(0, 0, 0, 0)
                 
+                # Add pause/resume button based on status
                 if torrent.status == "Downloading":
                     pause_button = QPushButton("Pause")
                     pause_button.clicked.connect(lambda checked, h=hash: self.pause_selected_torrent(h))
@@ -376,9 +392,11 @@ class MainWindow(QMainWindow):
                     resume_button.clicked.connect(lambda checked, h=hash: self.resume_selected_torrent(h))
                     actions_layout.addWidget(resume_button)
                 
-                delete_button = QPushButton("Delete")
-                delete_button.clicked.connect(lambda checked, h=hash: self.delete_selected_torrent(h))
-                actions_layout.addWidget(delete_button)
+                # Only show delete button if not checking
+                if torrent.status not in ["Checking", "Checking Files", "Checking Resume Data"]:
+                    delete_button = QPushButton("Delete")
+                    delete_button.clicked.connect(lambda checked, h=hash: self.delete_selected_torrent(h))
+                    actions_layout.addWidget(delete_button)
                 
                 self.downloads_table.setCellWidget(row, 8, actions_widget)
                 
@@ -669,4 +687,122 @@ class MainWindow(QMainWindow):
         delete_action.triggered.connect(self.delete_selected_torrent)
         menu.addAction(delete_action)
         
-        menu.exec(self.downloads_table.mapToGlobal(position)) 
+        menu.exec(self.downloads_table.mapToGlobal(position))
+
+    def check_network_speed(self):
+        """Check network speed using libtorrent session"""
+        try:
+            # Get session status
+            status = self.torrent_manager.session.status()
+            
+            # Calculate speeds
+            download_speed = status.download_rate / 1024  # Convert to KB/s
+            upload_speed = status.upload_rate / 1024     # Convert to KB/s
+            
+            # Format speeds
+            download_str = f"{download_speed:.1f} KB/s" if download_speed < 1024 else f"{download_speed/1024:.1f} MB/s"
+            upload_str = f"{upload_speed:.1f} KB/s" if upload_speed < 1024 else f"{upload_speed/1024:.1f} MB/s"
+            
+            # Update label
+            self.network_speed_label.setText(f"↓ {download_str} | ↑ {upload_str}")
+            
+            # Update style based on speed
+            if download_speed > 1024:  # If download speed > 1 MB/s
+                self.network_speed_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #dcfce7;
+                        color: #166534;
+                        padding: 3px 6px;
+                        border-radius: 4px;
+                        font-size: 10px;
+                    }
+                """)
+            else:
+                self.network_speed_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #f3f4f6;
+                        color: #374151;
+                        padding: 3px 6px;
+                        border-radius: 4px;
+                        font-size: 10px;
+                    }
+                """)
+                
+        except Exception as e:
+            logger.error(f"Error checking network speed: {e}")
+            self.network_speed_label.setText("Network Speed: Error")
+            self.network_speed_label.setStyleSheet("""
+                QLabel {
+                    background-color: #fee2e2;
+                    color: #991b1b;
+                    padding: 3px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
+                }
+            """)
+
+    def start_network_speed_monitoring(self):
+        """Start the network speed monitoring worker"""
+        if self.network_speed_worker is None:
+            self.network_speed_worker = NetworkSpeedWorker(self.torrent_manager)
+            self.network_speed_worker.speed_updated.connect(self.update_network_speed_label)
+            self.network_speed_worker.error.connect(self.handle_network_speed_error)
+            self.network_speed_worker.start()
+
+    def stop_network_speed_monitoring(self):
+        """Stop the network speed monitoring worker"""
+        if self.network_speed_worker is not None:
+            self.network_speed_worker.stop()
+            self.network_speed_worker.wait()
+            self.network_speed_worker = None
+
+    def update_network_speed_label(self, download_speed: float, upload_speed: float):
+        """Update the network speed label with new speeds"""
+        # Format speeds
+        download_str = f"{download_speed:.1f} KB/s" if download_speed < 1024 else f"{download_speed/1024:.1f} MB/s"
+        upload_str = f"{upload_speed:.1f} KB/s" if upload_speed < 1024 else f"{upload_speed/1024:.1f} MB/s"
+        
+        # Update label
+        self.network_speed_label.setText(f"↓ {download_str} | ↑ {upload_str}")
+        
+        # Update style based on speed
+        if download_speed > 1024:  # If download speed > 1 MB/s
+            self.network_speed_label.setStyleSheet("""
+                QLabel {
+                    background-color: #dcfce7;
+                    color: #166534;
+                    padding: 3px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
+                }
+            """)
+        else:
+            self.network_speed_label.setStyleSheet("""
+                QLabel {
+                    background-color: #f3f4f6;
+                    color: #374151;
+                    padding: 3px 6px;
+                    border-radius: 4px;
+                    font-size: 10px;
+                }
+            """)
+
+    def handle_network_speed_error(self, error_msg: str):
+        """Handle network speed check errors"""
+        logger.error(f"Network speed error: {error_msg}")
+        self.network_speed_label.setText("Network Speed: Error")
+        self.network_speed_label.setStyleSheet("""
+            QLabel {
+                background-color: #fee2e2;
+                color: #991b1b;
+                padding: 3px 6px;
+                border-radius: 4px;
+                font-size: 10px;
+            }
+        """)
+
+    def closeEvent(self, event):
+        """Handle window close event"""
+        # Stop network speed monitoring
+        self.stop_network_speed_monitoring()
+        event.accept() 

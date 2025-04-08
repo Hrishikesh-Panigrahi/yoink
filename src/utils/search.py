@@ -131,8 +131,30 @@ class SearchUtil:
     def get_api_status(self) -> dict:
         """Get the health status of The Pirate Bay API"""
         try:
-            response = requests.get('https://apibay.org/health', timeout=10)
-            return {'The Pirate Bay': response.status_code == 200}
+            # First check the health endpoint
+            health_response = requests.get('https://apibay.org/health', timeout=5)
+            if health_response.status_code != 200:
+                return {'The Pirate Bay': False}
+                
+            # Then check the search endpoint with a test query
+            search_url = f"{self.base_url}/q.php"
+            params = {
+                'q': 'test',
+                'cat': '0',
+                'page': '1',
+                'limit': '1'
+            }
+            
+            search_response = self.session.get(search_url, params=params, timeout=5)
+            search_response.raise_for_status()
+            
+            # Check if we got a valid JSON response
+            data = search_response.json()
+            if not isinstance(data, list):
+                return {'The Pirate Bay': False}
+                
+            return {'The Pirate Bay': True}
+            
         except Exception as e:
             logger.error(f"Error checking API health: {e}")
             return {'The Pirate Bay': False}
