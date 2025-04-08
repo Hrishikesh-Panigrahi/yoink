@@ -10,80 +10,134 @@ logger = setup_logger('torrent_manager')
 
 @dataclass
 class TorrentInfo:
+    """Data class to store torrent information"""
     name: str
-    size: int
-    progress: float
-    download_rate: int
-    upload_rate: int
-    num_peers: int
-    num_seeds: int
-    state: str
-    save_path: str
-    files: List[Dict]
+    size: str
+    seeds: int
+    peers: int
+    upload_date: str
+    status: str
+    hash: str
 
 class TorrentManager:
-    def __init__(self, save_path: str = os.path.expanduser("~/Downloads")):
+    def __init__(self):
         logger.info("Initializing TorrentManager")
         self.session = lt.session()
         self.session.listen_on(6881, 6891)
-        self.torrents: Dict[str, lt.torrent_handle] = {}
-        self.save_path = save_path
+        self.torrents = {}
+        self.save_path = os.path.expanduser("~/Downloads")
         logger.info(f"Save path set to: {self.save_path}")
-        
+
     def add_torrent(self, magnet_link: str) -> bool:
+        """Add a new torrent from magnet link"""
         try:
-            logger.info(f"Adding torrent from magnet link: {magnet_link[:50]}...")
             params = lt.parse_magnet_uri(magnet_link)
             params.save_path = self.save_path
-            
             handle = self.session.add_torrent(params)
             self.torrents[handle.info_hash().to_string()] = handle
-            logger.info(f"Torrent added successfully: {handle.name()}")
+            logger.info(f"Added torrent: {handle.name()}")
             return True
         except Exception as e:
-            logger.error(f"Failed to add torrent: {str(e)}", exc_info=True)
+            logger.error(f"Error adding torrent: {str(e)}")
             return False
-            
-    def remove_torrent(self, torrent_hash: str, delete_files: bool = False) -> bool:
+
+    def remove_torrent(self, name: str, delete_files: bool = False) -> bool:
+        """Remove a torrent by name"""
         try:
-            logger.info(f"Removing torrent with hash: {torrent_hash}")
-            if torrent_hash in self.torrents:
-                self.session.remove_torrent(self.torrents[torrent_hash], int(delete_files))
-                del self.torrents[torrent_hash]
-                logger.info(f"Torrent removed successfully: {self.torrents[torrent_hash].name()}")
-                return True
-            logger.warning(f"Torrent not found with hash: {torrent_hash}")
+            for handle in self.torrents.values():
+                if handle.name() == name:
+                    self.session.remove_torrent(handle, delete_files)
+                    logger.info(f"Removed torrent: {name}")
+                    return True
+            logger.warning(f"Torrent not found: {name}")
             return False
         except Exception as e:
-            logger.error(f"Failed to remove torrent: {str(e)}", exc_info=True)
+            logger.error(f"Error removing torrent: {str(e)}")
             return False
-            
-    def pause_torrent(self, torrent_hash: str) -> bool:
+
+    def pause_torrent(self, name: str) -> bool:
+        """Pause a torrent by name"""
         try:
-            logger.info(f"Pausing torrent with hash: {torrent_hash}")
-            if torrent_hash in self.torrents:
-                self.torrents[torrent_hash].pause()
-                logger.info(f"Torrent paused successfully: {self.torrents[torrent_hash].name()}")
-                return True
-            logger.warning(f"Torrent not found with hash: {torrent_hash}")
+            for handle in self.torrents.values():
+                if handle.name() == name:
+                    handle.pause()
+                    logger.info(f"Paused torrent: {name}")
+                    return True
+            logger.warning(f"Torrent not found: {name}")
             return False
         except Exception as e:
-            logger.error(f"Failed to pause torrent: {str(e)}", exc_info=True)
+            logger.error(f"Error pausing torrent: {str(e)}")
             return False
-            
-    def resume_torrent(self, torrent_hash: str) -> bool:
+
+    def resume_torrent(self, name: str) -> bool:
+        """Resume a torrent by name"""
         try:
-            logger.info(f"Resuming torrent with hash: {torrent_hash}")
-            if torrent_hash in self.torrents:
-                self.torrents[torrent_hash].resume()
-                logger.info(f"Torrent resumed successfully: {self.torrents[torrent_hash].name()}")
-                return True
-            logger.warning(f"Torrent not found with hash: {torrent_hash}")
+            for handle in self.torrents.values():
+                if handle.name() == name:
+                    handle.resume()
+                    logger.info(f"Resumed torrent: {name}")
+                    return True
+            logger.warning(f"Torrent not found: {name}")
             return False
         except Exception as e:
-            logger.error(f"Failed to resume torrent: {str(e)}", exc_info=True)
+            logger.error(f"Error resuming torrent: {str(e)}")
             return False
-            
+
+    def get_torrents(self) -> List[TorrentInfo]:
+        """Get information about all torrents"""
+        try:
+            results = []
+            for handle in self.torrents.values():
+                try:
+                    status = handle.status()
+                    info = handle.get_torrent_info()
+                    
+                    # Get torrent state
+                    state_str = "Unknown"
+                    if status.paused:
+                        state_str = "Paused"
+                    elif status.errc:
+                        state_str = "Error"
+                    elif status.is_seeding:
+                        state_str = "Seeding"
+                    elif status.is_downloading:
+                        state_str = "Downloading"
+                    elif status.is_finished:
+                        state_str = "Finished"
+                        
+                    # Format size
+                    size_bytes = info.total_size()
+                    size_str = self._format_size(size_bytes)
+                    
+                    # Get upload date
+                    upload_date = datetime.fromtimestamp(info.creation_date()).strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    results.append(TorrentInfo(
+                        name=handle.name(),
+                        size=size_str,
+                        seeds=status.num_seeds,
+                        peers=status.num_peers,
+                        upload_date=upload_date,
+                        status=state_str,
+                        hash=handle.info_hash().to_string()
+                    ))
+                except Exception as e:
+                    logger.error(f"Error getting torrent info: {str(e)}")
+                    continue
+                    
+            return results
+        except Exception as e:
+            logger.error(f"Error getting torrents: {str(e)}")
+            return []
+
+    def _format_size(self, size_bytes: int) -> str:
+        """Convert bytes to human readable format"""
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.1f} PB"
+
     def get_torrent_info(self, torrent_hash: str) -> Optional[TorrentInfo]:
         """Get information about a specific torrent."""
         if torrent_hash not in self.torrents:

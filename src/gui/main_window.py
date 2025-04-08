@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QAction
 from core.torrent_manager import TorrentManager
 from database.database import DatabaseManager
-from utils.search import SearchUtil
+from utils.search import SearchUtil, SearchResult
 from .loading_dialog import LoadingDialog
 import os
 import logging
@@ -25,11 +25,12 @@ class MainWindow(QMainWindow):
         logger.info("Initializing MainWindow")
         
         self.setWindowTitle("Torrent App")
-        self.setGeometry(100, 100, 800, 600)
+        self.setMinimumSize(800, 600)
         
         # Initialize components
         self.search_util = SearchUtil()
         self.torrent_manager = TorrentManager()
+        self.db_manager = DatabaseManager()
         self.loader = Loader()
         
         # Connect loader signals
@@ -88,8 +89,8 @@ class MainWindow(QMainWindow):
         
         # Torrent list table
         self.torrent_table = QTableWidget()
-        self.torrent_table.setColumnCount(5)
-        self.torrent_table.setHorizontalHeaderLabels(["Name", "Size", "Seeds", "Peers", "Source"])
+        self.torrent_table.setColumnCount(7)
+        self.torrent_table.setHorizontalHeaderLabels(["Name", "Size", "Seeds", "Peers", "Upload Date", "Source", "Status"])
         self.torrent_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.torrent_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.torrent_table.customContextMenuRequested.connect(self.show_context_menu)
@@ -98,13 +99,14 @@ class MainWindow(QMainWindow):
         # Status bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("Ready")
         
     def setup_timer(self):
         """Set up timer for updating torrent list"""
         logger.debug("Setting up update timer")
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_torrent_list)
-        self.update_timer.start(1000)  # Update every second
+        self.update_timer.start(5000)  # Refresh every 5 seconds
         
     def update_api_health(self):
         """Update API health status indicator"""
@@ -163,180 +165,150 @@ class MainWindow(QMainWindow):
         query = self.search_input.text().strip()
         if not query:
             logger.warning("Empty search query")
-            QMessageBox.warning(self, "Warning", "Please enter a search query")
             return
             
-        logger.info(f"Searching for: {query}")
-        
-        # Disable search controls
-        self.search_input.setEnabled(False)
-        self.search_button.setEnabled(False)
-        
-        # Clear previous results
-        self.torrent_table.setRowCount(0)
-        
-        # Start the loader
-        self.loader.start("Searching torrents...")
-        
         try:
-            # Start search in a separate thread
-            self.search_util.search_torrents(
-                query,
-                on_progress=self.loader.update,
-                on_complete=self.show_search_results
-            )
-        except Exception as e:
-            logger.error(f"Error starting search: {str(e)}")
-            self.loader.stop()
-            self.search_input.setEnabled(True)
-            self.search_button.setEnabled(True)
-            QMessageBox.critical(self, "Error", f"Failed to start search: {str(e)}")
+            logger.info(f"Searching for: {query}")
+            self.status_bar.showMessage(f"Searching for '{query}'...")
             
-    def show_search_results(self, results):
+            # Perform search
+            results = self.search_util.search_torrents(query)
+            
+            # Display results
+            self.show_search_results(results)
+            
+            # Update status
+            self.status_bar.showMessage(f"Found {len(results)} results for '{query}'")
+            
+        except Exception as e:
+            logger.error(f"Error during search: {str(e)}")
+            self.status_bar.showMessage("Search failed")
+            QMessageBox.critical(self, "Search Error", f"Failed to search: {str(e)}")
+            
+    def show_search_results(self, results: list[SearchResult]):
         """Display search results in the table"""
-        try:
-            if not results:
-                logger.warning("No search results found")
-                QMessageBox.information(self, "No Results", "No torrents found matching your search.")
-                return
-                
-            logger.info(f"Found {len(results)} search results")
-            
-            # Clear previous results
-            self.torrent_table.setRowCount(0)
-            
-            # Add new results
-            for result in results:
-                row = self.torrent_table.rowCount()
-                self.torrent_table.insertRow(row)
-                
-                # Name
-                name_item = QTableWidgetItem(result.name)
-                name_item.setToolTip(result.name)
-                self.torrent_table.setItem(row, 0, name_item)
-                
-                # Size
-                size_item = QTableWidgetItem(self.search_util.format_size(result.size))
-                self.torrent_table.setItem(row, 1, size_item)
-                
-                # Seeds
-                seeds_item = QTableWidgetItem(str(result.seeds))
-                self.torrent_table.setItem(row, 2, seeds_item)
-                
-                # Peers
-                peers_item = QTableWidgetItem(str(result.peers))
-                self.torrent_table.setItem(row, 3, peers_item)
-                
-                # Source
-                source_item = QTableWidgetItem(result.source)
-                self.torrent_table.setItem(row, 4, source_item)
-                
-                # Store magnet link in the item data
-                name_item.setData(Qt.ItemDataRole.UserRole, result.magnet_link)
-                
-            # Update status bar
-            self.status_bar.showMessage(f"Found {len(results)} results")
-            
-        except Exception as e:
-            logger.error(f"Error displaying search results: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Failed to display results: {str(e)}")
-            
-        finally:
-            # Stop the loader and re-enable search controls
-            self.loader.stop()
-            self.search_input.setEnabled(True)
-            self.search_button.setEnabled(True)
+        self.torrent_table.setRowCount(len(results))
         
-    def update_torrent_list(self):
-        """Update the list of active torrents"""
+        for row, result in enumerate(results):
+            self.torrent_table.setItem(row, 0, QTableWidgetItem(result.title))
+            self.torrent_table.setItem(row, 1, QTableWidgetItem(result.size))
+            self.torrent_table.setItem(row, 2, QTableWidgetItem(str(result.seeds)))
+            self.torrent_table.setItem(row, 3, QTableWidgetItem(str(result.leeches)))
+            self.torrent_table.setItem(row, 4, QTableWidgetItem(result.upload_date))
+            self.torrent_table.setItem(row, 5, QTableWidgetItem(result.source))
+            self.torrent_table.setItem(row, 6, QTableWidgetItem("Available"))
+            
+            # Store magnet link in the item data
+            self.torrent_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, result.magnet_link)
+            
+    def download_selected(self):
+        """Download selected torrent"""
+        selected_rows = self.torrent_table.selectedItems()
+        if not selected_rows:
+            return
+            
+        row = selected_rows[0].row()
+        title = self.torrent_table.item(row, 0).text()
+        magnet = self.torrent_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+        
         try:
-            torrents = self.torrent_manager.get_all_torrents()
+            logger.info(f"Downloading torrent: {title}")
+            self.torrent_manager.add_torrent(magnet)
+            self.update_torrent_list()
+            self.status_bar.showMessage(f"Downloading: {title}")
+        except Exception as e:
+            logger.error(f"Error downloading torrent: {str(e)}")
+            QMessageBox.critical(self, "Download Error", f"Failed to download: {str(e)}")
+            
+    def update_torrent_list(self):
+        """Update the torrent list with current downloads"""
+        try:
+            torrents = self.torrent_manager.get_torrents()
             self.torrent_table.setRowCount(len(torrents))
             
             for row, torrent in enumerate(torrents):
                 self.torrent_table.setItem(row, 0, QTableWidgetItem(torrent.name))
-                self.torrent_table.setItem(row, 1, QTableWidgetItem(self.format_size(torrent.size)))
+                self.torrent_table.setItem(row, 1, QTableWidgetItem(torrent.size))
                 self.torrent_table.setItem(row, 2, QTableWidgetItem(str(torrent.seeds)))
                 self.torrent_table.setItem(row, 3, QTableWidgetItem(str(torrent.peers)))
-                self.torrent_table.setItem(row, 4, QTableWidgetItem(torrent.state))
+                self.torrent_table.setItem(row, 4, QTableWidgetItem(torrent.upload_date))
+                self.torrent_table.setItem(row, 5, QTableWidgetItem("Local"))
+                self.torrent_table.setItem(row, 6, QTableWidgetItem(torrent.status))
+                
         except Exception as e:
-            logger.error(f"Error updating torrent list: {str(e)}", exc_info=True)
+            logger.error(f"Error updating torrent list: {str(e)}")
             
     def show_context_menu(self, position):
-        """Show context menu for torrent operations"""
+        """Show context menu for torrent actions"""
+        menu = QMenu()
+        
+        pause_action = QAction("Pause", self)
+        pause_action.triggered.connect(self.pause_selected_torrent)
+        menu.addAction(pause_action)
+        
+        resume_action = QAction("Resume", self)
+        resume_action.triggered.connect(self.resume_selected_torrent)
+        menu.addAction(resume_action)
+        
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(self.delete_selected_torrent)
+        menu.addAction(delete_action)
+        
+        menu.exec(self.torrent_table.mapToGlobal(position))
+        
+    def pause_selected_torrent(self):
+        """Pause selected torrent"""
+        selected_rows = self.torrent_table.selectedItems()
+        if not selected_rows:
+            return
+            
+        row = selected_rows[0].row()
+        name = self.torrent_table.item(row, 0).text()
+        
         try:
-            menu = QMenu()
-            
-            # Get the table that triggered the context menu
-            table = self.sender()
-            if table == self.torrent_table:
-                selected_rows = table.selectedItems()
-                if selected_rows:
-                    row = selected_rows[0].row()
-                    torrent_hash = self.torrent_manager.get_all_torrents()[row].hash
-                    
-                    pause_action = QAction("Pause", self)
-                    pause_action.triggered.connect(lambda: self.pause_selected_torrent(torrent_hash))
-                    menu.addAction(pause_action)
-                    
-                    resume_action = QAction("Resume", self)
-                    resume_action.triggered.connect(lambda: self.resume_selected_torrent(torrent_hash))
-                    menu.addAction(resume_action)
-                    
-                    delete_action = QAction("Delete", self)
-                    delete_action.triggered.connect(lambda: self.delete_selected_torrent(torrent_hash))
-                    menu.addAction(delete_action)
-                    
-                    menu.exec(table.viewport().mapToGlobal(position))
+            logger.info(f"Pausing torrent: {name}")
+            self.torrent_manager.pause_torrent(name)
+            self.update_torrent_list()
+            self.status_bar.showMessage(f"Paused: {name}")
         except Exception as e:
-            logger.error(f"Error showing context menu: {str(e)}", exc_info=True)
+            logger.error(f"Error pausing torrent: {str(e)}")
+            QMessageBox.critical(self, "Pause Error", f"Failed to pause: {str(e)}")
             
-    def pause_selected_torrent(self, torrent_hash: str):
-        """Pause the selected torrent"""
+    def resume_selected_torrent(self):
+        """Resume selected torrent"""
+        selected_rows = self.torrent_table.selectedItems()
+        if not selected_rows:
+            return
+            
+        row = selected_rows[0].row()
+        name = self.torrent_table.item(row, 0).text()
+        
         try:
-            logger.info(f"Pausing torrent: {torrent_hash}")
-            if self.torrent_manager.pause_torrent(torrent_hash):
-                self.update_torrent_list()
-                logger.info("Torrent paused successfully")
-            else:
-                logger.warning(f"Failed to pause torrent: {torrent_hash}")
+            logger.info(f"Resuming torrent: {name}")
+            self.torrent_manager.resume_torrent(name)
+            self.update_torrent_list()
+            self.status_bar.showMessage(f"Resumed: {name}")
         except Exception as e:
-            logger.error(f"Error pausing torrent: {str(e)}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Failed to pause torrent: {str(e)}")
+            logger.error(f"Error resuming torrent: {str(e)}")
+            QMessageBox.critical(self, "Resume Error", f"Failed to resume: {str(e)}")
             
-    def resume_selected_torrent(self, torrent_hash: str):
-        """Resume the selected torrent"""
+    def delete_selected_torrent(self):
+        """Delete selected torrent"""
+        selected_rows = self.torrent_table.selectedItems()
+        if not selected_rows:
+            return
+            
+        row = selected_rows[0].row()
+        name = self.torrent_table.item(row, 0).text()
+        
         try:
-            logger.info(f"Resuming torrent: {torrent_hash}")
-            if self.torrent_manager.resume_torrent(torrent_hash):
-                self.update_torrent_list()
-                logger.info("Torrent resumed successfully")
-            else:
-                logger.warning(f"Failed to resume torrent: {torrent_hash}")
+            logger.info(f"Deleting torrent: {name}")
+            self.torrent_manager.remove_torrent(name)
+            self.update_torrent_list()
+            self.status_bar.showMessage(f"Deleted: {name}")
         except Exception as e:
-            logger.error(f"Error resuming torrent: {str(e)}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Failed to resume torrent: {str(e)}")
-            
-    def delete_selected_torrent(self, torrent_hash: str):
-        """Delete the selected torrent"""
-        try:
-            logger.info(f"Deleting torrent: {torrent_hash}")
-            reply = QMessageBox.question(
-                self,
-                "Confirm Delete",
-                "Are you sure you want to delete this torrent?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            
-            if reply == QMessageBox.StandardButton.Yes:
-                if self.torrent_manager.remove_torrent(torrent_hash, True):
-                    self.update_torrent_list()
-                    logger.info("Torrent deleted successfully")
-                else:
-                    logger.warning(f"Failed to delete torrent: {torrent_hash}")
-        except Exception as e:
-            logger.error(f"Error deleting torrent: {str(e)}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Failed to delete torrent: {str(e)}")
+            logger.error(f"Error deleting torrent: {str(e)}")
+            QMessageBox.critical(self, "Delete Error", f"Failed to delete: {str(e)}")
             
     def format_size(self, bytes: int) -> str:
         """Format size in human-readable format"""
