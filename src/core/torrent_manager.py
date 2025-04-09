@@ -53,12 +53,13 @@ class TorrentInfo:
         try:
             status = handle.status()
             
-            # Don't update status if it's already "Paused"
-            if self.status != "Paused":
-                if status.paused:
-                    self.status = "Paused"
-                else:
-                    self.status = self._get_state_string(status.state)
+            # Update status based on metadata and state
+            if not handle.has_metadata():
+                self.status = "Downloading Metadata"
+            elif status.paused:
+                self.status = "Paused"
+            else:
+                self.status = self._get_state_string(status.state)
             
             # Update other fields
             self.progress = status.progress * 100
@@ -69,13 +70,15 @@ class TorrentInfo:
             self.save_path = status.save_path
             self.error = str(status.error) if status.error else ""
             
-            # Update size if we have the info
+            # Update name and size if we have metadata
             try:
-                info = handle.get_torrent_info()
-                if info:
-                    self.size = self._format_size(info.total_size())
+                if handle.has_metadata():
+                    info = handle.get_torrent_info()
+                    if info:
+                        self.name = info.name()
+                        self.size = self._format_size(info.total_size())
             except Exception:
-                self.size = "Unknown"
+                pass  # Keep existing name/size if update fails
             
             # Calculate ETA
             if self.status == "Downloading" and status.download_rate > 0:
@@ -204,77 +207,70 @@ class TorrentManager:
             self.session_thread.join(timeout=1.0)
 
     def _load_saved_torrents(self):
-        """Load saved torrents from the database"""
+        """Load saved torrents from database"""
         try:
             saved_torrents = self.db.get_all_torrents()
             for torrent in saved_torrents:
                 try:
-                    # Add torrent to session with its original save path
-                    params = lt.parse_magnet_uri(torrent.magnet_link)
-                    params.save_path = torrent.save_path  # Use the saved path from database
+                    # Create torrent handle
+                    params = lt.add_torrent_params()
+                    params.url = torrent.magnet_link
+                    params.save_path = torrent.save_path
                     
+                    # Add to session
                     handle = self.session.add_torrent(params)
-                    hash = handle.info_hash().to_string()
-                    
-                    # Create torrent info with the original save path
-                    info = TorrentInfo(
-                        name=torrent.name,
-                        size="Calculating...",
-                        status="Queued",
-                        save_path=torrent.save_path
-                    )
                     
                     # Store in memory
-                    self.torrents[hash] = (handle, info)
-                    logger.info(f"Loaded saved torrent: {info.name} with save path: {torrent.save_path}")
+                    info = TorrentInfo(
+                        name=torrent.name,
+                        size=torrent.size,
+                        status=torrent.status,
+                        save_path=torrent.save_path
+                    )
+                    self.torrents[torrent.info_hash] = (handle, info)
                     
+                    logger.info(f"Loaded saved torrent: {torrent.name} with save path: {torrent.save_path}")
                 except Exception as e:
                     logger.error(f"Error loading saved torrent {torrent.name}: {e}")
                     continue
                     
         except Exception as e:
             logger.error(f"Error loading saved torrents: {e}")
+            raise
 
-    def add_torrent(self, magnet_link: str) -> Optional[str]:
+    def add_torrent(self, magnet_link: str) -> str:
         """Add a new torrent from magnet link"""
         try:
             # Parse magnet link
             params = lt.parse_magnet_uri(magnet_link)
             params.save_path = self.save_path
             
-            # Add to libtorrent session
+            # Add to session
             handle = self.session.add_torrent(params)
-            hash = handle.info_hash().to_string()
+            info_hash = str(handle.info_hash())
             
-            # Create torrent info
-            info = TorrentInfo(
-                name=handle.name() or params.name,
+            # Create initial torrent info object with placeholder values
+            torrent_info = TorrentInfo(
+                name="Loading...",
                 size="Calculating...",
-                status="Queued",
+                status="Downloading Metadata",
                 save_path=self.save_path
             )
             
             # Store in memory
-            self.torrents[hash] = (handle, info)
+            self.torrents[info_hash] = (handle, torrent_info)
             
-            try:
-                # Save to database
-                self.db.add_torrent(
-                    name=info.name,
-                    magnet_link=magnet_link,
-                    info_hash=hash,
-                    size=0,  # Will be updated when we get the torrent info
-                    save_path=self.save_path
-                )
-                logger.info(f"Added torrent: {info.name} with save path: {self.save_path}")
-            except Exception as db_error:
-                logger.error(f"Database error while adding torrent: {db_error}")
-                # Remove from libtorrent session if database save failed
-                self.session.remove_torrent(handle)
-                del self.torrents[hash]
-                raise
+            # Save to database with initial values
+            self.db.add_torrent(
+                name="Loading...",
+                magnet_link=magnet_link,
+                info_hash=info_hash,
+                size=0,
+                save_path=self.save_path
+            )
             
-            return hash
+            logger.info(f"Added torrent with hash: {info_hash}")
+            return info_hash
             
         except Exception as e:
             logger.error(f"Error adding torrent: {e}")

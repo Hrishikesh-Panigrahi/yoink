@@ -36,24 +36,43 @@ class DownloadHistory(Base):
 
 class DatabaseManager:
     def __init__(self, db_path: str = "torrent.db"):
-        logger.info(f"Initializing DatabaseManager with database path: {db_path}")
-        
-        # Create database directory if it doesn't exist
-        db_dir = os.path.dirname(db_path)
-        if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir)
+        """Initialize database connection"""
+        try:
+            # Create database directory if it doesn't exist
+            db_dir = os.path.dirname(db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir)
+                logger.info(f"Created database directory: {db_dir}")
             
-        self.engine = create_engine(f'sqlite:///{db_path}')
-        
-        # Create all tables
-        Base.metadata.create_all(self.engine)
-        logger.info("Database schema initialized")
-        
-        self.Session = sessionmaker(bind=self.engine)
-        logger.debug("Database engine and session maker initialized")
+            # Create database engine
+            self.engine = create_engine(f'sqlite:///{db_path}')
+            logger.info(f"Initializing DatabaseManager with database path: {db_path}")
+            
+            # Create all tables
+            Base.metadata.create_all(self.engine)
+            logger.info("Database schema initialized")
+            
+            # Initialize default settings if needed
+            self._init_default_settings()
+            
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
+            raise
+
+    def _init_default_settings(self):
+        """Initialize default settings if they don't exist"""
+        try:
+            # Set default download directory
+            default_dir = os.path.expanduser("~/Downloads")
+            if not self.get_setting('default_download_dir'):
+                self.set_setting('default_download_dir', default_dir)
+                logger.info(f"Setting updated: default_download_dir={default_dir}")
+        except Exception as e:
+            logger.error(f"Error initializing default settings: {e}")
+            raise
         
     def get_session(self) -> Session:
-        return self.Session()
+        return sessionmaker(bind=self.engine)()
         
     def add_torrent(self, name: str, magnet_link: str, info_hash: str, size: int, save_path: str) -> Torrent:
         """Add a new torrent to the database"""
@@ -316,4 +335,22 @@ class DatabaseManager:
             logger.info(f"Default download directory set to: {directory}")
         except Exception as e:
             logger.error(f"Error setting default download directory: {e}")
-            raise 
+            raise
+
+    def remove_torrent(self, info_hash: str) -> bool:
+        """Remove a torrent from the database"""
+        logger.info(f"Removing torrent with hash: {info_hash}")
+        try:
+            with self.get_session() as session:
+                torrent = session.query(Torrent).filter_by(info_hash=info_hash).first()
+                if torrent:
+                    session.delete(torrent)
+                    session.commit()
+                    logger.info(f"Removed torrent: {torrent.name}")
+                    return True
+                else:
+                    logger.warning(f"Torrent not found with hash: {info_hash}")
+                    return False
+        except Exception as e:
+            logger.error(f"Error removing torrent: {e}")
+            return False 
