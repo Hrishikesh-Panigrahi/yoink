@@ -3,11 +3,12 @@ import os
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
-from utils.logger import setup_logger
+from src.utils.logger import setup_logger
 from pathlib import Path
-from database.database import DatabaseManager
+from src.database.database import DatabaseManager
 import threading
 import time
+import logging
 
 # Set up logger
 logger = setup_logger('torrent_manager')
@@ -160,45 +161,40 @@ class TorrentInfo:
 
 class TorrentManager:
     def __init__(self):
-        """Initialize the torrent manager"""
+        """Initialize TorrentManager with default settings"""
+        self.logger = logging.getLogger(__name__)
+        self.db_manager = DatabaseManager()
+        
+        # Initialize session
         self.session = lt.session()
         
-        # Configure session settings
-        settings = {
-            'active_downloads': 4,  # Number of active download threads
-            'active_seeds': 0,      # Disable seeding
-            'active_limit': 8,      # Total number of active torrents
-            'download_rate_limit': 0,  # Download speed limit (0 for unlimited)
-            'upload_rate_limit': 0,    # Upload speed limit (0 for unlimited)
-            'connections_limit': 200,   # Maximum number of connections
-            'alert_mask': lt.alert.category_t.all_categories,  # Enable all alerts
-            'enable_dht': True,         # Enable DHT
-            'enable_lsd': True,         # Enable Local Service Discovery
-            'enable_upnp': True,        # Enable UPnP
-            'enable_natpmp': True       # Enable NAT-PMP
-        }
+        # Initialize torrents dictionary
+        self.torrents = {}  # info_hash -> (torrent, info)
         
-        # Apply settings to session
+        # Set up session settings
+        settings = {
+            'enable_dht': True,
+            'enable_lsd': True,
+            'enable_upnp': True,
+            'enable_natpmp': True
+        }
         self.session.apply_settings(settings)
         
-        # Start DHT, LSD, and UPnP
-        self.session.start_dht()
-        self.session.start_lsd()
-        self.session.start_upnp()
-        self.session.start_natpmp()
+        # Get default download directory from database
+        self.save_path = self.db_manager.get_setting('default_download_dir')
+        if not self.save_path:
+            self.save_path = os.path.expanduser("~/Downloads")
+            self.db_manager.set_setting('default_download_dir', self.save_path)
         
-        self.session_thread = SessionThread(self.session)
-        self.session_thread.start()
-        
-        self.torrents = {}  # info_hash -> (torrent, info)
-        self.save_path = None
-        self.db = DatabaseManager()
-        # Set initial save path from database
-        self.save_path = self.db.get_default_download_dir()
-        logger.info(f"Initialized TorrentManager with save path: {self.save_path}")
+        self.logger.info(f"Initialized TorrentManager with save path: {self.save_path}")
         
         # Load saved torrents
         self._load_saved_torrents()
+        
+        # Optimize session settings
+        self._optimize_session_settings()
+        self._setup_bandwidth_management()
+        self._optimize_connections()
 
     def __del__(self):
         """Cleanup when the manager is destroyed"""
@@ -209,7 +205,7 @@ class TorrentManager:
     def _load_saved_torrents(self):
         """Load saved torrents from database"""
         try:
-            saved_torrents = self.db.get_all_torrents()
+            saved_torrents = self.db_manager.get_all_torrents()
             for torrent in saved_torrents:
                 try:
                     # Create torrent handle
@@ -239,42 +235,66 @@ class TorrentManager:
             raise
 
     def add_torrent(self, magnet_link: str) -> str:
-        """Add a new torrent from magnet link"""
+        """Add a new torrent from magnet link with optimized settings"""
         try:
             # Parse magnet link
             params = lt.parse_magnet_uri(magnet_link)
-            params.save_path = self.save_path
+            
+            # Create add_torrent_params
+            atp = lt.add_torrent_params()
+            
+            # Copy parameters from parsed magnet link
+            atp.ti = params.ti
+            atp.trackers = params.trackers
+            atp.info_hash = params.info_hash
+            atp.name = params.name
+            
+            # Set save path
+            atp.save_path = self.save_path
+            
+            # Set optimized piece selection
+            atp.flags |= lt.torrent_flags.sequential_download
+            
+            # Set per-torrent optimizations in params
+            atp.max_connections = 60
+            atp.max_uploads = -1
+            atp.upload_rate_limit = 0
+            atp.download_rate_limit = 0
             
             # Add to session
-            handle = self.session.add_torrent(params)
+            handle = self.session.add_torrent(atp)
+            
+            # Get info hash
             info_hash = str(handle.info_hash())
             
-            # Create initial torrent info object with placeholder values
-            torrent_info = TorrentInfo(
-                name="Loading...",
+            # Check if torrent already exists
+            if info_hash in self.torrents:
+                return info_hash
+            
+            # Create torrent info
+            info = TorrentInfo(
+                name=atp.name or "Loading...",
                 size="Calculating...",
                 status="Downloading Metadata",
                 save_path=self.save_path
             )
             
-            # Store in memory
-            self.torrents[info_hash] = (handle, torrent_info)
+            # Store in torrents dictionary
+            self.torrents[info_hash] = (handle, info)
             
-            # Save to database with initial values
-            self.db.add_torrent(
-                name="Loading...",
+            # Save to database with required parameters
+            self.db_manager.add_torrent(
+                name=info.name,
                 magnet_link=magnet_link,
                 info_hash=info_hash,
-                size=0,
+                size=0,  # Size will be updated when metadata is received
                 save_path=self.save_path
             )
             
-            logger.info(f"Added torrent with hash: {info_hash}")
             return info_hash
-            
         except Exception as e:
             logger.error(f"Error adding torrent: {e}")
-            return None
+            raise
 
     def get_torrent_info(self, hash: str) -> Optional[TorrentInfo]:
         """Get torrent info by hash"""
@@ -339,7 +359,7 @@ class TorrentManager:
                 del self.torrents[hash]
                 
                 # Remove from database
-                self.db.remove_torrent(hash)
+                self.db_manager.remove_torrent(hash)
                 
                 logger.info(f"Removed torrent: {info.name}")
                 return True
@@ -355,7 +375,7 @@ class TorrentManager:
             if not os.path.exists(path):
                 os.makedirs(path)
             self.save_path = path
-            self.db.set_setting('default_download_dir', path)
+            self.db_manager.set_setting('default_download_dir', path)
             logger.info(f"Save path updated to: {path} for new downloads")
         except Exception as e:
             logger.error(f"Error setting save path: {e}")
@@ -410,4 +430,139 @@ class TorrentManager:
             return None
         except Exception as e:
             logger.error(f"Error getting torrent by hash: {e}")
+            return None
+
+    def _optimize_session_settings(self):
+        """Apply optimized session settings for better performance"""
+        settings = {
+            'active_downloads': -1,  # Unlimited active downloads
+            'active_seeds': -1,      # Unlimited active seeds
+            'active_limit': -1,      # Unlimited active torrents
+            'connections_limit': 500, # Maximum number of connections
+            'tick_interval': 100,    # Milliseconds between main ticks
+            'cache_size': 1024 * 1024 * 1024,  # 1GB cache
+            'disk_io_read_mode': 2,  # Use asynchronous disk I/O
+            'disk_io_write_mode': 2, # Use asynchronous disk I/O
+            'alert_mask': lt.alert.category_t.all_categories,
+            'enable_dht': True,      # Enable DHT
+            'enable_lsd': True,      # Enable Local Service Discovery
+            'enable_upnp': True,     # Enable UPnP
+            'enable_natpmp': True,   # Enable NAT-PMP
+            'upload_rate_limit': 0,  # Unlimited upload rate
+            'download_rate_limit': 0, # Unlimited download rate
+            'dht_max_peers': 500,    # Maximum number of peers to store in DHT
+            'dht_max_fail_count': 20, # Maximum number of failed tries
+            'dht_max_torrents': 2000, # Maximum number of torrents to track
+            'dht_max_dht_items': 2000, # Maximum number of DHT items to store
+            'dht_search_branching': 10, # Search branching factor
+            'dht_max_peers_reply': 100, # Maximum peers to include in replies
+            'dht_restrict_routing_ips': True, # Restrict routing table IPs
+            'dht_max_torrent_search_reply': 20 # Maximum torrents in search replies
+        }
+        self.session.apply_settings(settings)
+
+        # Add well-known DHT bootstrap nodes
+        bootstrap_nodes = [
+            ("router.bittorrent.com", 6881),
+            ("dht.transmissionbt.com", 6881),
+            ("router.utorrent.com", 6881)
+        ]
+        for node in bootstrap_nodes:
+            self.session.add_dht_node(node)  # Pass the tuple directly
+
+    def _setup_bandwidth_management(self):
+        """Setup bandwidth management settings"""
+        settings = {
+            'upload_rate_limit': 0,    # Unlimited upload rate
+            'download_rate_limit': 0,   # Unlimited download rate
+            'connections_limit': 500,   # Maximum number of connections
+            'unchoke_slots_limit': 20,  # Number of upload slots
+            'mixed_mode_algorithm': 1   # Use rate based choking algorithm
+        }
+        self.session.apply_settings(settings)
+
+    def _optimize_connections(self):
+        """Optimize connection settings for better peer discovery"""
+        settings = {
+            'connections_limit': 500,
+            'connection_speed': 200,
+            'peer_connect_timeout': 2,
+            'request_timeout': 10,
+            'peer_timeout': 20,
+            'inactivity_timeout': 20,
+            'enable_incoming_utp': True,
+            'enable_outgoing_utp': True,
+            'enable_incoming_tcp': True,
+            'enable_outgoing_tcp': True,
+            'max_peerlist_size': 4000,
+            'max_paused_peerlist_size': 4000,
+            'min_reconnect_time': 2,
+            'peer_timeout': 20,
+            'max_failcount': 20
+        }
+        self.session.apply_settings(settings)
+
+    def update_torrent_info(self, handle: lt.torrent_handle) -> TorrentInfo:
+        """Update torrent information from handle"""
+        try:
+            info = TorrentInfo(
+                name="Loading...",
+                size="Calculating...",
+                status="Downloading Metadata",
+                save_path=self.save_path
+            )
+            
+            # Get torrent metadata if available
+            status = handle.status()
+            if status.has_metadata:
+                torrent_info = handle.get_torrent_info()
+                if torrent_info:
+                    info.name = torrent_info.name()
+                    info.size = self._format_size(torrent_info.total_size())
+            
+            # Update status and progress
+            info.progress = status.progress * 100
+            info.download_speed = self._format_speed(status.download_rate)
+            info.upload_speed = self._format_speed(status.upload_rate)
+            info.seeds = status.num_seeds
+            info.peers = status.num_peers
+            info.error = str(status.error) if status.error else ""
+            
+            # Calculate ETA
+            if status.state == lt.torrent_status.downloading and status.download_rate > 0:
+                try:
+                    torrent_info = handle.get_torrent_info()
+                    if torrent_info:
+                        remaining_bytes = torrent_info.total_size() * (1 - status.progress)
+                        eta_seconds = remaining_bytes / status.download_rate
+                        info.eta = self._format_time(eta_seconds)
+                    else:
+                        info.eta = "Unknown"
+                except Exception:
+                    info.eta = "Unknown"
+            elif status.state == lt.torrent_status.seeding:
+                info.eta = "Seeding"
+            elif status.state == lt.torrent_status.paused:
+                info.eta = "Paused"
+            else:
+                info.eta = "Unknown"
+            
+            return info
+        except Exception as e:
+            logger.error(f"Error updating torrent info: {e}")
+            return None
+
+    def get_session_stats(self):
+        """Get session statistics"""
+        try:
+            status = self.session.status()
+            return {
+                'download_rate': status.download_rate,
+                'upload_rate': status.upload_rate,
+                'total_download': status.total_download,
+                'total_upload': status.total_upload,
+                'num_peers': status.num_peers
+            }
+        except Exception as e:
+            logger.error(f"Error getting session stats: {e}")
             return None 

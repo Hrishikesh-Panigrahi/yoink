@@ -2,11 +2,12 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
-from .models import Base, Torrent, TorrentFile
-import os
-import logging
 from datetime import datetime
-from utils.logger import setup_logger
+import os
+from pathlib import Path
+from typing import Optional, List, Dict
+from src.utils.logger import setup_logger
+from .models import Base, Torrent, TorrentFile
 
 # Set up logger
 logger = setup_logger('database')
