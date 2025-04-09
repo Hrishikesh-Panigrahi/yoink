@@ -1,21 +1,32 @@
+import os
 import sys
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QPushButton, QLineEdit, QTableWidget, QTableWidgetItem,
-                             QHeaderView, QLabel, QProgressBar, QMenu, QMessageBox, QStatusBar,
-                             QSpinBox, QTabWidget, QFileDialog, QDialog, QFrame)
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
-from PyQt6.QtGui import QIcon, QAction
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, Dict, List, Tuple
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLineEdit, QLabel, QTableWidget,
+    QTableWidgetItem, QHeaderView, QMessageBox,
+    QFileDialog, QProgressBar, QComboBox, QSpinBox,
+    QDialog, QFormLayout, QCheckBox, QGroupBox,
+    QSplitter, QTabWidget, QTextEdit, QMenu, QMenuBar,
+    QStatusBar, QToolBar, QStyle, QApplication, QFrame
+)
+from PyQt6.QtCore import (
+    Qt, QThread, pyqtSignal, QTimer, QSize,
+    QPoint, QSettings, QUrl
+)
+from PyQt6.QtGui import (
+    QIcon, QAction, QFont, QPalette, QColor,
+    QPixmap, QDragEnterEvent, QDropEvent
+)
+
 from core.torrent_manager import TorrentManager
 from database.database import DatabaseManager
 from utils.search import SearchUtil, SearchResult
-from .loading_dialog import LoadingDialog
-import os
-import logging
-from PyQt6.QtWidgets import QApplication
-from utils.logger import setup_logger
-import threading
 from utils.loader import Loader
-from pathlib import Path
+from utils.logger import setup_logger
 
 # Set up logger
 logger = setup_logger('main_window')
@@ -46,13 +57,27 @@ class TorrentUpdateWorker(QThread):
     def __init__(self, torrent_manager):
         super().__init__()
         self.torrent_manager = torrent_manager
+        self._is_running = True
+        self._update_interval = 1000  # 1 second interval
 
     def run(self):
-        try:
-            torrents = self.torrent_manager.get_all_torrents()
-            self.finished.emit(torrents)
-        except Exception as e:
-            self.error.emit(str(e))
+        while self._is_running:
+            try:
+                torrents = self.torrent_manager.get_all_torrents()
+                self.finished.emit(torrents)
+            except Exception as e:
+                self.error.emit(str(e))
+            
+            # Sleep for the update interval
+            self.msleep(self._update_interval)
+
+    def stop(self):
+        """Stop the worker thread"""
+        self._is_running = False
+
+    def set_update_interval(self, interval_ms: int):
+        """Set the update interval in milliseconds"""
+        self._update_interval = interval_ms
 
 class NetworkSpeedWorker(QThread):
     """Worker thread for checking network speed"""
@@ -114,7 +139,12 @@ class MainWindow(QMainWindow):
         # Search state
         self.is_searching = False
         self.search_worker = None
-        self.update_worker = None
+        
+        # Initialize update worker
+        self.update_worker = TorrentUpdateWorker(self.torrent_manager)
+        self.update_worker.finished.connect(self.on_update_completed)
+        self.update_worker.error.connect(self.on_update_error)
+        self.update_worker.start()
         
         # Network speed worker
         self.network_speed_worker = None
@@ -123,13 +153,12 @@ class MainWindow(QMainWindow):
         self.loader.progress_updated.connect(self.update_status)
         self.loader.loading_finished.connect(self.on_loading_finished)
         
-        self.setup_ui()
-        self.setup_timer()
+        # Network speed timer
+        self.speed_timer = QTimer()
+        self.speed_timer.timeout.connect(self.check_network_speed)
+        self.speed_timer.start(3000)  # Update every 3 seconds
         
-        # Set up torrent list update timer
-        self.torrent_update_timer = QTimer()
-        self.torrent_update_timer.timeout.connect(self.update_torrent_list)
-        self.torrent_update_timer.start(2000)  # Update every 2 seconds
+        self.setup_ui()
         
         # Start network speed monitoring
         self.start_network_speed_monitoring()
@@ -320,18 +349,73 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(f"Download Directory: {self.download_dir}")
         
-    def setup_timer(self):
-        """Set up timer for updating torrent list"""
-        logger.debug("Setting up update timer")
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.update_torrent_list)
-        self.update_timer.start(2000)  # Refresh every 2 seconds
-        
-        # Set up network speed check timer
-        self.speed_check_timer = QTimer()
-        self.speed_check_timer.timeout.connect(self.check_network_speed)
-        self.speed_check_timer.start(30000)  # Check every 30 seconds
-        
+    def batch_update_ui(self):
+        """Batch update UI elements to reduce CPU usage"""
+        try:
+            # Get all torrents
+            torrents = self.torrent_manager.get_all_torrents()
+            
+            # Prepare batch updates
+            updates = []
+            for hash, info in torrents:
+                updates.append({
+                    'hash': hash,
+                    'progress': info.progress,
+                    'speed': info.download_speed,
+                    'status': info.status,
+                    'seeds': info.seeds,
+                    'peers': info.peers,
+                    'eta': info.eta
+                })
+            
+            # Apply batch updates
+            self.apply_batch_updates(updates)
+            
+        except Exception as e:
+            logger.error(f"Error in batch UI update: {e}")
+
+    def apply_batch_updates(self, updates):
+        """Apply batched updates to the UI"""
+        try:
+            # Update torrent list
+            for row in range(self.downloads_table.rowCount()):
+                hash_item = self.downloads_table.item(row, 0)
+                if hash_item:
+                    hash = hash_item.text()
+                    update = next((u for u in updates if u['hash'] == hash), None)
+                    if update:
+                        # Update progress
+                        progress_item = self.downloads_table.cellWidget(row, 2)
+                        if progress_item:
+                            progress_item.setValue(int(update['progress']))
+                        
+                        # Update speed
+                        speed_item = self.downloads_table.item(row, 3)
+                        if speed_item:
+                            speed_item.setText(update['speed'])
+                        
+                        # Update status
+                        status_item = self.downloads_table.item(row, 6)
+                        if status_item:
+                            status_item.setText(update['status'])
+                        
+                        # Update seeds/peers
+                        seeds_item = self.downloads_table.item(row, 5)
+                        if seeds_item:
+                            seeds_item.setText(str(update['seeds']))
+                        
+                        peers_item = self.downloads_table.item(row, 6)
+                        if peers_item:
+                            peers_item.setText(str(update['peers']))
+                        
+                        # Update ETA
+                        eta_item = self.downloads_table.item(row, 7)
+                        if eta_item:
+                            eta_item.setText(update['eta'])
+            
+        except Exception as e:
+            logger.error(f"Error applying batch updates: {e}")
+
     def search_torrents(self):
         """Search for torrents in background thread"""
         if self.is_searching:
@@ -522,50 +606,20 @@ class MainWindow(QMainWindow):
             logger.info(f"Loading page {self.current_page} for query: {self.current_query}")
             self.status_bar.showMessage(f"Loading page {self.current_page}...")
             
-            self.load_current_page_results()
-            
-            self.update_pagination_controls()
-            self.status_bar.showMessage(f"Page {self.current_page} of {self.total_pages}")
-            
-        except Exception as e:
-            logger.error(f"Error loading page: {str(e)}")
-            self.status_bar.showMessage("Failed to load page")
-            QMessageBox.critical(self, "Page Load Error", f"Failed to load page: {str(e)}")
-            
-        finally:
-            self.is_searching = False
-            self.search_button.setEnabled(True)
-            self.search_input.setEnabled(True)
-            
-    def load_current_page_results(self):
-        """Load the current page of results"""
-        if not self.current_query or self.is_searching:
-            return
-            
-        try:
-            self.is_searching = True
-            self.search_button.setEnabled(False)
-            self.search_input.setEnabled(False)
-            
-            logger.info(f"Loading page {self.current_page} for query: {self.current_query}")
-            self.status_bar.showMessage(f"Loading page {self.current_page}...")
-            
-            results, _, _ = self.search_util.search_torrents(self.current_query, self.current_page)
-            self.show_search_results(results)
-            
-            self.update_pagination_controls()
-            self.status_bar.showMessage(f"Page {self.current_page} of {self.total_pages}")
+            # Create and start search worker for the new page
+            self.search_worker = SearchWorker(self.search_util, self.current_query, self.current_page)
+            self.search_worker.finished.connect(self.on_search_completed)
+            self.search_worker.error.connect(self.on_search_error)
+            self.search_worker.start()
             
         except Exception as e:
             logger.error(f"Error loading page: {str(e)}")
             self.status_bar.showMessage("Failed to load page")
             QMessageBox.critical(self, "Page Load Error", f"Failed to load page: {str(e)}")
-            
-        finally:
             self.is_searching = False
             self.search_button.setEnabled(True)
             self.search_input.setEnabled(True)
-            
+
     def download_torrent(self, row: int):
         """Add torrent to download list"""
         try:
@@ -761,44 +815,45 @@ class MainWindow(QMainWindow):
         menu.exec(self.downloads_table.mapToGlobal(position))
 
     def check_network_speed(self):
-        """Check network speed using libtorrent session"""
+        """Check network speed with reduced frequency"""
         try:
             # Get session status
             status = self.torrent_manager.session.status()
-            
-            # Calculate speeds
-            download_speed = status.download_rate / 1024  # Convert to KB/s
-            upload_speed = status.upload_rate / 1024     # Convert to KB/s
-            
-            # Format speeds
-            download_str = f"{download_speed:.1f} KB/s" if download_speed < 1024 else f"{download_speed/1024:.1f} MB/s"
-            upload_str = f"{upload_speed:.1f} KB/s" if upload_speed < 1024 else f"{upload_speed/1024:.1f} MB/s"
-            
-            # Update label
-            self.network_speed_label.setText(f"↓ {download_str} | ↑ {upload_str}")
-            
-            # Update style based on speed
-            if download_speed > 1024:  # If download speed > 1 MB/s
-                self.network_speed_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #dcfce7;
-                        color: #166534;
-                        padding: 3px 6px;
-                        border-radius: 4px;
-                        font-size: 10px;
-                    }
-                """)
-            else:
-                self.network_speed_label.setStyleSheet("""
-                    QLabel {
-                        background-color: #f3f4f6;
-                        color: #374151;
-                        padding: 3px 6px;
-                        border-radius: 4px;
-                        font-size: 10px;
-                    }
-                """)
+            if status:
+                download_speed = status.download_rate / 1024  # Convert to KB/s
+                upload_speed = status.upload_rate / 1024     # Convert to KB/s
                 
+                # Format speeds
+                download_str = f"{download_speed:.1f} KB/s" if download_speed < 1024 else f"{download_speed/1024:.1f} MB/s"
+                upload_str = f"{upload_speed:.1f} KB/s" if upload_speed < 1024 else f"{upload_speed/1024:.1f} MB/s"
+                
+                # Update label
+                self.network_speed_label.setText(f"↓ {download_str} | ↑ {upload_str}")
+                
+                # Update style based on speed
+                if download_speed > 1024:  # If download speed > 1 MB/s
+                    self.network_speed_label.setStyleSheet("""
+                        QLabel {
+                            background-color: #dcfce7;
+                            color: #166534;
+                            padding: 3px 6px;
+                            border-radius: 4px;
+                            font-size: 10px;
+                        }
+                    """)
+                else:
+                    self.network_speed_label.setStyleSheet("""
+                        QLabel {
+                            background-color: #f3f4f6;
+                            color: #374151;
+                            padding: 3px 6px;
+                            border-radius: 4px;
+                            font-size: 10px;
+                        }
+                    """)
+            else:
+                raise Exception("Failed to get session status")
+            
         except Exception as e:
             logger.error(f"Error checking network speed: {e}")
             self.network_speed_label.setText("Network Speed: Error")
@@ -874,6 +929,16 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
+        # Stop update worker
+        if self.update_worker:
+            self.update_worker.stop()
+            self.update_worker.wait()
+        
         # Stop network speed monitoring
         self.stop_network_speed_monitoring()
+        
+        # Stop timers
+        self.speed_timer.stop()
+        
+        # Accept the close event
         event.accept() 
