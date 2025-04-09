@@ -1,0 +1,45 @@
+# Torrent App AI Assistant Rules
+
+## Environment Setup
+- Always run the application in a Python virtual environment
+- Create virtual environment using: `python3 -m venv venv`
+- Activate virtual environment before running: `source venv/bin/activate`
+- Install dependencies in virtual environment: `pip install -r requirements.txt`
+- Never run the application without activating the virtual environment
+
+## Code Style
+- Follow PEP 8 guidelines for Python code
+- Use type hints where possible
+- Keep functions focused and single-purpose
+- Document all public functions and classes
+
+## Project Structure
+- Keep GUI code in the `gui` directory
+- Database operations in the `database` directory
+- Core torrent functionality in the `core` directory
+- Utility functions in the `utils` directory
+
+## Testing
+- Write unit tests for core functionality
+- Test GUI components separately
+- Include error handling tests
+
+## Documentation
+- Keep README.md up to date
+- Document all API changes
+- Include examples for common operations
+
+## Security
+- Never expose API keys in code
+- Validate all user inputs
+- Handle file paths securely
+
+## Performance
+- Use async operations for network calls
+- Optimize database queries
+- Cache frequently accessed data
+
+## Error Handling
+- Log all errors with appropriate context
+- Provide user-friendly error messages
+- Handle network errors gracefully 

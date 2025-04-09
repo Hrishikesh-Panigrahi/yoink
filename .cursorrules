@@ -1,0 +1,31 @@
+{
+    "projectName": "Torrent App",
+    "language": "python",
+    "formatOnSave": true,
+    "pythonPath": "venv/bin/python",
+    "linter": "pylint",
+    "ignorePatterns": [
+        "venv/",
+        "dist/",
+        "build/",
+        "*.pyc",
+        "__pycache__/",
+        "*.db",
+        "logs/"
+    ],
+    "search": {
+        "excludePatterns": [
+            "venv/",
+            "dist/",
+            "build/",
+            "*.pyc",
+            "__pycache__/"
+        ]
+    },
+    "editor": {
+        "tabSize": 4,
+        "insertSpaces": true,
+        "rulers": [80, 100],
+        "wordWrap": "off"
+    }
+} 
