@@ -88,7 +88,10 @@ class TorrentManager:
                         logger.info(f"Created save directory: {torrent.save_path}")
                     
                     # Add to session
-                    self.session.add_torrent(params)
+                    handle = self.session.add_torrent(params)
+                    
+                    # Store handle in TorrentOperations
+                    self.torrent_operations.torrents[torrent.info_hash] = handle
                     
                 except Exception as e:
                     logger.error(f"Error loading torrent {torrent.name}: {e}")
