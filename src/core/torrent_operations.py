@@ -5,6 +5,7 @@ import logging
 import libtorrent as lt
 from typing import Dict, Optional, Union, List
 from pathlib import Path
+from PyQt6.QtCore import QTimer
 
 from src.core.interfaces.torrent_operations import ITorrentOperations
 from src.core.interfaces.torrent_session import ITorrentSession
@@ -52,37 +53,55 @@ class TorrentOperations(ITorrentOperations):
                 raise ValueError("Invalid magnet link format")
             
             # Set up save path
-            target_save_path = save_path or self.save_path
-            if not os.path.exists(target_save_path):
-                os.makedirs(target_save_path)
-                logger.info(f"Created save directory: {target_save_path}")
+            if not save_path:
+                save_path = self.save_path
             
-            # Create torrent params
-            params = lt.parse_magnet_uri(magnet_link)
-            params.save_path = target_save_path
+            # Create save directory if it doesn't exist
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+                logger.info(f"Created save directory: {save_path}")
             
             # Add torrent to session
+            params = lt.parse_magnet_uri(magnet_link)
+            params.save_path = save_path
             handle = self.session.add_torrent(params)
             
-            # Extract info hash
+            # Get info hash
             info_hash = str(handle.info_hash()).lower()
             
-            # Store handle in dictionary
+            # Store handle
             self.torrents[info_hash] = handle
             
-            # Add to database once we have metadata
+            # Add to database if we have metadata
             if handle.has_metadata():
-                self._add_to_database(handle, magnet_link, target_save_path)
+                self._add_to_database(handle, magnet_link, save_path)
             else:
-                # Set up metadata received callback via alert system
+                # Enable metadata receiving alerts
+                self.session.apply_settings({'alert_mask': lt.alert.category_t.status_notification})
+                
+                # Set up metadata received alert handler
+                def check_metadata():
+                    alerts = self.session.pop_alerts()
+                    for alert in alerts:
+                        if isinstance(alert, lt.metadata_received_alert):
+                            if alert.handle.info_hash() == handle.info_hash():
+                                self._add_to_database(alert.handle, magnet_link, save_path)
+                                return True
+                    return False
+                
+                # Start a timer to check for metadata
+                timer = QTimer()
+                timer.timeout.connect(lambda: check_metadata() and timer.stop())
+                timer.start(1000)  # Check every second
+                
                 logger.debug(f"Waiting for metadata for torrent: {info_hash}")
             
             logger.info(f"Torrent added successfully with hash: {info_hash}")
             return info_hash
             
         except Exception as e:
-            logger.error(f"Error adding torrent: {str(e)}", exc_info=True)
-            raise ValueError(f"Failed to add torrent: {str(e)}") from e
+            logger.error(f"Error adding torrent: {e}", exc_info=True)
+            raise
     
     def add_torrent_file(self, torrent_file_path: Union[str, Path], save_path: Optional[str] = None) -> str:
         """Add a torrent via torrent file.
@@ -395,9 +414,10 @@ class TorrentOperations(ITorrentOperations):
                     'size': file_entry.size
                 })
             
+            # Add files to database
             self.db_manager.add_torrent_files(info_hash, files)
             
-            logger.debug(f"Added torrent {info.name()} to database")
+            logger.info(f"Added torrent to database: {info.name()}")
             
         except Exception as e:
-            logger.error(f"Error adding torrent to database: {str(e)}", exc_info=True) 
+            logger.error(f"Error adding torrent to database: {e}", exc_info=True) 
