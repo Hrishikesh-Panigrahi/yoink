@@ -15,22 +15,24 @@ def setup_logger(name, log_file=None, level=logging.INFO):
     Returns:
         Logger instance
     """
-    # Create logger
+    # Get or create logger
     logger = logging.getLogger(name)
+    
+    # If logger is already configured, return it
+    if logger.hasHandlers():
+        return logger
+        
+    # Set level
     logger.setLevel(level)
     
     # Create formatters
-    console_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    file_formatter = logging.Formatter(
+    formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
     # Create console handler
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(console_formatter)
+    console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
     # Create file handler if log_file is provided
@@ -44,7 +46,7 @@ def setup_logger(name, log_file=None, level=logging.INFO):
         file_handler = RotatingFileHandler(
             log_file, maxBytes=5*1024*1024, backupCount=5
         )
-        file_handler.setFormatter(file_formatter)
+        file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     
     return logger 
