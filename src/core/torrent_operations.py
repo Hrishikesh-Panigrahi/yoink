@@ -195,8 +195,7 @@ class TorrentOperations(ITorrentOperations):
                 pass
             
             # Remove from session
-            option = lt.session.delete_files if delete_files else lt.session.none
-            self.session.remove_torrent(handle, option)
+            self.session.remove_torrent(handle, int(delete_files))
             
             # Remove from dictionary
             self.torrents.pop(info_hash, None)

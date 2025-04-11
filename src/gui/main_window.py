@@ -679,25 +679,46 @@ class MainWindow(QMainWindow):
         try:
             info = self.torrent_manager.get_torrent_info(hash)
             if info:
-                reply = QMessageBox.question(
-                    self,
-                    "Delete Torrent",
-                    f"Do you want to delete {info.name}?\nThis will also delete the downloaded files.",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No
-                )
+                # Create a custom message box with options
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Delete Torrent")
+                msg_box.setText(f"Do you want to delete {info.name}?")
                 
-                if reply == QMessageBox.StandardButton.Yes:
-                    logger.info(f"Deleting torrent: {info.name}")
+                # Add buttons for the two options
+                delete_all_button = msg_box.addButton("Delete Files and Torrent", QMessageBox.ButtonRole.ActionRole)
+                delete_torrent_only_button = msg_box.addButton("Delete Torrent Only", QMessageBox.ButtonRole.ActionRole)
+                cancel_button = msg_box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+                
+                # Set default button
+                msg_box.setDefaultButton(cancel_button)
+                
+                # Show the dialog and get the response
+                msg_box.exec()
+                
+                clicked_button = msg_box.clickedButton()
+                
+                if clicked_button == delete_all_button:
+                    # Delete both files and torrent
+                    logger.info(f"Deleting torrent and files: {info.name}")
                     if self.torrent_manager.remove_torrent(hash, delete_files=True):
-                        self.status_bar.showMessage(f"Deleted: {info.name}")
+                        self.status_bar.showMessage(f"Deleted torrent and files: {info.name}")
+                        self.update_torrent_list()
+                    else:
+                        raise Exception("Failed to delete torrent and files")
+                elif clicked_button == delete_torrent_only_button:
+                    # Delete torrent only
+                    logger.info(f"Deleting torrent only: {info.name}")
+                    if self.torrent_manager.remove_torrent(hash, delete_files=False):
+                        self.status_bar.showMessage(f"Deleted torrent only: {info.name}")
                         self.update_torrent_list()
                     else:
                         raise Exception("Failed to delete torrent")
+                # If cancel was clicked, do nothing
+                
         except Exception as e:
             logger.error(f"Error deleting torrent: {str(e)}")
             QMessageBox.critical(self, "Delete Error", f"Failed to delete: {str(e)}")
-            
+
     def format_size(self, bytes: int) -> str:
         """Format size in human-readable format"""
         if bytes < 1024:
