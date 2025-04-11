@@ -214,17 +214,20 @@ class DatabaseManager:
     def set_setting(self, key: str, value: str):
         """Set setting value"""
         try:
-            setting = self.get_session().query(Setting).filter_by(key=key).first()
-            if setting:
-                setting.value = value
-            else:
-                setting = Setting(key=key, value=value)
-                self.get_session().add(setting)
-            self.get_session().commit()
-            logger.info(f"Setting updated: {key}={value}")
+            with self.get_session() as session:
+                setting = session.query(Setting).filter_by(key=key).first()
+                if setting:
+                    if setting.value != value:
+                        setting.value = value
+                        session.commit()
+                        logger.info(f"Setting updated: {key}={value}")
+                else:
+                    setting = Setting(key=key, value=value)
+                    session.add(setting)
+                    session.commit()
+                    logger.info(f"Setting created: {key}={value}")
         except Exception as e:
             logger.error(f"Error setting {key}={value}: {e}")
-            self.get_session().rollback()
             raise
 
     def add_download(self, name: str, magnet: str, size: str, save_path: str) -> int:
