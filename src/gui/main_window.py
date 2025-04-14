@@ -304,8 +304,30 @@ class MainWindow(QMainWindow):
             }
         """)
         
+        # Add torrent from file button
+        self.add_torrent_button = QPushButton("Add Torrent File")
+        self.add_torrent_button.setToolTip("Add a torrent from a .torrent file")
+        self.add_torrent_button.clicked.connect(self.add_torrent_from_magnet_file)
+        self.add_torrent_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4f46e5;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4338ca;
+            }
+            QPushButton:pressed {
+                background-color: #3730a3;
+            }
+        """)
+        
         dir_layout.addWidget(self.dir_label, stretch=1)
         dir_layout.addWidget(change_dir_button)
+        dir_layout.addWidget(self.add_torrent_button)
         
         downloads_layout.addWidget(dir_selector)
         
@@ -925,7 +947,6 @@ class MainWindow(QMainWindow):
         if self.network_speed_worker is not None:
             self.network_speed_worker.stop()
             self.network_speed_worker.wait()
-            self.network_speed_worker = None
 
     def update_network_speed_label(self, download_speed: float, upload_speed: float):
         """Update the network speed label with new speeds"""
@@ -971,6 +992,35 @@ class MainWindow(QMainWindow):
                 font-size: 10px;
             }
         """)
+
+    def add_torrent_from_magnet_file(self):
+        """Open a dialog to select a .torrent file and add the torrent"""
+        try:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Torrent File",
+                "",
+                "Torrent Files (*.torrent);;All Files (*.*)"
+            )
+            
+            if file_path:
+                # Set the save path in torrent manager before adding
+                self.torrent_manager.set_save_path(self.download_dir)
+                hash = self.torrent_manager.add_torrent_file(file_path)
+                
+                if hash:
+                    self.status_bar.showMessage("Added torrent from file")
+                    self.update_torrent_list()
+                else:
+                    raise Exception("Failed to add torrent")
+                    
+        except Exception as e:
+            logger.error(f"Error adding torrent from file: {e}")
+            QMessageBox.critical(
+                self,
+                "Add Torrent Error",
+                f"Failed to add torrent from file:\n{str(e)}"
+            )
 
     def closeEvent(self, event):
         """Handle window close event"""
