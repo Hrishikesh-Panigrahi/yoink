@@ -78,17 +78,31 @@ class TorrentManager:
                 try:
                     logger.debug(f"Loading torrent: {torrent.name}")
                     
-                    # Add torrent back to session
-                    params = lt.parse_magnet_uri(torrent.magnet_link)
-                    params.save_path = torrent.save_path
-                    
                     # Check if save path exists
                     if not os.path.exists(torrent.save_path):
                         os.makedirs(torrent.save_path)
                         logger.info(f"Created save directory: {torrent.save_path}")
                     
-                    # Add to session
-                    handle = self.session.add_torrent(params)
+                    # Check if it's a magnet link or torrent file
+                    if torrent.magnet_link.startswith('magnet:'):
+                        # Add magnet link
+                        params = lt.parse_magnet_uri(torrent.magnet_link)
+                        params.save_path = torrent.save_path
+                        handle = self.session.add_torrent(params)
+                    else:
+                        # Add from torrent file if it exists
+                        file_path = torrent.magnet_link
+                        if os.path.exists(file_path):
+                            with open(file_path, 'rb') as f:
+                                torrent_data = f.read()
+                            info = lt.torrent_info(lt.bdecode(torrent_data))
+                            params = lt.add_torrent_params()
+                            params.ti = info
+                            params.save_path = torrent.save_path
+                            handle = self.session.add_torrent(params)
+                        else:
+                            logger.warning(f"Torrent file not found: {file_path}")
+                            continue
                     
                     # Store handle in TorrentOperations
                     self.torrent_operations.torrents[torrent.info_hash] = handle

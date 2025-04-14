@@ -1,108 +1,90 @@
+"""Search functionality for torrents."""
+
+import logging
 import requests
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
-import time
-import logging
 from datetime import datetime
-from .logger import setup_logger
 from urllib.parse import quote
-from functools import lru_cache
 
-# Set up logger
+from src.utils.logger import setup_logger
+from src.utils.pirate_bay import PirateBayAPI, PirateBayTorrent
+from src.utils.yts_api import YTSAPI, YTSTorrent
+
 logger = setup_logger('search')
 
 @dataclass
 class SearchResult:
-    """Data class to store search result information"""
+    """Represents a search result from any source."""
     title: str
     size: str
     seeds: int
-    leeches: int
-    upload_date: str
-    magnet_link: str
+    peers: int
+    date: str
     source: str
-    category: str = "All"
-    verified: bool = False
+    magnet_url: str
+    quality: Optional[str] = None
+    year: Optional[int] = None
+    rating: Optional[float] = None
 
 class SearchUtil:
-    """Utility class for searching torrents using The Pirate Bay API"""
+    """Handles searching across multiple torrent sources."""
     
     def __init__(self):
-        self.base_url = "https://apibay.org"
-        self.last_request_time = 0
-        self.min_request_interval = 1.0  # Minimum time between requests in seconds
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
-
-    def _rate_limit(self):
-        """Implement rate limiting"""
-        current_time = time.time()
-        time_since_last_request = current_time - self.last_request_time
-        if time_since_last_request < self.min_request_interval:
-            time.sleep(self.min_request_interval - time_since_last_request)
-        self.last_request_time = time.time()
-
-    @lru_cache(maxsize=100)
-    def search_torrents(self, query: str, page: int = 1) -> Tuple[List[SearchResult], int, int]:
-        """Search for torrents with caching"""
-        if not query.strip():
-            return [], 0, 0
+        """Initialize search utilities."""
+        self.pirate_bay = PirateBayAPI()
+        self.yts = YTSAPI()
+    
+    def search_torrents(self, query: str, page: int = 1, limit: int = 20) -> Tuple[List[SearchResult], int, int]:
+        """Search for torrents across all sources.
+        
+        Args:
+            query: Search query
+            page: Page number (1-based)
+            limit: Results per page
             
+        Returns:
+            Tuple of (results, total_results, total_pages)
+        """
         try:
-            self._rate_limit()
+            # Search both sources
+            pirate_results = self.pirate_bay.search(query, page, limit)
+            yts_results = self.yts.search_movies(query, limit)
             
-            # Search endpoint - using the correct endpoint and parameters
-            search_url = f"{self.base_url}/q.php"
-            params = {
-                'q': query,
-                'cat': '0',  # All categories
-                'page': str(page),
-                'limit': '30'
-            }
+            # Convert YTS results to SearchResult objects
+            yts_search_results = [
+                SearchResult(
+                    title=torrent.title,
+                    size=torrent.size,
+                    seeds=torrent.seeds,
+                    peers=torrent.peers,
+                    date=datetime.now().strftime("%Y-%m-%d"),
+                    source=torrent.source,
+                    magnet_url=torrent.magnet_url,
+                    quality=torrent.quality,
+                    year=torrent.year,
+                    rating=torrent.rating
+                )
+                for torrent in yts_results
+            ]
             
-            response = self.session.get(search_url, params=params, timeout=10)
-            response.raise_for_status()
+            # Combine and sort all results by seeds
+            all_results = pirate_results + yts_search_results
+            all_results.sort(key=lambda x: (x.seeds, x.peers), reverse=True)
             
-            data = response.json()
-            if not isinstance(data, list):
-                logger.error(f"Invalid response format: {data}")
-                return [], 0, 0
-                
-            results = []
-            for item in data:
-                try:
-                    # Skip if no info hash
-                    if 'info_hash' not in item:
-                        continue
-                        
-                    magnet = self._build_magnet_link(item['info_hash'], item['name'])
-                    result = SearchResult(
-                        title=item['name'],
-                        size=self._format_size(int(item['size'])),
-                        seeds=int(item['seeders']),
-                        leeches=int(item['leechers']),
-                        upload_date=datetime.fromtimestamp(int(item['added'])).strftime('%Y-%m-%d %H:%M:%S'),
-                        source="The Pirate Bay",
-                        magnet_link=magnet
-                    )
-                    results.append(result)
-                except Exception as e:
-                    logger.error(f"Error parsing search result: {e}")
-                    continue
-                    
-            # Estimate total results and pages
-            total_results = len(data) * 10  # Rough estimate
-            total_pages = (total_results + 29) // 30  # Ceiling division
+            # Calculate pagination
+            total_results = len(all_results)
+            total_pages = (total_results + limit - 1) // limit
             
-            return results, total_results, total_pages
+            # Apply pagination
+            start_idx = (page - 1) * limit
+            end_idx = start_idx + limit
+            paginated_results = all_results[start_idx:end_idx]
             
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Search request failed: {e}")
-            return [], 0, 0
+            return paginated_results, total_results, total_pages
+            
         except Exception as e:
-            logger.error(f"Search error: {e}")
+            logger.error(f"Error searching torrents: {str(e)}")
             return [], 0, 0
 
     def _build_magnet_link(self, info_hash: str, name: str) -> str:

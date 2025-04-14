@@ -225,20 +225,25 @@ class MainWindow(QMainWindow):
         
         # Search results table
         self.search_table = QTableWidget()
-        self.search_table.setColumnCount(7)
-        self.search_table.setHorizontalHeaderLabels(["Name", "Size", "Seeds", "Peers", "Upload Date", "Source", "Actions"])
-        
-        # Set column widths for search table
-        self.search_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Name
-        self.search_table.setColumnWidth(1, 100)  # Size
-        self.search_table.setColumnWidth(2, 60)   # Seeds
-        self.search_table.setColumnWidth(3, 60)   # Peers
-        self.search_table.setColumnWidth(4, 120)  # Upload Date
-        self.search_table.setColumnWidth(5, 80)   # Source
-        self.search_table.setColumnWidth(6, 150)  # Actions
-        
+        self.search_table.setColumnCount(9)
+        self.search_table.setHorizontalHeaderLabels([
+            "Title", "Size", "Seeds", "Peers", "Date", "Source", "Magnet", "Quality", "Rating"
+        ])
+        self.search_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.search_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)
+        self.search_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.search_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.search_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.search_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.search_table.customContextMenuRequested.connect(self.show_search_context_menu)
+        self.search_table.cellDoubleClicked.connect(self.download_torrent)
         search_layout.addWidget(self.search_table)
         
         # Add pagination controls
@@ -439,43 +444,66 @@ class MainWindow(QMainWindow):
             logger.error(f"Error applying batch updates: {e}")
 
     def search_torrents(self):
-        """Search for torrents in background thread"""
-        if self.is_searching:
-            return
-
-        query = self.search_input.text().strip()
-        if not query:
-            self.status_bar.showMessage("Please enter a search query")
-            return
-
-        logger.info(f"Searching for: {query}")
-        self.current_query = query
-        self.is_searching = True
-        self.search_button.setEnabled(False)
-        self.status_bar.showMessage("Searching...")
-
-        # Create and start search worker
-        self.search_worker = SearchWorker(self.search_util, query, self.current_page)
-        self.search_worker.finished.connect(self.on_search_completed)
-        self.search_worker.error.connect(self.on_search_error)
-        self.search_worker.start()
+        """Search for torrents based on user input."""
+        try:
+            query = self.search_input.text().strip()
+            if not query:
+                QMessageBox.warning(self, "Search Error", "Please enter a search query")
+                return
+            
+            logger.info(f"Starting search for: {query}")
+            self.current_query = query
+            self.current_page = 1
+            self.is_searching = True
+            self.search_button.setEnabled(False)
+            self.search_input.setEnabled(False)
+            self.status_bar.showMessage("Searching...")
+            
+            # Create and start search worker
+            self.search_worker = SearchWorker(self.search_util, query)
+            self.search_worker.finished.connect(self.on_search_completed)
+            self.search_worker.error.connect(self.on_search_error)
+            self.search_worker.start()
+            
+        except Exception as e:
+            logger.error(f"Error starting search: {str(e)}")
+            self.status_bar.showMessage("Search failed")
+            QMessageBox.critical(self, "Search Error", f"Failed to start search: {str(e)}")
+            self.is_searching = False
+            self.search_button.setEnabled(True)
+            self.search_input.setEnabled(True)
 
     def on_search_completed(self, results, total_results, total_pages):
-        """Handle search completion"""
-        self.is_searching = False
-        self.search_button.setEnabled(True)
-        self.total_results = total_results
-        self.total_pages = total_pages
-        self.show_search_results(results)
-        self.update_pagination_controls()
-        self.status_bar.showMessage(f"Found {total_results} results")
+        """Handle search completion."""
+        try:
+            self.total_results = total_results
+            self.total_pages = total_pages
+            self.show_search_results(results)
+            self.update_pagination_controls()
+            
+            # Update status
+            if total_results > 0:
+                self.status_bar.showMessage(f"Found {total_results} results")
+            else:
+                self.status_bar.showMessage("No results found")
+            
+        except Exception as e:
+            logger.error(f"Error handling search results: {str(e)}")
+            self.status_bar.showMessage("Error displaying results")
+            QMessageBox.critical(self, "Search Error", f"Failed to display results: {str(e)}")
+        finally:
+            self.is_searching = False
+            self.search_button.setEnabled(True)
+            self.search_input.setEnabled(True)
 
     def on_search_error(self, error_msg):
-        """Handle search error"""
+        """Handle search error."""
+        logger.error(f"Search error: {error_msg}")
+        self.status_bar.showMessage("Search failed")
+        QMessageBox.critical(self, "Search Error", f"Search failed: {error_msg}")
         self.is_searching = False
         self.search_button.setEnabled(True)
-        self.status_bar.showMessage(f"Search error: {error_msg}")
-        logger.error(f"Search error: {error_msg}")
+        self.search_input.setEnabled(True)
 
     def update_torrent_list(self):
         """Update torrent list in background thread"""
@@ -564,35 +592,90 @@ class MainWindow(QMainWindow):
         """Handle torrent list update error"""
         logger.error(f"Update error: {error_msg}")
 
-    def show_search_results(self, results: list[SearchResult]):
-        """Display search results in the table"""
-        self.search_table.setRowCount(len(results))
-        
-        for row, result in enumerate(results):
-            self.search_table.setItem(row, 0, QTableWidgetItem(result.title))
-            self.search_table.setItem(row, 1, QTableWidgetItem(result.size))
-            self.search_table.setItem(row, 2, QTableWidgetItem(str(result.seeds)))
-            self.search_table.setItem(row, 3, QTableWidgetItem(str(result.leeches)))
-            self.search_table.setItem(row, 4, QTableWidgetItem(result.upload_date))
-            self.search_table.setItem(row, 5, QTableWidgetItem(result.source))
+    def show_search_results(self, results: List[SearchResult]):
+        """Display search results in the table."""
+        try:
+            # Clear existing rows
+            self.search_table.setRowCount(0)
+            self.search_table.setRowCount(len(results))
             
-            # Add action buttons
-            actions_widget = QWidget()
-            actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(0, 0, 0, 0)
+            for row, result in enumerate(results):
+                try:
+                    # Title with quality if available
+                    title = result.title
+                    title_item = QTableWidgetItem(title)
+                    title_item.setToolTip(title)
+                    self.search_table.setItem(row, 0, title_item)
+                    
+                    # Size
+                    size_item = QTableWidgetItem(result.size)
+                    size_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    self.search_table.setItem(row, 1, size_item)
+                    
+                    # Seeds
+                    seeds_item = QTableWidgetItem(str(result.seeds))
+                    seeds_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    seeds_item.setForeground(QColor("#059669"))  # Green color for seeds
+                    self.search_table.setItem(row, 2, seeds_item)
+                    
+                    # Peers
+                    peers_item = QTableWidgetItem(str(result.peers))
+                    peers_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    peers_item.setForeground(QColor("#DC2626"))  # Red color for peers
+                    self.search_table.setItem(row, 3, peers_item)
+                    
+                    # Date
+                    date_item = QTableWidgetItem(result.date)
+                    date_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    self.search_table.setItem(row, 4, date_item)
+                    
+                    # Source with color
+                    source_item = QTableWidgetItem(result.source)
+                    source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    if result.source == "YTS":
+                        source_item.setForeground(QColor("#4F46E5"))  # Indigo for YTS
+                    else:
+                        source_item.setForeground(QColor("#0EA5E9"))  # Sky blue for Pirate Bay
+                    self.search_table.setItem(row, 5, source_item)
+                    
+                    # Store magnet URL
+                    magnet_item = QTableWidgetItem()
+                    magnet_item.setData(Qt.ItemDataRole.UserRole, result.magnet_url)
+                    self.search_table.setItem(row, 6, magnet_item)
+                    
+                    # Quality
+                    if hasattr(result, 'quality') and result.quality:
+                        quality_item = QTableWidgetItem(result.quality)
+                        quality_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                        self.search_table.setItem(row, 7, quality_item)
+                    
+                    # Rating
+                    if hasattr(result, 'rating') and result.rating:
+                        rating = float(result.rating)
+                        if rating > 0:
+                            rating_item = QTableWidgetItem(f"{rating:.1f}")
+                            rating_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                            if rating >= 7.0:
+                                rating_item.setForeground(QColor("#059669"))  # Green for good ratings
+                            elif rating >= 5.0:
+                                rating_item.setForeground(QColor("#D97706"))  # Yellow for average ratings
+                            else:
+                                rating_item.setForeground(QColor("#DC2626"))  # Red for poor ratings
+                            self.search_table.setItem(row, 8, rating_item)
+                
+                except Exception as e:
+                    logger.error(f"Error adding row {row}: {e}")
+                    continue
             
-            view_button = QPushButton("View")
-            view_button.clicked.connect(lambda checked, r=row: self.view_torrent_details(r))
-            download_button = QPushButton("Download")
-            download_button.clicked.connect(lambda checked, r=row: self.download_torrent(r))
+            # Resize columns to content
+            self.search_table.resizeColumnsToContents()
+            # Keep title column wider
+            self.search_table.setColumnWidth(0, max(self.search_table.columnWidth(0), 300))
             
-            actions_layout.addWidget(view_button)
-            actions_layout.addWidget(download_button)
-            self.search_table.setCellWidget(row, 6, actions_widget)
-            
-            # Store magnet link in the item data
-            self.search_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, result.magnet_link)
-            
+        except Exception as e:
+            logger.error(f"Error showing search results: {e}")
+            raise
+
     def update_pagination_controls(self):
         """Update pagination controls state"""
         self.prev_button.setEnabled(self.current_page > 1)
@@ -646,7 +729,7 @@ class MainWindow(QMainWindow):
         """Add torrent to download list"""
         try:
             title = self.search_table.item(row, 0).text()
-            magnet = self.search_table.item(row, 0).data(Qt.ItemDataRole.UserRole)
+            magnet = self.search_table.item(row, 6).data(Qt.ItemDataRole.UserRole)
             
             # Show confirmation dialog
             reply = QMessageBox.question(
