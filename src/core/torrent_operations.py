@@ -388,35 +388,46 @@ class TorrentOperations(ITorrentOperations):
             save_path: Save path for the torrent
         """
         try:
-            if not handle.has_metadata():
-                logger.warning("Cannot add to database without metadata")
-                return
-            
-            info = handle.get_torrent_info()
             info_hash = str(handle.info_hash()).lower()
             
-            # Add torrent to database
-            self.db_manager.add_torrent(
-                name=info.name(),
-                magnet_link=source,
-                info_hash=info_hash,
-                size=info.total_size(),
-                save_path=save_path
-            )
-            
-            # Add files to database
-            files = []
-            for i in range(info.num_files()):
-                file_entry = info.files().at(i)
-                files.append({
-                    'name': file_entry.path,
-                    'size': file_entry.size
-                })
-            
-            # Add files to database
-            self.db_manager.add_torrent_files(info_hash, files)
-            
-            logger.info(f"Added torrent to database: {info.name()}")
+            if handle.has_metadata():
+                info = handle.get_torrent_info()
+                name = info.name()
+                size = info.total_size()
+                
+                # Add torrent to database
+                self.db_manager.add_torrent(
+                    name=name,
+                    magnet_link=source,
+                    info_hash=info_hash,
+                    size=size,
+                    save_path=save_path
+                )
+                
+                # Add files to database
+                files = []
+                for i in range(info.num_files()):
+                    file_entry = info.files().at(i)
+                    files.append({
+                        'name': file_entry.path,
+                        'size': file_entry.size
+                    })
+                
+                # Add files to database
+                self.db_manager.add_torrent_files(info_hash, files)
+                
+                logger.info(f"Added torrent to database with metadata: {name}")
+            else:
+                # Add torrent with minimal information
+                name = os.path.basename(source) if os.path.isfile(source) else "Unknown"
+                self.db_manager.add_torrent(
+                    name=name,
+                    magnet_link=source,
+                    info_hash=info_hash,
+                    size=0,
+                    save_path=save_path
+                )
+                logger.info(f"Added torrent to database without metadata: {name}")
             
         except Exception as e:
             logger.error(f"Error adding torrent to database: {e}", exc_info=True) 

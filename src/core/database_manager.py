@@ -13,14 +13,32 @@ class SavedTorrent:
     name: str
     magnet_link: str
     save_path: str
-    hash: Optional[str] = None
+    info_hash: Optional[str] = None
 
 class DatabaseManager:
     def __init__(self, db_path: str = "torrent.db"):
         """Initialize the database manager"""
         self.db_path = db_path
-        self._init_db()
+        self.initialize_database()
         logger.info(f"Initialized DatabaseManager with database path: {db_path}")
+
+    def initialize_database(self):
+        """Initialize database with required tables"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS saved_torrents (
+                        info_hash TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        magnet_link TEXT NOT NULL,
+                        save_path TEXT NOT NULL
+                    )
+                """)
+                conn.commit()
+                logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
 
     def _init_db(self):
         """Initialize the database schema"""
@@ -31,15 +49,23 @@ class DatabaseManager:
                 # Create torrents table if it doesn't exist
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS torrents (
-                        hash TEXT PRIMARY KEY,
+                        info_hash TEXT PRIMARY KEY,
                         name TEXT NOT NULL,
                         magnet_link TEXT NOT NULL,
                         save_path TEXT NOT NULL,
                         size TEXT DEFAULT 'Calculating...',
                         status TEXT DEFAULT 'Queued',
+                        source_type TEXT DEFAULT 'magnet',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                
+                # Add source_type column if it doesn't exist
+                try:
+                    cursor.execute("ALTER TABLE torrents ADD COLUMN source_type TEXT DEFAULT 'magnet'")
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
                 
                 conn.commit()
                 logger.info("Database schema initialized")
@@ -47,14 +73,14 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Error initializing database: {e}")
 
-    def add_torrent(self, hash: str, name: str, magnet_link: str, save_path: str) -> bool:
+    def add_torrent(self, info_hash: str, name: str, magnet_link: str, save_path: str, source_type: str = 'magnet') -> bool:
         """Add a torrent to the database"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT OR REPLACE INTO torrents (hash, name, magnet_link, save_path) VALUES (?, ?, ?, ?)",
-                    (hash, name, magnet_link, save_path)
+                    "INSERT OR REPLACE INTO torrents (info_hash, name, magnet_link, save_path, source_type) VALUES (?, ?, ?, ?, ?)",
+                    (info_hash, name, magnet_link, save_path, source_type)
                 )
                 conn.commit()
                 logger.info(f"Added torrent to database: {name}")
@@ -63,14 +89,16 @@ class DatabaseManager:
             logger.error(f"Error adding torrent to database: {e}")
             return False
 
-    def remove_torrent(self, hash: str) -> bool:
-        """Remove a torrent from the database"""
+    def remove_torrent(self, info_hash: str) -> bool:
+        """Remove torrent from database by info_hash"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM torrents WHERE hash = ?", (hash,))
+                cursor.execute("""
+                    DELETE FROM saved_torrents
+                    WHERE info_hash = ?
+                """, (info_hash,))
                 conn.commit()
-                logger.info(f"Removed torrent from database: {hash}")
                 return True
         except Exception as e:
             logger.error(f"Error removing torrent from database: {e}")
@@ -81,13 +109,13 @@ class DatabaseManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT hash, name, magnet_link, save_path FROM torrents")
+                cursor.execute("SELECT info_hash, name, magnet_link, save_path FROM torrents")
                 rows = cursor.fetchall()
                 
                 torrents = []
                 for row in rows:
                     torrents.append(SavedTorrent(
-                        hash=row[0],
+                        info_hash=row[0],
                         name=row[1],
                         magnet_link=row[2],
                         save_path=row[3]
@@ -100,26 +128,63 @@ class DatabaseManager:
             logger.error(f"Error getting torrents from database: {e}")
             return []
 
-    def get_torrent(self, hash: str) -> Optional[SavedTorrent]:
-        """Get a specific torrent by hash"""
+    def get_torrent(self, info_hash: str) -> Optional[SavedTorrent]:
+        """Get torrent from database by info_hash"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT hash, name, magnet_link, save_path FROM torrents WHERE hash = ?",
-                    (hash,)
-                )
+                cursor.execute("""
+                    SELECT name, magnet_link, save_path, info_hash
+                    FROM saved_torrents
+                    WHERE info_hash = ?
+                """, (info_hash,))
                 row = cursor.fetchone()
-                
                 if row:
                     return SavedTorrent(
-                        hash=row[0],
-                        name=row[1],
-                        magnet_link=row[2],
-                        save_path=row[3]
+                        name=row[0],
+                        magnet_link=row[1],
+                        save_path=row[2],
+                        info_hash=row[3]
                     )
                 return None
-                
         except Exception as e:
             logger.error(f"Error getting torrent from database: {e}")
-            return None 
+            return None
+
+    def _load_saved_torrents(self) -> List[SavedTorrent]:
+        """Load saved torrents from database"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT name, magnet_link, save_path, info_hash
+                    FROM saved_torrents
+                """)
+                rows = cursor.fetchall()
+                return [
+                    SavedTorrent(
+                        name=row[0],
+                        magnet_link=row[1],
+                        save_path=row[2],
+                        info_hash=row[3]
+                    )
+                    for row in rows
+                ]
+        except Exception as e:
+            logger.error(f"Error loading saved torrents: {e}")
+            return []
+
+    def save_torrent(self, torrent: SavedTorrent) -> bool:
+        """Save torrent to database"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO saved_torrents (name, magnet_link, save_path, info_hash)
+                    VALUES (?, ?, ?, ?)
+                """, (torrent.name, torrent.magnet_link, torrent.save_path, torrent.info_hash))
+                conn.commit()
+                return True
+        except Exception as e:
+            logger.error(f"Error saving torrent: {e}")
+            return False 
