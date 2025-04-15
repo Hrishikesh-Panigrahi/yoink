@@ -1,42 +1,43 @@
-# Torrent App
+# Torrent Downloader
 
-A modern, feature-rich torrent client built with PyQt6 and libtorrent. This application provides a clean, intuitive interface for searching and downloading torrents with advanced features like download management, speed monitoring, and customizable settings.
+A modern, high-performance torrent client built with PyQt6 and libtorrent-python. This application provides a clean, intuitive interface for searching, downloading, and managing torrents with advanced features like real-time progress monitoring, download management, and customizable settings.
 
 ## Features
 
-- 🔍 Integrated torrent search functionality
-- 📥 Fast, non-blocking torrent downloads
-- ⏯️ Pause/Resume/Delete torrent operations
-- 📊 Real-time download speed and progress monitoring
-- 📁 Customizable download directories per torrent
-- 📝 Download history tracking
-- 🔄 Automatic metadata retrieval
-- 💾 Persistent settings and download states
-- 🎯 Modern, responsive user interface
+- 🔍 Integrated torrent search with multiple providers
+- 📥 Fast, non-blocking torrent downloads with libtorrent
+- ⏯️ Complete torrent management (Add/Pause/Resume/Delete)
+- 📊 Real-time statistics (speed, progress, peers, etc.)
+- 📁 Customizable download paths per torrent
+- 📝 Persistent download history and states
+- 🔄 Automatic metadata retrieval and updates
+- 💾 SQLite-based state management
+- 🎯 Modern PyQt6-based user interface
+- 🔒 Secure and private downloads
+
+## Screenshots
+
+[Coming soon]
 
 ## Requirements
 
-- Python 3.8 or higher
-- Operating System: macOS, Linux, or Windows
-- Internet connection for searching and downloading torrents
+- Python 3.9 or higher
+- Operating System: macOS (primary), Linux (supported), Windows (partial)
+- Internet connection
+- 100MB disk space (excluding downloads)
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/torrent-app.git
-cd torrent-app-mac
+git clone git@tree.mn:pureplay/torrent-downloader.git
+cd torrent-downloader
 ```
 
 2. Create and activate a virtual environment:
 ```bash
-# macOS/Linux
 python3 -m venv venv
-source venv/bin/activate
-
-# Windows
-python -m venv venv
-.\venv\Scripts\activate
+source venv/bin/activate  # On macOS/Linux
 ```
 
 3. Install dependencies:
@@ -46,88 +47,116 @@ pip install -r requirements.txt
 
 ## Running the Application
 
-1. Make sure your virtual environment is activated
+1. Ensure your virtual environment is activated:
+```bash
+source venv/bin/activate  # On macOS/Linux
+```
+
 2. Run the application:
 ```bash
-# From the project root directory
 PYTHONPATH=$PYTHONPATH:. python3 src/main.py
 ```
 
-## Usage Guide
+## Development Setup
 
-1. **Search for Torrents**
-   - Enter your search query in the search bar
-   - Click the search button or press Enter
-   - Results will appear in the search tab
+1. Install development dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
 
-2. **Download a Torrent**
-   - Click the "Download" button next to a search result
-   - The torrent will appear in the Downloads tab
-   - Initial metadata download will begin automatically
+2. Set up pre-commit hooks:
+```bash
+pre-commit install
+```
 
-3. **Manage Downloads**
-   - Use the Downloads tab to view all your torrents
-   - Pause/Resume: Click the respective buttons
-   - Delete: Remove torrents and optionally their files
-   - Monitor progress, speed, and estimated time
-
-4. **Change Settings**
-   - Set default download directory
-   - Configure network settings
-   - Manage application preferences
+3. Run tests:
+```bash
+pytest tests/
+```
 
 ## Project Structure
 
 ```
-torrent-app-mac/
+torrent-downloader/
 ├── src/
-│   ├── core/           # Core functionality
-│   ├── database/       # Database models and management
-│   ├── gui/           # User interface components
+│   ├── core/           # Core torrent functionality
+│   │   ├── torrent_manager.py    # Main torrent management
+│   │   ├── torrent_session.py    # libtorrent session handling
+│   │   └── torrent_operations.py # Torrent operations facade
+│   ├── database/       # Database management
+│   │   ├── models.py   # SQLAlchemy models
+│   │   └── database.py # Database connection handling
+│   ├── gui/           # PyQt6 UI components
+│   │   ├── main_window.py      # Main application window
+│   │   ├── torrent_list.py     # Torrent list widget
+│   │   └── settings_dialog.py  # Settings dialog
 │   └── utils/         # Utility functions
-├── requirements.txt   # Project dependencies
-└── README.md         # This file
+├── tests/            # Test suite
+├── requirements.txt  # Production dependencies
+└── README.md        # This file
 ```
 
-## Dependencies
+## Key Dependencies
 
-Key dependencies (see requirements.txt for full list):
-- PyQt6 (≥6.4.0): GUI framework
-- libtorrent (≥2.0.0): Torrent handling
-- SQLAlchemy (≥2.0.0): Database management
-- requests (≥2.28.0): HTTP client
-- beautifulsoup4 (≥4.11.0): Web scraping
-- aiohttp (3.11.16): Async HTTP client
+- **PyQt6** (≥6.4.0): Modern GUI framework
+- **libtorrent-python** (≥2.0.0): Core torrent functionality
+- **SQLAlchemy** (≥2.0.0): Database ORM
+- **aiohttp** (≥3.11.16): Async HTTP client
+- **beautifulsoup4** (≥4.11.0): Search results parsing
+
+## Configuration
+
+The application can be configured through:
+1. GUI Settings dialog
+2. Environment variables:
+   - `TORRENT_DOWNLOAD_PATH`: Default download directory
+   - `TORRENT_MAX_CONNECTIONS`: Maximum peer connections
+   - `TORRENT_PORT_RANGE`: Port range for incoming connections
 
 ## Troubleshooting
 
 1. **Installation Issues**
-   - Ensure Python 3.8+ is installed
-   - Use a virtual environment
-   - Check system dependencies for PyQt6 and libtorrent
+   - Ensure Python 3.9+ is installed: `python3 --version`
+   - Use a fresh virtual environment
+   - On macOS, you might need: `brew install qt6`
 
 2. **Runtime Issues**
    - Check logs in `logs/torrent_app.log`
-   - Verify internet connection
-   - Ensure write permissions in download directory
+   - Verify network connectivity
+   - Ensure sufficient disk space
+   - Check port forwarding if needed
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make your changes
-4. Submit a pull request
+4. Run tests: `pytest tests/`
+5. Submit a merge request
 
 Please ensure your changes:
-- Include appropriate tests
+- Follow PEP 8 style guide
+- Include unit tests
 - Update documentation
-- Follow the existing code style
-- Add meaningful commit messages
+- Add type hints
+- Use meaningful commit messages
+
+## Security
+
+- All network traffic is encrypted
+- No data is sent to external servers
+- Downloads are isolated by default
+- Automatic updates are disabled
+- No telemetry collection
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-This application is for educational purposes only. Users are responsible for complying with local laws and regulations regarding torrent downloads. 
+This application is for educational purposes only. Users are responsible for:
+- Complying with local laws and regulations
+- Ensuring downloaded content is legal
+- Managing network bandwidth appropriately
+- Securing their system and data 
