@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="torrent-app",
+    name="yoink",
     version="1.0.0",
     packages=find_packages(),
     include_package_data=True,
@@ -17,12 +17,12 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'torrent-app=src.main:main',
+            'yoink=main:main',
         ],
     },
     python_requires='>=3.8',
-    author="Torrent App Contributors",
-    description="A modern torrent client with search functionality",
+    author="Yoink Contributors",
+    description="Yoink - a modern torrent client. Just yoink it from the swarm.",
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
     license="MIT",

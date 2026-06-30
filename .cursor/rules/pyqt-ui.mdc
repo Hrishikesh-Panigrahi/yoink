@@ -1,0 +1,17 @@
+---
+description: PyQt6 UI and UX standards for Torrent App
+globs: src/gui/**/*.py
+alwaysApply: false
+---
+
+# PyQt UI Standards
+
+- Design around user tasks: search, inspect, add, monitor, pause/resume, choose files, set download folder, and remove safely.
+- Keep the main window calm: clear primary actions, visible download status, useful empty states, and no noisy controls before the user needs them.
+- Use progressive disclosure. Put advanced torrent details, file priorities, peers, trackers, and logs behind details panels or tabs.
+- Never freeze the UI. Use `QThread`, signals, timers, or async workers for search, metadata loading, network checks, and filesystem work.
+- Every destructive action needs a clear confirmation that states whether downloaded files will be deleted.
+- Surface errors in user language first, with technical detail available in logs.
+- Keep UI state explicit: selected torrent, active search, current filter, default save path, and network status should be easy to reason about.
+- Prefer reusable small widgets/components over one giant `MainWindow` method.
+- Test UI behavior through focused methods where possible; avoid tests that require the real database or network.

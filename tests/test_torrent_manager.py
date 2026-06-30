@@ -1,104 +1,89 @@
-import unittest
-import libtorrent as lt
-from unittest.mock import MagicMock, patch
-from src.core.torrent_manager import TorrentManager
+"""Tests for the torrents package (session + actions)."""
+
+from __future__ import annotations
+
 import os
+import tempfile
+import unittest
 
-class TestTorrentManager(unittest.TestCase):
-    def setUp(self):
-        """Set up test fixtures before each test method."""
-        self.torrent_manager = TorrentManager()
-        self.test_magnet = "magnet:?xt=urn:btih:1234567890abcdef1234567890abcdef12345678&dn=Test+Torrent"
-        self.test_save_path = os.path.expanduser("~/Downloads")
-        
-        # Mock the database manager's add_torrent method
-        self.torrent_manager.db_manager.add_torrent = MagicMock()
-        self.torrent_manager.db_manager.remove_torrent = MagicMock()
+import libtorrent as lt
 
-    def test_add_torrent(self):
-        """Test adding a torrent with a magnet link"""
-        # Test successful torrent addition
+import db
+import torrents
+
+
+def _normalize(path: str) -> str:
+    return os.path.normcase(os.path.normpath(os.path.abspath(os.path.expanduser(path))))
+
+
+TEST_MAGNET = (
+    "magnet:?xt=urn:btih:1234567890abcdef1234567890abcdef12345678&dn=Test+Torrent"
+)
+
+
+class TestTorrentActions(unittest.TestCase):
+    def setUp(self) -> None:
+        self._old_db_path = os.environ.get("TORRENT_DB_PATH")
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        tmp.close()
+        self._db_file = tmp.name
+        os.environ["TORRENT_DB_PATH"] = self._db_file
+        db.dispose_engine()
+        db.init_db()
+
+        self.save_path = os.path.expanduser("~/Downloads")
+        self.session = torrents.create_session(self.save_path)
+
+    def tearDown(self) -> None:
+        for info_hash in list(self.session.handles.keys()):
+            try:
+                torrents.remove(self.session, info_hash, delete_files=False)
+            except Exception:
+                pass
+        torrents.stop_session(self.session)
+        db.dispose_engine()
+
+        if self._old_db_path is None:
+            os.environ.pop("TORRENT_DB_PATH", None)
+        else:
+            os.environ["TORRENT_DB_PATH"] = self._old_db_path
+
+        if os.path.exists(self._db_file):
+            os.remove(self._db_file)
+
+    def test_add_magnet_returns_info_hash(self) -> None:
+        info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
+        self.assertIsInstance(info_hash, str)
+        self.assertIn(info_hash, self.session.handles)
+
+        handle = self.session.handles[info_hash]
+        self.assertIsInstance(handle, lt.torrent_handle)
+        self.assertEqual(_normalize(handle.status().save_path), _normalize(self.save_path))
+
+    def test_add_magnet_rejects_invalid_input(self) -> None:
+        with self.assertRaises(ValueError):
+            torrents.add_magnet(self.session, "not-a-magnet")
+
+    def test_add_magnet_with_custom_save_path(self) -> None:
+        custom = tempfile.mkdtemp(prefix="yoink-test-")
         try:
-            info_hash = self.torrent_manager.add_torrent(self.test_magnet)
-            
-            # Verify that the torrent was added
-            self.assertIsNotNone(info_hash)
-            self.assertTrue(isinstance(info_hash, str))
-            
-            # Verify that the torrent is in the manager's dictionary
-            self.assertIn(info_hash, self.torrent_manager.torrents)
-            
-            # Get the torrent handle and verify its properties
-            handle, info = self.torrent_manager.torrents[info_hash]
-            self.assertTrue(isinstance(handle, lt.torrent_handle))
-            
-            # Verify save path
-            status = handle.status()
-            self.assertEqual(status.save_path, self.test_save_path)
-            
-            # Verify database manager was called
-            self.torrent_manager.db_manager.add_torrent.assert_called_once()
-            
-        except Exception as e:
-            self.fail(f"add_torrent raised an unexpected exception: {str(e)}")
-
-    def test_add_torrent_invalid_magnet(self):
-        """Test adding a torrent with an invalid magnet link"""
-        invalid_magnet = "not-a-magnet-link"
-        
-        # Test that adding an invalid magnet link raises an exception
-        with self.assertRaises(Exception):
-            self.torrent_manager.add_torrent(invalid_magnet)
-            
-        # Verify database manager was not called
-        self.torrent_manager.db_manager.add_torrent.assert_not_called()
-
-    def test_add_torrent_with_custom_save_path(self):
-        """Test adding a torrent with a custom save path"""
-        custom_path = "/tmp/test_downloads"
-        if not os.path.exists(custom_path):
-            os.makedirs(custom_path)
-            
-        try:
-            # Set custom save path
-            self.torrent_manager.set_save_path(custom_path)
-            
-            # Add torrent
-            info_hash = self.torrent_manager.add_torrent(self.test_magnet)
-            
-            # Verify that the torrent was added with the custom save path
-            handle, info = self.torrent_manager.torrents[info_hash]
-            status = handle.status()
-            self.assertEqual(status.save_path, custom_path)
-            
-            # Verify database manager was called
-            self.torrent_manager.db_manager.add_torrent.assert_called_once()
-            
+            torrents.set_save_path(self.session, custom)
+            info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
+            handle = self.session.handles[info_hash]
+            self.assertEqual(_normalize(handle.status().save_path), _normalize(custom))
         finally:
-            # Cleanup
-            if os.path.exists(custom_path):
-                os.rmdir(custom_path)
+            try:
+                os.rmdir(custom)
+            except OSError:
+                pass
 
-    def test_add_duplicate_torrent(self):
-        """Test adding the same torrent twice"""
-        # Add the torrent first time
-        first_hash = self.torrent_manager.add_torrent(self.test_magnet)
-        
-        # Try to add the same torrent again
-        second_hash = self.torrent_manager.add_torrent(self.test_magnet)
-        
-        # Verify that both operations return the same hash
-        self.assertEqual(first_hash, second_hash)
-        
-        # Verify that only one instance exists in the torrents dictionary
-        matching_torrents = [h for h in self.torrent_manager.torrents.keys() if h == first_hash]
-        self.assertEqual(len(matching_torrents), 1)
-        
-        # Verify database manager was called only once
-        self.assertEqual(self.torrent_manager.db_manager.add_torrent.call_count, 1)
+    def test_adding_same_magnet_twice_is_idempotent(self) -> None:
+        first = torrents.add_magnet(self.session, TEST_MAGNET)
+        second = torrents.add_magnet(self.session, TEST_MAGNET)
+        self.assertEqual(first, second)
+        matching = [h for h in self.session.handles if h == first]
+        self.assertEqual(len(matching), 1)
 
-    def tearDown(self):
-        """Clean up after each test method."""
-        # Remove all added torrents
-        for hash in list(self.torrent_manager.torrents.keys()):
-            self.torrent_manager.remove_torrent(hash, delete_files=True) 
+
+if __name__ == "__main__":
+    unittest.main()

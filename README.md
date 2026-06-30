@@ -1,162 +1,85 @@
-# Torrent Downloader
+# Yoink
 
-A modern, high-performance torrent client built with PyQt6 and libtorrent-python. This application provides a clean, intuitive interface for searching, downloading, and managing torrents with advanced features like real-time progress monitoring, download management, and customizable settings.
+> Just yoink it from the swarm.
 
-## Features
+Yoink is a modern desktop torrent client. The shell is PyQt6, the UI is a web
+view (HTML/CSS/JS) wired to Python through `QWebChannel`, and the torrent engine
+is libtorrent. Search hits YTS and The Pirate Bay by default, with optional
+multi-site scraping via a vendored copy of
+[Torrent-Api-py](https://github.com/Ryuk-me/Torrent-Api-py).
 
-- 🔍 Integrated torrent search with multiple providers
-- 📥 Fast, non-blocking torrent downloads with libtorrent
-- ⏯️ Complete torrent management (Add/Pause/Resume/Delete)
-- 📊 Real-time statistics (speed, progress, peers, etc.)
-- 📁 Customizable download paths per torrent
-- 📝 Persistent download history and states
-- 🔄 Automatic metadata retrieval and updates
-- 💾 SQLite-based state management
-- 🎯 Modern PyQt6-based user interface
-- 🔒 Secure and private downloads
+## Run from source
 
-## Screenshots
-
-[Coming soon]
-
-## Requirements
-
-- Python 3.9 or higher
-- Operating System: macOS (primary), Linux (supported), Windows (partial)
-- Internet connection
-- 100MB disk space (excluding downloads)
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone git@tree.mn:pureplay/torrent-downloader.git
-cd torrent-downloader
-```
-
-2. Create and activate a virtual environment:
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On macOS/Linux
-```
-
-3. Install dependencies:
-```bash
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
+$env:PYTHONPATH = "$PWD;$PWD\src"
+python src\main.py
 ```
 
-## Running the Application
+On macOS/Linux replace the venv activation and use `PYTHONPATH=$PWD:$PWD/src`.
 
-1. Ensure your virtual environment is activated:
-```bash
-source venv/bin/activate  # On macOS/Linux
+## Run the tests
+
+```powershell
+.venv\Scripts\python.exe -m pytest
 ```
 
-2. Run the application:
-```bash
-PYTHONPATH=$PYTHONPATH:. python3 src/main.py
+`tests/conftest.py` puts `src/` on `sys.path`, so tests use the same flat
+imports as the app (`from torrents import ...`, `from search import search`).
+
+## Package for Windows
+
+```powershell
+python build.py
 ```
 
-## Development Setup
+This wraps PyInstaller and produces `dist/Yoink.exe`. The build script bundles
+`src/web/`, `src/resources/`, and `src/vendor/` alongside the executable. See
+[`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for installer
+notes.
 
-1. Install development dependencies:
-```bash
-pip install -r requirements-dev.txt
-```
-
-2. Set up pre-commit hooks:
-```bash
-pre-commit install
-```
-
-3. Run tests:
-```bash
-pytest tests/
-```
-
-## Project Structure
+## Layout tour
 
 ```
-torrent-downloader/
-├── src/
-│   ├── core/           # Core torrent functionality
-│   │   ├── torrent_manager.py    # Main torrent management
-│   │   ├── torrent_session.py    # libtorrent session handling
-│   │   └── torrent_operations.py # Torrent operations facade
-│   ├── database/       # Database management
-│   │   ├── models.py   # SQLAlchemy models
-│   │   └── database.py # Database connection handling
-│   ├── gui/           # PyQt6 UI components
-│   │   ├── main_window.py      # Main application window
-│   │   ├── torrent_list.py     # Torrent list widget
-│   │   └── settings_dialog.py  # Settings dialog
-│   └── utils/         # Utility functions
-├── tests/            # Test suite
-├── requirements.txt  # Production dependencies
-└── README.md        # This file
+src/
+  main.py              # entrypoint
+  main_window.py       # QMainWindow + system tray + web view host
+  bridge.py            # Bridge(QObject) — JS<->Python RPC surface
+  workers.py           # SearchWorker, DownloadsPollWorker, NetworkSpeedWorker
+  db.py                # SQLite helpers (init_db, get/set_setting, ...)
+  models.py            # SQLAlchemy ORM (Setting, SavedTorrent)
+
+  torrents/            # libtorrent layer (function-based, one tiny Session class)
+    session.py         #   create_session / stop_session / set_save_path
+    actions.py         #   add_magnet / add_torrent_file / pause / resume / remove
+    state.py           #   list_torrents → TorrentSnapshot DTOs
+    persistence.py     #   load_saved (restore torrents on startup)
+    dto.py             #   TorrentSnapshot, NetworkStats
+
+  search/              # search orchestrator (function `search()`)
+    enums.py           #   ProviderMode, Region, Category
+    dto.py             #   SearchResult, SearchOptions, SearchPage
+    ranking.py         #   query expansion + scoring + dedupe
+
+  providers/           # one module per source, all functions
+    yts.py             #   search_yts
+    pirate_bay.py      #   search_pirate_bay
+    torrent_api_py.py  #   vendored multi-site adapter
+
+  utils/               # shared stateless helpers
+    format.py          #   format_size / format_speed / format_eta
+    paths.py           #   normalize_path
+    magnets.py         #   build_magnet
+    logger.py          #   setup_logger
+
+  web/                 # HTML/CSS/JS for the embedded UI
+  resources/           # app icon + icon generator
+  vendor/torrent_api_py/  # upstream scrapers (untouched)
 ```
 
-## Key Dependencies
-
-- **PyQt6** (≥6.4.0): Modern GUI framework
-- **libtorrent-python** (≥2.0.0): Core torrent functionality
-- **SQLAlchemy** (≥2.0.0): Database ORM
-- **aiohttp** (≥3.11.16): Async HTTP client
-- **beautifulsoup4** (≥4.11.0): Search results parsing
-
-## Configuration
-
-The application can be configured through:
-1. GUI Settings dialog
-2. Environment variables:
-   - `TORRENT_DOWNLOAD_PATH`: Default download directory
-   - `TORRENT_MAX_CONNECTIONS`: Maximum peer connections
-   - `TORRENT_PORT_RANGE`: Port range for incoming connections
-
-## Troubleshooting
-
-1. **Installation Issues**
-   - Ensure Python 3.9+ is installed: `python3 --version`
-   - Use a fresh virtual environment
-   - On macOS, you might need: `brew install qt6`
-
-2. **Runtime Issues**
-   - Check logs in `logs/torrent_app.log`
-   - Verify network connectivity
-   - Ensure sufficient disk space
-   - Check port forwarding if needed
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Make your changes
-4. Run tests: `pytest tests/`
-5. Submit a merge request
-
-Please ensure your changes:
-- Follow PEP 8 style guide
-- Include unit tests
-- Update documentation
-- Add type hints
-- Use meaningful commit messages
-
-## Security
-
-- All network traffic is encrypted
-- No data is sent to external servers
-- Downloads are isolated by default
-- Automatic updates are disabled
-- No telemetry collection
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Disclaimer
-
-This application is for educational purposes only. Users are responsible for:
-- Complying with local laws and regulations
-- Ensuring downloaded content is legal
-- Managing network bandwidth appropriately
-- Securing their system and data 
+Classes are reserved for things Python's frameworks require (PyQt subclasses,
+SQLAlchemy ORM, the one libtorrent `Session` dataclass). Everything else is a
+module-level function with enums for fixed value sets and frozen dataclass DTOs
+for structured data.

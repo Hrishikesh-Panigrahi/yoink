@@ -1,0 +1,16 @@
+---
+description: Windows packaging rules for the Torrent App desktop build
+globs: build.py,setup.py,requirements*.txt,*.spec,src/resources/**
+alwaysApply: false
+---
+
+# Windows Packaging
+
+- Prefer Python 3.11 for Windows builds unless `libtorrent` wheels are verified for a newer Python.
+- Build from a clean virtual environment and pin or record dependency versions when producing a release.
+- Include Qt plugins, app icons, and `src/resources` explicitly in PyInstaller configuration.
+- Keep runtime data outside the executable folder: database, logs, and downloads should live in user-writable locations.
+- Do not package test databases, logs, virtual environments, or downloaded content.
+- Validate a packaged build on a clean Windows user profile, not only from the development checkout.
+- For a user-facing installer, prefer a signed installer such as Inno Setup or WiX after PyInstaller produces the app folder/exe.
+- Document Windows Defender/SmartScreen expectations if the app is unsigned.

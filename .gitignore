@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -20,10 +19,19 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
 
 # Virtual Environment
 venv/
+.venv/
 ENV/
+env/
+.upstream/
 
 # IDE
 .idea/
@@ -35,15 +43,17 @@ ENV/
 logs/
 *.log
 
-# Database
+# Database (local state — never commit)
 *.db
 *.sqlite3
 
-# Distribution
-TorrentApp.spec
+# PyInstaller
+*.spec
 TorrentApp.zip
 TorrentApp.app/
 TorrentApp
+Yoink.app/
+Yoink
 
 # OS specific
 .DS_Store
@@ -52,4 +62,4 @@ TorrentApp
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db 
+Thumbs.db

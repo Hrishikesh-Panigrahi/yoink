@@ -1,9 +1,14 @@
-"""Utility modules for the torrent application."""
+"""Stateless shared helpers."""
 
-from src.utils.formatters import format_size, format_speed, format_time
+from utils.format import format_size, format_speed, format_eta
+from utils.magnets import build_magnet, DEFAULT_TRACKERS
+from utils.paths import normalize_path
 
 __all__ = [
-    'format_size',
-    'format_speed',
-    'format_time',
+    "format_size",
+    "format_speed",
+    "format_eta",
+    "build_magnet",
+    "DEFAULT_TRACKERS",
+    "normalize_path",
 ]

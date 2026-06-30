@@ -8,7 +8,7 @@ from pathlib import Path
 def clean_build():
     """Clean build directories"""
     dirs_to_clean = ['build', 'dist']
-    files_to_clean = ['TorrentApp.spec']
+    files_to_clean = ['TorrentApp.spec', 'Yoink.spec']
     
     for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
@@ -31,35 +31,50 @@ def build_app():
     # Add src directory to Python path
     sys.path.insert(0, src_path)
     
-    # Build command with all necessary options
+    # PyInstaller uses os-specific path separators in --add-data ("," on Win, ":" elsewhere)
+    sep = ';' if os.name == 'nt' else ':'
+
     cmd = [
         'pyinstaller',
-        '--name=TorrentApp',
+        '--name=Yoink',
         '--onefile',
         '--windowed',
         '--clean',
-        f'--paths={src_path}',  # Add src directory to Python path
-        '--add-data=src/resources:resources',  # Include resources directory
+        f'--paths={src_path}',
+        f'--add-data=src/resources{sep}resources',
+        f'--add-data=src/web{sep}web',
+        f'--add-data=src/vendor{sep}vendor',
         '--hidden-import=PyQt6',
         '--hidden-import=PyQt6.QtWidgets',
         '--hidden-import=PyQt6.QtGui',
         '--hidden-import=PyQt6.QtCore',
-        '--hidden-import=gui',
-        '--hidden-import=gui.main_window',
-        '--hidden-import=gui.torrent_list',
-        '--hidden-import=gui.torrent_item',
-        '--hidden-import=gui.torrent_details',
-        '--hidden-import=gui.settings_dialog',
-        '--hidden-import=gui.search_dialog',
-        '--hidden-import=gui.torrent_progress',
-        '--hidden-import=core',
-        '--hidden-import=core.torrent_manager',
-        '--hidden-import=core.torrent_searcher',
-        '--hidden-import=database',
-        '--hidden-import=database.database',
-        '--hidden-import=database.models',
+        '--hidden-import=PyQt6.QtWebEngineWidgets',
+        '--hidden-import=PyQt6.QtWebEngineCore',
+        '--hidden-import=PyQt6.QtWebChannel',
+        '--hidden-import=main_window',
+        '--hidden-import=bridge',
+        '--hidden-import=workers',
+        '--hidden-import=db',
+        '--hidden-import=models',
+        '--hidden-import=torrents',
+        '--hidden-import=torrents.session',
+        '--hidden-import=torrents.actions',
+        '--hidden-import=torrents.state',
+        '--hidden-import=torrents.persistence',
+        '--hidden-import=torrents.dto',
+        '--hidden-import=search',
+        '--hidden-import=search.enums',
+        '--hidden-import=search.dto',
+        '--hidden-import=search.ranking',
+        '--hidden-import=providers',
+        '--hidden-import=providers.yts',
+        '--hidden-import=providers.pirate_bay',
+        '--hidden-import=providers.torrent_api_py',
         '--hidden-import=utils',
         '--hidden-import=utils.logger',
+        '--hidden-import=utils.format',
+        '--hidden-import=utils.paths',
+        '--hidden-import=utils.magnets',
         '--hidden-import=libtorrent',
         '--hidden-import=sqlalchemy',
         '--hidden-import=requests',
@@ -67,12 +82,6 @@ def build_app():
         '--hidden-import=PIL',
         '--hidden-import=magic',
         '--hidden-import=aiohttp',
-        '--hidden-import=asyncio',
-        '--hidden-import=json',
-        '--hidden-import=logging',
-        '--hidden-import=os',
-        '--hidden-import=sys',
-        '--hidden-import=pathlib',
         'src/main.py'
     ]
     

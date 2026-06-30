@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Yoink - Just yoink it</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <div class="app" id="app">
+    <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
+
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <div class="sidebar-top">
+        <button class="brand" id="brandBtn" aria-label="Toggle sidebar" title="Toggle sidebar">
+          <span class="brand-mark" aria-hidden="true">Y</span>
+          <span class="brand-text">
+            <span class="brand-name">Yoink</span>
+            <span class="brand-tag">Just yoink it</span>
+          </span>
+        </button>
+      </div>
+
+      <nav class="nav" role="tablist" aria-orientation="vertical">
+        <div class="nav-section">Library</div>
+        <button class="nav-item active" data-view="search" role="tab" aria-selected="true" aria-controls="view-search" title="Search">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="nav-label">Search</span>
+        </button>
+        <button class="nav-item" data-view="downloads" role="tab" aria-selected="false" aria-controls="view-downloads" title="Downloads">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span class="nav-label">Downloads</span>
+          <span class="badge" id="downloadsBadge" hidden aria-label="active downloads"></span>
+        </button>
+        <button class="nav-item" data-view="settings" role="tab" aria-selected="false" aria-controls="view-settings" title="Settings">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          <span class="nav-label">Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="status-block">
+        <div class="nav-section">Status</div>
+        <div class="net-pill" id="netPill" title="Network throughput">
+          <span class="net-row"><span class="net-arrow down" aria-hidden="true">&darr;</span><span><span class="sr-only">Download</span><span id="netDown">0 KB/s</span></span></span>
+          <span class="net-row"><span class="net-arrow up" aria-hidden="true">&uarr;</span><span><span class="sr-only">Upload</span><span id="netUp">0 KB/s</span></span></span>
+        </div>
+        <button class="folder-pill" id="folderPill" title="Open save folder" aria-label="Open save folder">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <span class="folder-text" id="folderText">~/Downloads</span>
+        </button>
+        <div class="version">Yoink v1.0</div>
+      </div>
+    </aside>
+
+    <main class="main" id="mainContent" tabindex="-1">
+      <section class="view view-search" id="view-search" data-view="search" role="tabpanel" aria-labelledby="nav-search">
+        <header class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" title="Menu">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div>
+              <h1 class="page-title">Search</h1>
+              <p class="page-subtitle">Find torrents from public sources, or paste a magnet link to start instantly.</p>
+            </div>
+          </div>
+        </header>
+
+        <form class="search-row" id="searchForm" autocomplete="off" role="search">
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" class="ic input-ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <label class="sr-only" for="searchInput">Search torrents</label>
+            <input
+              type="text"
+              id="searchInput"
+              class="text-input"
+              placeholder="Search movies, shows, or paste a magnet link..."
+              autofocus
+              aria-label="Search torrents"
+            />
+            <button type="button" class="input-clear" id="searchClear" hidden title="Clear" aria-label="Clear search">&times;</button>
+          </div>
+          <button type="submit" class="btn btn-primary" id="searchBtn">Yoink it</button>
+        </form>
+
+        <div class="filter-row" id="filterRow" role="group" aria-label="Search filters">
+          <label class="filter-control">
+            <span>Region</span>
+            <select id="regionFilter" aria-label="Region filter">
+              <option value="any">Any</option>
+              <option value="bollywood">Bollywood / Hindi</option>
+              <option value="hollywood">Hollywood / English</option>
+              <option value="south-indian">South Indian</option>
+              <option value="korean">Korean</option>
+              <option value="anime">Anime</option>
+            </select>
+          </label>
+          <label class="filter-control">
+            <span>Category</span>
+            <select id="categoryFilter" aria-label="Category filter">
+              <option value="movies">Movies</option>
+              <option value="tv">TV</option>
+              <option value="anime">Anime</option>
+              <option value="music">Music</option>
+              <option value="games">Games</option>
+              <option value="apps">Apps</option>
+              <option value="books">Books</option>
+              <option value="any">Any</option>
+            </select>
+          </label>
+          <label class="filter-control filter-control-wide">
+            <span>Sources</span>
+            <select id="sourceFilter" aria-label="Sources filter">
+              <option value="stable">Stable APIs (recommended)</option>
+              <option value="torrent-api-py-all">Torrent-Api-py all sites</option>
+              <option value="movies-core">Torrent-Api-py movies core</option>
+              <option value="1337x">1337x only</option>
+              <option value="tgx">TorrentGalaxy only</option>
+              <option value="yts">YTS only</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-ghost" id="resetFiltersBtn">Reset</button>
+        </div>
+
+        <div class="card results-card">
+          <header class="card-header">
+            <div class="card-title-row">
+              <h2 class="card-title">Results</h2>
+              <span class="muted" id="resultsCount" aria-live="polite"></span>
+            </div>
+            <p class="muted small">Click <b>Download</b> to yoink a torrent. Press <kbd>/</kbd> to focus search.</p>
+          </header>
+
+          <div class="results-body" id="resultsBody">
+            <div class="empty-state" id="searchEmpty">
+              <svg viewBox="0 0 24 24" class="ic empty-ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <h3>Find something to yoink</h3>
+              <p>Type a title above and press <kbd>Enter</kbd>. Stable search uses The Pirate Bay and YTS; advanced search uses Torrent-Api-py.</p>
+            </div>
+
+            <div class="loader" id="searchLoader" hidden role="status" aria-live="polite">
+              <div class="spinner" aria-hidden="true"></div>
+              <p class="loader-text" id="searchLoaderText">Searching...</p>
+            </div>
+
+            <div class="results-list" id="resultsList" hidden role="list"></div>
+          </div>
+
+          <footer class="pagination" id="pagination" hidden>
+            <span class="muted small" id="pageInfo"></span>
+            <div class="page-buttons" role="navigation" aria-label="Pagination">
+              <button class="btn btn-ghost icon-btn" id="prevBtn" title="Previous page" aria-label="Previous page">&larr;</button>
+              <div class="page-numbers" id="pageNumbers"></div>
+              <button class="btn btn-ghost icon-btn" id="nextBtn" title="Next page" aria-label="Next page">&rarr;</button>
+            </div>
+          </footer>
+        </div>
+      </section>
+
+      <section class="view view-settings hidden" id="view-settings" data-view="settings" role="tabpanel" aria-labelledby="nav-settings">
+        <header class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <button class="menu-toggle" data-menu-toggle aria-label="Open navigation" title="Menu">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div>
+              <h1 class="page-title">Settings</h1>
+              <p class="page-subtitle">Configure how Yoink behaves on your machine.</p>
+            </div>
+          </div>
+        </header>
+
+        <div class="card">
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-title">Appearance</span>
+                <span class="setting-desc">Match your system or pick a side.</span>
+              </div>
+              <div class="segmented" role="group" aria-label="Theme">
+                <button type="button" data-theme-set="auto" aria-pressed="false">Auto</button>
+                <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+                <button type="button" data-theme-set="dark" aria-pressed="true">Dark</button>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-title">Default save folder</span>
+                <span class="setting-desc">New downloads are saved here unless changed.</span>
+                <span class="setting-folder" id="settingFolderPath"></span>
+              </div>
+              <button class="btn btn-ghost" id="settingChangeFolder">Change folder</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-title">Native notifications</span>
+                <span class="setting-desc">Show a system notification when a download finishes.</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingNotifications" aria-label="Enable notifications" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-title">Minimize to system tray</span>
+                <span class="setting-desc">Closing the window keeps Yoink running in the tray instead of quitting.</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingMinimizeTray" aria-label="Minimize to tray" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-title">Start with system</span>
+                <span class="setting-desc">Coming soon: launch automatically when Windows starts.</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingAutostart" disabled aria-label="Start with system" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-title">Show welcome tour</span>
+                <span class="setting-desc">Replay the first-run walkthrough.</span>
+              </div>
+              <button class="btn btn-ghost" id="replayOnboardingBtn">Replay</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view view-downloads hidden" id="view-downloads" data-view="downloads" role="tabpanel" aria-labelledby="nav-downloads">
+        <header class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+            <button class="menu-toggle" data-menu-toggle aria-label="Open navigation" title="Menu">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div>
+              <h1 class="page-title">Downloads</h1>
+              <p class="page-subtitle" id="downloadsSummary" aria-live="polite">No downloads yet.</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="changeFolderBtn">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Change folder
+            </button>
+            <button class="btn btn-primary" id="addTorrentBtn">
+              <span class="plus" aria-hidden="true">+</span> Add .torrent
+            </button>
+          </div>
+        </header>
+
+        <div class="card downloads-card">
+          <div class="downloads-empty empty-state" id="downloadsEmpty">
+            <svg viewBox="0 0 24 24" class="ic empty-ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            <h3>Nothing downloading yet</h3>
+            <p>Search for something, click <b>Download</b>, or open a .torrent file to begin.</p>
+          </div>
+          <div class="downloads-list" id="downloadsList" hidden role="list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-stack" id="toastStack" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+  <!-- Onboarding (first-run) -->
+  <div class="modal-backdrop" id="onboardingBackdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" hidden>
+    <div class="modal">
+      <header class="modal-header">
+        <div class="modal-mark" aria-hidden="true">Y</div>
+        <h2 id="onboardingTitle">Welcome to Yoink</h2>
+        <p class="modal-tag">Just yoink it from the swarm.</p>
+      </header>
+      <div class="modal-body">
+        <ul class="feature-list">
+          <li>
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <div>
+              <b>Search anywhere</b>
+              <small>Stable APIs (Pirate Bay, YTS) are on by default. Region filter unlocks Bollywood, K-drama, anime, and more.</small>
+            </div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            <div>
+              <b>One-click downloads</b>
+              <small>Hit <kbd>Yoink it</kbd> on any result. Track progress, pause, and open the folder from the Downloads tab.</small>
+            </div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 3v6M16 3v6"/></svg>
+            <div>
+              <b>Stays out of your way</b>
+              <small>Minimizes to the system tray. Native notifications when a download finishes. Toggle either from Settings.</small>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="onboardingDone">Let's go</button>
+      </div>
+    </div>
+  </div>
+
+  <template id="resultRowTpl">
+    <article class="result-row" role="listitem">
+      <div class="poster-wrap">
+        <img class="poster" hidden alt="" />
+        <div class="poster placeholder">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+        </div>
+      </div>
+      <div class="result-main">
+        <div class="result-title"></div>
+        <div class="result-meta">
+          <span class="meta source"></span>
+          <span class="meta size"></span>
+          <span class="meta date" hidden></span>
+          <span class="meta runtime" hidden></span>
+          <span class="meta quality" hidden></span>
+          <span class="meta rating" hidden></span>
+          <a class="meta imdb-link" hidden target="_blank" rel="noopener">IMDb</a>
+        </div>
+        <div class="result-genres" hidden></div>
+        <div class="result-summary" hidden></div>
+      </div>
+      <div class="result-stats">
+        <div class="stat-line seeders" title="Seeders: people who have the complete file and are sharing it. More seeders = faster download.">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+          <span class="num"></span>
+          <span>seeders</span>
+        </div>
+        <div class="stat-line peers" title="Peers: people downloading the file from you. They don't speed up your download.">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 5v14"/><path d="m5 12 7 7 7-7"/></svg>
+          <span class="num"></span>
+          <span>peers</span>
+        </div>
+      </div>
+      <button class="btn btn-primary result-action">
+        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download
+      </button>
+    </article>
+  </template>
+
+  <template id="downloadRowTpl">
+    <article class="download-row" role="listitem">
+      <header class="download-head">
+        <h3 class="dl-name"></h3>
+        <span class="status-chip"></span>
+      </header>
+      <div class="dl-progress-wrap">
+        <div class="dl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><span class="dl-bar"></span></div>
+        <span class="dl-progress-text"></span>
+      </div>
+      <div class="dl-meta">
+        <span class="dl-stat"><span class="dl-label">Size</span><span class="dl-value dl-size"></span></span>
+        <span class="dl-stat"><span class="dl-label">Down</span><span class="dl-value dl-down"></span></span>
+        <span class="dl-stat"><span class="dl-label">ETA</span><span class="dl-value dl-eta"></span></span>
+        <span class="dl-stat"><span class="dl-label">Seeds</span><span class="dl-value dl-seeds"></span></span>
+        <span class="dl-stat"><span class="dl-label">Peers</span><span class="dl-value dl-peers"></span></span>
+      </div>
+      <div class="dl-actions">
+        <button class="btn btn-ghost dl-pause" hidden>Pause</button>
+        <button class="btn btn-ghost dl-resume" hidden>Resume</button>
+        <button class="btn btn-ghost dl-open">Open folder</button>
+        <button class="btn btn-danger dl-remove">Remove</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>

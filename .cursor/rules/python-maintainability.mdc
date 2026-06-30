@@ -1,0 +1,17 @@
+---
+description: Python readability and refactoring standards for Torrent App
+globs: **/*.py
+alwaysApply: false
+---
+
+# Python Maintainability
+
+- Make changes around explicit behavior, not cosmetic churn. Avoid drive-by rewrites unless they remove real confusion.
+- Keep classes focused. If a class mixes UI, persistence, network calls, and torrent state, extract the behavior behind a small method or collaborator before adding more logic.
+- Prefer typed public methods and clear return values over loosely shaped dictionaries. If a dictionary crosses module boundaries, consider a dataclass or named type.
+- Keep functions short enough to read in one screen. Extract validation, path handling, database writes, and UI formatting into named helpers.
+- Use project logging helpers. Log enough context to debug torrent/session/database failures, but do not swallow exceptions silently.
+- Validate user input at boundaries: magnet links, torrent files, download folders, search query text, and delete confirmations.
+- Avoid blocking calls on the PyQt main thread. Network, torrent metadata, file scanning, and database-heavy operations belong in workers or async helpers.
+- Preserve existing tests and add focused tests for bug fixes, path behavior, persistence behavior, and session settings.
+- Use `.venv` on Windows and run tests with `PYTHONPATH=$PWD;$PWD/src`.
