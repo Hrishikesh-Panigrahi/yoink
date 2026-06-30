@@ -1,0 +1,56 @@
+Scraping and aggregating torrent data directly via individual, fragile API endpoints is usually a losing battle. Because torrent sites change their HTML structure, domains, and Cloudflare protections constantly, standalone open-source wrapper APIs break incredibly fast.
+
+Instead of maintaining a dozen raw scraper scripts, the standard and highly reliable way to build an aggregator is to query services that implement the **Torznab** or **TorrentPotato** specs.
+
+Here are the actively maintained, production-ready aggregation tools and standard APIs you should hook your backend into, all fully active and updated within the last few months.
+
+---
+
+## 1. The Industry Standards (Self-Hosted Aggregators with APIs)
+
+Rather than writing individual wrappers for 20 different sites, you deploy one of these local binaries alongside your app and hit its unified internal API. They handle all the proxying, cloudflare-bypassing, and site updates for you.
+
+### **Prowlarr / Jackett**
+
+* **GitHub:** [Jackett/Jackett](https://github.com/Jackett/Jackett) or [Prowlarr/Prowlarr](https://github.com/Prowlarr/Prowlarr) *(Both actively updated daily/weekly)*
+* **How it works:** They provide a standardized **Torznab API** endpoint. You send a single HTTP GET request to `http://localhost:9117/api/v2.0/indexers/all/results/torznab/api?apikey=...&q=your+search+query` and it returns an aggregated, structured XML/JSON response containing results from every public or private tracker you have enabled.
+* **Why use it:** Over 500+ indexers built-in. If a site changes its URL, Jackett/Prowlarr updates automatically via background updates, so your wrapper wrapper code *never* breaks.
+
+### **Bitmagnet**
+
+* **GitHub:** [bitmagnet-io/bitmagnet](https://github.com/bitmagnet-io/bitmagnet) *(Actively maintained)*
+* **How it works:** A self-hosted BitTorrent indexer and DHT crawler. Instead of scraping websites, it crawls the BitTorrent DHT network directly, classifies content, and exposes a clean **GraphQL API**.
+* **Why use it:** Zero reliance on third-party web scraping. It creates its own massive internal database of torrents that you can query instantly.
+
+---
+
+## 2. Up-to-Date Codebases for Scraping Referrals
+
+If your wrapper *must* hit raw scrapers directly without running an external background daemon like Jackett, look into the code architectures of these recently updated projects:
+
+* **TorrentSearch (Kotlin/Ktor/Jsoup):** [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch)
+* *Status:* Extremely active (updated daily/weekly).
+* *Value:* It is an Android app, but the core network layer uses modern Ktor and Jsoup modules to scrape/parse modern torrent providers progressively. You can easily port their parsing logic or regex strings to your preferred backend language.
+
+
+* **Torrra (Python/Textual):** [stabldev/torrra](https://github.com/stabldev/torrra)
+* *Status:* Actively maintained.
+* *Value:* A CLI/TUI tool that demonstrates exactly how to interface dynamically with Jackett/Prowlarr endpoints, manage smart caching configurations, and handle response parsing efficiently.
+
+
+
+---
+
+## 3. Recommended Sorting & Ranking Strategy for your UI
+
+When you fetch the aggregated data from your sources into a unified array, you will want to normalize and rank the items before spitting them out to your UI. A clean way to compute a **Ranking Score** is to factor in health, freshness, and verified trust:
+
+$$Score = (Seeders \times 2.0) + Leechers + \left( \frac{100}{Age\_In\_Days + 1} \right) + Trusted\_Bonus$$
+
+### Strategy Checklist:
+
+1. **Deduplication:** Multiple providers will return the exact same torrent. Deduplicate your final array based on the **InfoHash** or **Magnet URI** string rather than the title.
+2. **The Seeder/Leecher Ratio:** Don't just sort blindly by raw seeders. A torrent with 500 seeders and 5 leechers is healthy; a torrent with 2000 seeders and 4000 leechers might hit network bottlenecks.
+3. **Text Normalization:** Use a simple regex parsing utility (like parsing titles for terms like `1080p`, `x264`, `PROPER`) so your UI can display clean, structured metadata tags next to the raw release names.
+
+Are you building this wrapper backend in Node.js, Python, or Go? I can drop a quick snippet showing how to query a standard Torznab/Jackett endpoint using that language if you'd like.
