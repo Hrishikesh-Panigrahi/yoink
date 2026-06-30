@@ -26,7 +26,7 @@ export PYTHONPATH := $(ROOT)$(PATHSEP)$(ROOT)/src
 help:
 	@echo Yoink — available targets:
 	@echo   make venv          Create .venv
-	@echo   make install       pip install -r requirements.txt (+ pytest for dev)
+	@echo   make install       pip install runtime + dev requirements
 	@echo   make run           Start the desktop app
 	@echo   make run-minimized Start hidden to tray (--minimized)
 	@echo   make test          Run pytest
@@ -39,7 +39,7 @@ venv:
 
 install: venv
 	$(PIP) install -r requirements.txt
-	$(PIP) install pytest responses
+	$(PIP) install -r requirements-dev.txt
 
 run:
 	$(PYTHON) src/main.py
@@ -57,4 +57,4 @@ build-exe:
 	$(PYTHON) build.py --exe-only
 
 clean:
-	$(PYTHON) -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in ('build','dist')]; [pathlib.Path(f).unlink(missing_ok=True) for f in ('Yoink.spec','TorrentApp.spec')]"
+	$(PYTHON) -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in ('build','dist')]; [pathlib.Path(f).unlink(missing_ok=True) for f in ('Yoink.spec',)]"

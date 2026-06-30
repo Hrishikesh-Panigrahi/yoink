@@ -7,6 +7,7 @@ import os
 import libtorrent as lt
 
 import db
+from torrents.resume import load_resume_data
 from torrents.session import Session
 from utils.logger import setup_logger
 
@@ -28,18 +29,28 @@ def load_saved(session: Session) -> int:
             if row.magnet_link.startswith("magnet:"):
                 params = lt.parse_magnet_uri(row.magnet_link)
                 params.save_path = row.save_path
+                resume_data = load_resume_data(row.info_hash)
+                if resume_data:
+                    params.resume_data = resume_data
                 handle = session.lt_session.add_torrent(params)
             elif os.path.exists(row.magnet_link):
                 info = lt.torrent_info(row.magnet_link)
                 params = lt.add_torrent_params()
                 params.ti = info
                 params.save_path = row.save_path
+                resume_data = load_resume_data(row.info_hash)
+                if resume_data:
+                    params.resume_data = resume_data
                 handle = session.lt_session.add_torrent(params)
             else:
                 logger.warning(f"Skipping saved torrent {row.name}: source missing")
                 continue
 
             session.handles[row.info_hash.lower()] = handle
+            if (row.status or "").lower() == "paused":
+                handle.pause()
+            else:
+                handle.resume()
             restored += 1
         except Exception as exc:
             logger.error(f"Failed to restore torrent {row.name}: {exc}")

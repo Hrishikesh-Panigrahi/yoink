@@ -8,6 +8,7 @@ from typing import Optional
 import libtorrent as lt
 
 import db
+from torrents.resume import remove_resume_data
 from torrents.session import Session
 from utils.logger import setup_logger
 from utils.paths import normalize_path
@@ -168,6 +169,7 @@ def remove(session: Session, info_hash: str, delete_files: bool = False) -> bool
         logger.error(f"libtorrent remove failed for {info_hash}: {exc}")
 
     db.remove_torrent(info_hash)
+    remove_resume_data(info_hash)
     session.handles.pop(key, None)
 
     if delete_files:

@@ -26,6 +26,7 @@ def check_for_update(timeout: float = 6.0) -> Optional[dict]:
             "latest": "2.1.0",
             "url": "https://github.com/.../releases/tag/v2.1.0",
             "downloadUrl": "https://...Yoink-Setup-2.1.0.exe" | None,
+            "checksumUrl": "https://...SHA256SUMS.txt" | None,
             "notes": str,
         }
     """
@@ -51,17 +52,32 @@ def check_for_update(timeout: float = 6.0) -> Optional[dict]:
         return None
 
     download_url: Optional[str] = None
-    for asset in data.get("assets") or []:
+    checksum_url: Optional[str] = None
+    assets = data.get("assets") or []
+    for asset in assets:
         name = (asset.get("name") or "").lower()
-        if name.endswith(".exe") or "setup" in name:
+        if name == "sha256sums.txt":
+            checksum_url = asset.get("browser_download_url")
+            break
+
+    for asset in assets:
+        name = (asset.get("name") or "").lower()
+        if name.endswith(".exe") and "setup" in name:
             download_url = asset.get("browser_download_url")
             break
+    if download_url is None:
+        for asset in assets:
+            name = (asset.get("name") or "").lower()
+            if name.endswith(".exe"):
+                download_url = asset.get("browser_download_url")
+                break
 
     return {
         "current": __version__,
         "latest": latest_tag,
         "url": data.get("html_url") or "",
         "downloadUrl": download_url,
+        "checksumUrl": checksum_url,
         "notes": data.get("body") or "",
     }
 

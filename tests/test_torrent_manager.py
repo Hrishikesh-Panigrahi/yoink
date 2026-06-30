@@ -112,6 +112,23 @@ class TestTorrentActions(unittest.TestCase):
         # Unsetting (passing 0) should also work
         torrents.apply_limits(self.session, download_kb_s=0, upload_kb_s=0)
 
+    def test_load_saved_restores_paused_state(self) -> None:
+        info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
+        self.assertTrue(torrents.pause(self.session, info_hash))
+        torrents.stop_session(self.session)
+
+        restored_session = torrents.create_session(self.save_path)
+        try:
+            restored = torrents.load_saved(restored_session)
+
+            self.assertEqual(restored, 1)
+            self.assertIn(info_hash, restored_session.handles)
+            self.assertTrue(restored_session.handles[info_hash].status().paused)
+        finally:
+            torrents.remove(restored_session, info_hash, delete_files=False)
+            torrents.stop_session(restored_session)
+            self.session = torrents.create_session(self.save_path)
+
 
 class TestAutostart(unittest.TestCase):
     def test_is_enabled_returns_bool(self) -> None:

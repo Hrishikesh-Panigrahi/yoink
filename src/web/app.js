@@ -1161,12 +1161,22 @@ const App = (() => {
         if (info && info.latest) {
           const message = `Update available: ${info.latest} (you have ${info.current})`;
           if (els.aboutUpdateStatus) {
-            els.aboutUpdateStatus.innerHTML = `${escapeHtml(message)} \u2014 <a href="#" id="aboutReleaseLink">view release</a>`;
+            const checksumLink = info.checksumUrl
+              ? ` - <a href="#" id="aboutChecksumLink">checksums</a>`
+              : "";
+            els.aboutUpdateStatus.innerHTML = `${escapeHtml(message)} - <a href="#" id="aboutReleaseLink">download</a>${checksumLink}`;
             const link = document.getElementById("aboutReleaseLink");
             if (link) {
               link.addEventListener("click", (e) => {
                 e.preventDefault();
                 bridge.openExternal(info.downloadUrl || info.url);
+              });
+            }
+            const checksum = document.getElementById("aboutChecksumLink");
+            if (checksum) {
+              checksum.addEventListener("click", (e) => {
+                e.preventDefault();
+                bridge.openExternal(info.checksumUrl);
               });
             }
           }

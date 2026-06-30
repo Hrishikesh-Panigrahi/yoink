@@ -15,6 +15,7 @@ from typing import Dict
 import libtorrent as lt
 
 from torrents.dto import NetworkStats
+from torrents.resume import store_resume_data
 from utils.logger import setup_logger
 from utils.paths import normalize_path
 
@@ -27,7 +28,7 @@ _OPTIMIZED_SETTINGS = {
     "active_limit": -1,
     "connections_limit": 500,
     "tick_interval": 100,
-    "cache_size": 1024 * 1024 * 1024,
+    "cache_size": 16 * 1024,
     "disk_io_read_mode": 2,
     "disk_io_write_mode": 2,
     "enable_dht": True,
@@ -91,6 +92,12 @@ def create_session(save_path: str) -> Session:
 def stop_session(session: Session) -> None:
     """Stop the alert pump and shut libtorrent's background services down."""
     logger.info("Stopping libtorrent session")
+    for handle in list(session.handles.values()):
+        if handle is not None and handle.is_valid():
+            try:
+                handle.save_resume_data()
+            except Exception as exc:
+                logger.debug(f"save_resume_data request failed during shutdown: {exc}")
     session._stop.set()
     if session._pump is not None:
         session._pump.join(timeout=2.0)
@@ -174,8 +181,39 @@ def _pump_alerts(session: Session) -> None:
     while not session._stop.is_set():
         try:
             session.lt_session.post_torrent_updates()
+            _handle_alerts(session)
         except Exception as exc:
             logger.error(f"Alert pump error: {exc}")
             session._stop.wait(1.0)
             continue
         session._stop.wait(0.1)
+
+
+def _handle_alerts(session: Session) -> None:
+    """Handle libtorrent alerts that matter for persistence and diagnostics."""
+    try:
+        alerts = session.lt_session.pop_alerts()
+    except Exception as exc:
+        logger.debug(f"pop_alerts failed: {exc}")
+        return
+
+    for alert in alerts:
+        alert_name = type(alert).__name__
+        if alert_name == "save_resume_data_alert":
+            handle = alert.handle
+            if handle.is_valid():
+                info_hash = str(handle.info_hash()).lower()
+                store_resume_data(info_hash, alert.params)
+        elif alert_name == "metadata_received_alert":
+            handle = alert.handle
+            if handle.is_valid():
+                try:
+                    handle.save_resume_data()
+                except Exception as exc:
+                    logger.debug(f"save_resume_data request failed after metadata: {exc}")
+        elif alert_name == "torrent_error_alert":
+            try:
+                info_hash = str(alert.handle.info_hash()).lower()
+            except Exception:
+                info_hash = "unknown"
+            logger.warning(f"Torrent error for {info_hash}: {alert.message()}")

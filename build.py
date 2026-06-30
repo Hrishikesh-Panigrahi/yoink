@@ -43,7 +43,7 @@ def clean_build() -> None:
         if path.exists():
             shutil.rmtree(path)
             print(f"cleaned {path}")
-    for spec in ("TorrentApp.spec", "Yoink.spec"):
+    for spec in ("Yoink.spec",):
         spec_path = ROOT / spec
         if spec_path.exists():
             spec_path.unlink()
@@ -88,6 +88,7 @@ def build_exe() -> None:
         "--hidden-import=torrents.actions",
         "--hidden-import=torrents.state",
         "--hidden-import=torrents.persistence",
+        "--hidden-import=torrents.resume",
         "--hidden-import=torrents.dto",
         "--hidden-import=search",
         "--hidden-import=search.enums",

@@ -8,5 +8,3 @@ pillow==10.0.0
 python-magic==0.4.27
 aiohttp==3.11.16
 cloudscraper>=1.2.71
-pytest>=7.4.0
-responses>=0.24.0 

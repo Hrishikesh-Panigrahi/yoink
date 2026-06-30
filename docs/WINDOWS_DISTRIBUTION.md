@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ship the Torrent App as a Windows desktop application that users can install or run without setting up Python manually.
+Ship Yoink as a Windows desktop application that users can install or run without setting up Python manually.
 
 ## Recommended Path
 
@@ -20,9 +20,9 @@ Use PyInstaller first, then wrap the output in an installer once the app is stab
 
 Do not store mutable app data next to the executable.
 
-- Database: `%APPDATA%/TorrentApp/torrent.db`
-- Logs: `%LOCALAPPDATA%/TorrentApp/logs/`
-- Settings: `QSettings` or `%APPDATA%/TorrentApp/settings.json`
+- Database: `%LOCALAPPDATA%/Yoink/yoink.db`
+- Logs: `%LOCALAPPDATA%/Yoink/logs/`
+- Settings: `%LOCALAPPDATA%/Yoink/yoink.db`
 - Downloads: user-selected folder, defaulting to `Downloads`
 
 ## Build Command During Development
@@ -52,8 +52,25 @@ Expect to refine `build.py` or create a checked-in `.spec` file as the UI/resour
 
 - Portable zip: fastest for testing, lowest polish.
 - Installer: best for normal users; use Inno Setup or WiX.
+- GitHub Releases: source of truth for downloadable `Yoink.exe`, installer, and checksums.
+- GitHub Pages: public download page that links to the latest release.
 - Microsoft Store: possible later, but packaging, signing, and policy review are more involved.
+
+## GitHub Hosting
+
+1. Bump `src/version.py`.
+2. Push a tag such as `v2.0.0`.
+3. Let `.github/workflows/release.yml` build and publish release assets.
+4. Enable GitHub Pages from the `docs/` folder on the default branch.
+5. Point users to the Pages site for installation instructions and the latest release link.
 
 ## Important Caveat
 
 Unsigned torrent software may trigger extra trust prompts. For public distribution, code signing and a clear website/release page matter.
+
+## Code Signing Notes
+
+- Sign both `dist/Yoink.exe` and `dist/Yoink-Setup-*.exe` before uploading public release assets.
+- Store signing credentials as GitHub Actions secrets; do not commit certificate files or passwords.
+- Re-generate `SHA256SUMS.txt` after signing so hashes match the published binaries.
+- If signing is not available yet, call that out on the download page and release notes so users know why Windows may show SmartScreen warnings.

@@ -10,10 +10,10 @@ from PyQt6.QtWidgets import QApplication
 
 from main_window import MainWindow
 from utils.logger import setup_logger
+from utils.paths import default_log_path
 from utils.single_instance import send_to_existing
 
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
-LOG_FILE = os.path.join(LOG_DIR, "yoink.log")
+LOG_FILE = default_log_path()
 logger = setup_logger("yoink", LOG_FILE)
 
 

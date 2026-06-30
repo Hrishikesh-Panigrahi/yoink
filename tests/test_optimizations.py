@@ -58,7 +58,7 @@ class TestSessionOptimizations(unittest.TestCase):
         self.assertEqual(settings["active_limit"], -1)
         self.assertEqual(settings["connections_limit"], 500)
         self.assertEqual(settings["tick_interval"], 100)
-        self.assertEqual(settings["cache_size"], 1024 * 1024 * 1024)
+        self.assertEqual(settings["cache_size"], 16 * 1024)
         self.assertEqual(settings["disk_io_read_mode"], 2)
         self.assertEqual(settings["disk_io_write_mode"], 2)
         self.assertTrue(settings["enable_dht"])

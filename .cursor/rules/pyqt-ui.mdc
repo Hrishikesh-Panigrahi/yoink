@@ -1,5 +1,5 @@
 ---
-description: PyQt6 UI and UX standards for Torrent App
+description: PyQt6 UI and UX standards for Yoink
 globs: src/gui/**/*.py
 alwaysApply: false
 ---

@@ -127,12 +127,15 @@ class DownloadsPollWorker(QThread):
 
     def run(self) -> None:
         while self._running:
+            delay = self.interval_ms
             try:
                 payload = [s.to_dict() for s in torrents.list_torrents(self.session)]
                 self.snapshot.emit(payload)
+                if not payload:
+                    delay = max(self.interval_ms, 3000)
             except Exception as exc:
                 logger.error(f"Downloads poll error: {exc}")
-            self.msleep(self.interval_ms)
+            self.msleep(delay)
 
     def stop(self) -> None:
         self._running = False
@@ -151,12 +154,15 @@ class NetworkSpeedWorker(QThread):
 
     def run(self) -> None:
         while self._running:
+            delay = self.interval_ms
             try:
                 stats = torrents.network_stats(self.session)
                 self.speed.emit(stats.download_kb_s, stats.upload_kb_s)
+                if stats.download_kb_s <= 0 and stats.upload_kb_s <= 0:
+                    delay = max(self.interval_ms, 3000)
             except Exception as exc:
                 logger.error(f"Network speed poll error: {exc}")
-            self.msleep(self.interval_ms)
+            self.msleep(delay)
 
     def stop(self) -> None:
         self._running = False

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from models import Base, SavedTorrent, Setting
 from utils.logger import setup_logger
+from utils.paths import default_db_path
 
 logger = setup_logger("db")
 
@@ -25,17 +26,17 @@ _SessionLocal: Optional[sessionmaker] = None
 def init_db(db_path: Optional[str] = None) -> Engine:
     """Create the engine + schema. Safe to call multiple times.
 
-    Path resolution: explicit arg > `TORRENT_DB_PATH` env var > `torrent.db`.
+    Path resolution: explicit arg > `TORRENT_DB_PATH` env var > user data dir.
     """
     global _engine, _SessionLocal
 
     if _engine is not None and db_path is None:
         return _engine
 
-    resolved = db_path or os.environ.get("TORRENT_DB_PATH", "torrent.db")
+    resolved = db_path or os.environ.get("TORRENT_DB_PATH") or default_db_path()
     parent = os.path.dirname(resolved)
     if parent and not os.path.exists(parent):
-        os.makedirs(parent)
+        os.makedirs(parent, exist_ok=True)
 
     logger.info(f"Initializing database at {resolved}")
     _engine = create_engine(f"sqlite:///{resolved}")

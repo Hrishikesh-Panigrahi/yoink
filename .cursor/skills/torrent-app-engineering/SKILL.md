@@ -1,9 +1,9 @@
 ---
 name: torrent-app-engineering
-description: Improve, refactor, test, redesign, or package the Torrent App Python desktop client. Use when working on code quality, PyQt6 UI/UX, libtorrent behavior, SQLite persistence, tests, or Windows app distribution for this repository.
+description: Improve, refactor, test, redesign, or package the Yoink Python desktop client. Use when working on code quality, PyQt6 UI/UX, libtorrent behavior, SQLite persistence, tests, or Windows app distribution for this repository.
 ---
 
-# Torrent App Engineering
+# Yoink Engineering
 
 ## First Steps
 

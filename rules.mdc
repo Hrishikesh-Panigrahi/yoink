@@ -1,10 +1,10 @@
-# Torrent App AI Assistant Rules
+# Yoink AI Assistant Rules
 
 ## Environment Setup
 - Always run the application in a Python virtual environment
-- Create virtual environment using: `python3 -m venv venv`
-- Activate virtual environment before running: `source venv/bin/activate`
-- Install dependencies in virtual environment: `pip install -r requirements.txt`
+- Create virtual environment using: `python -m venv .venv`
+- Activate virtual environment before running.
+- Install development dependencies in virtual environment: `pip install -r requirements-dev.txt`
 - Never run the application without activating the virtual environment
 
 ## Code Style
@@ -14,10 +14,10 @@
 - Document all public functions and classes
 
 ## Project Structure
-- Keep GUI code in the `gui` directory
-- Database operations in the `database` directory
-- Core torrent functionality in the `core` directory
-- Utility functions in the `utils` directory
+- Keep the PyQt shell in flat modules such as `main.py`, `main_window.py`, and `bridge.py`
+- Database operations live in `db.py` and `models.py`
+- Core torrent functionality lives in `src/torrents/`
+- Utility functions live in `src/utils/`
 
 ## Testing
 - Write unit tests for core functionality

@@ -13,7 +13,7 @@ multi-site scraping via a vendored copy of
 ```powershell
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 $env:PYTHONPATH = "$PWD;$PWD\src"
 python src\main.py
 ```
@@ -39,6 +39,23 @@ This wraps PyInstaller and produces `dist/Yoink.exe`. The build script bundles
 `src/web/`, `src/resources/`, and `src/vendor/` alongside the executable. See
 [`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for installer
 notes.
+
+## Download and hosting
+
+Public Windows builds are intended to be hosted on
+[GitHub Releases](https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest).
+The tag-based release workflow publishes `Yoink.exe`, `Yoink-Setup-<version>.exe`,
+and `SHA256SUMS.txt`.
+
+The static download page lives in [`docs/index.html`](docs/index.html). Enable
+GitHub Pages from the `docs/` folder on the default branch, then use that page as
+the public landing/download site.
+
+## Legal note
+
+Yoink is a torrent client. It does not host, bundle, or endorse copyrighted
+content. You are responsible for using torrents and magnet links legally in your
+region.
 
 ## Layout tour
 
@@ -70,7 +87,7 @@ src/
 
   utils/               # shared stateless helpers
     format.py          #   format_size / format_speed / format_eta
-    paths.py           #   normalize_path
+    paths.py           #   normalize_path / user-writable app data paths
     magnets.py         #   build_magnet
     logger.py          #   setup_logger
 

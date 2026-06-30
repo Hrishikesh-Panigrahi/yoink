@@ -22,14 +22,23 @@ logger = setup_logger("providers.health")
 _OK_LATENCY = 4.0
 _SLOW_LATENCY = 12.0
 _PROBE_QUERY = "matrix"
+_CACHE_TTL_SECONDS = 300.0
+_cache: tuple[float, Dict[str, dict]] | None = None
 
 
-def ping_all(timeout_seconds: float = 12.0) -> Dict[str, dict]:
+def ping_all(timeout_seconds: float = 12.0, *, force: bool = False) -> Dict[str, dict]:
     """Concurrently probe every provider and return a status map.
 
     Keys mirror those exposed by ``providers.all_provider_choices`` so the
     web UI can directly index into the response.
     """
+    global _cache
+    now = time.monotonic()
+    if not force and _cache is not None:
+        cached_at, statuses = _cache
+        if now - cached_at <= _CACHE_TTL_SECONDS:
+            return statuses
+
     probes = _probe_specs()
     with ThreadPoolExecutor(max_workers=min(10, len(probes) or 1)) as pool:
         futures = {pool.submit(_probe, name, fn, timeout_seconds): key for key, (name, fn) in probes.items()}
@@ -40,6 +49,7 @@ def ping_all(timeout_seconds: float = 12.0) -> Dict[str, dict]:
             except Exception as exc:
                 logger.warning(f"health probe failed for {key}: {exc}")
                 out[key] = {"status": "down", "latencyMs": 0, "error": str(exc)}
+    _cache = (time.monotonic(), out)
     return out
 
 

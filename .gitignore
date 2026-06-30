@@ -49,9 +49,6 @@ logs/
 
 # PyInstaller
 *.spec
-TorrentApp.zip
-TorrentApp.app/
-TorrentApp
 Yoink.app/
 Yoink
 

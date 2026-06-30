@@ -1,5 +1,5 @@
 ---
-description: Windows packaging rules for the Torrent App desktop build
+description: Windows packaging rules for the Yoink desktop build
 globs: build.py,setup.py,requirements*.txt,*.spec,src/resources/**
 alwaysApply: false
 ---
