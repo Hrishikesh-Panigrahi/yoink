@@ -68,6 +68,64 @@ def add_torrent_file(session: Session, file_path: str, save_path: Optional[str] 
     return info_hash
 
 
+def set_file_priorities(session: Session, info_hash: str, priorities: dict[int, int]) -> bool:
+    """Set per-file libtorrent priorities (0=skip, 1=low, 4=normal, 7=high)."""
+    handle = session.handles.get(info_hash.lower())
+    if handle is None or not handle.is_valid() or not handle.has_metadata():
+        return False
+    try:
+        current = list(handle.file_priorities())
+    except Exception as exc:
+        logger.warning(f"file_priorities() read failed: {exc}")
+        info = handle.get_torrent_info()
+        current = [4] * info.files().num_files()
+
+    changed = False
+    for raw_idx, raw_prio in priorities.items():
+        try:
+            idx = int(raw_idx)
+            prio = max(0, min(7, int(raw_prio)))
+        except (TypeError, ValueError):
+            continue
+        if 0 <= idx < len(current):
+            current[idx] = prio
+            changed = True
+
+    if not changed:
+        return False
+
+    try:
+        handle.prioritize_files(current)
+    except Exception as exc:
+        logger.error(f"prioritize_files failed for {info_hash}: {exc}")
+        return False
+    return True
+
+
+def pause_all(session: Session) -> int:
+    """Pause every torrent in the session. Returns how many were paused."""
+    count = 0
+    for info_hash, handle in list(session.handles.items()):
+        if handle is None or not handle.is_valid():
+            continue
+        handle.pause()
+        db.update_torrent_status(info_hash, "paused")
+        count += 1
+    return count
+
+
+def resume_all(session: Session) -> int:
+    """Resume every torrent in the session. Returns how many were resumed."""
+    count = 0
+    for info_hash, handle in list(session.handles.items()):
+        if handle is None or not handle.is_valid():
+            continue
+        handle.resume()
+        db.update_torrent_status(info_hash, "downloading")
+        count += 1
+    return count
+
+
 def pause(session: Session, info_hash: str) -> bool:
     """Pause a torrent by info hash."""
     handle = session.handles.get(info_hash.lower())

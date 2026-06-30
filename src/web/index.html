@@ -54,7 +54,7 @@
           <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
           <span class="folder-text" id="folderText">~/Downloads</span>
         </button>
-        <div class="version">Yoink v1.0</div>
+        <div class="version" id="sidebarVersion">Yoink</div>
       </div>
     </aside>
 
@@ -82,9 +82,14 @@
               class="text-input"
               placeholder="Search movies, shows, or paste a magnet link..."
               autofocus
+              autocomplete="off"
               aria-label="Search torrents"
+              aria-autocomplete="list"
+              aria-controls="searchHistoryList"
+              aria-expanded="false"
             />
             <button type="button" class="input-clear" id="searchClear" hidden title="Clear" aria-label="Clear search">&times;</button>
+            <div class="history-dropdown" id="searchHistoryList" role="listbox" aria-label="Recent searches" hidden></div>
           </div>
           <button type="submit" class="btn btn-primary" id="searchBtn">Yoink it</button>
         </form>
@@ -114,10 +119,32 @@
               <option value="any">Any</option>
             </select>
           </label>
+          <label class="filter-control">
+            <span>Quality</span>
+            <select id="qualityFilter" aria-label="Quality filter">
+              <option value="any">Any</option>
+              <option value="2160p">4K (2160p)</option>
+              <option value="1080p">1080p</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
+              <option value="x265">x265 / HEVC</option>
+              <option value="x264">x264</option>
+            </select>
+          </label>
+          <label class="filter-control">
+            <span>Sort by</span>
+            <select id="sortFilter" aria-label="Sort by">
+              <option value="relevance">Best match</option>
+              <option value="seeds">Most seeds</option>
+              <option value="size">Largest size</option>
+              <option value="newest">Newest</option>
+            </select>
+          </label>
           <label class="filter-control filter-control-wide">
             <span>Sources</span>
             <select id="sourceFilter" aria-label="Sources filter">
-              <option value="stable">Stable APIs (recommended)</option>
+              <option value="stable">Stable (YTS + Pirate Bay)</option>
+              <option value="multi-default">All my enabled sites</option>
               <option value="torrent-api-py-all">Torrent-Api-py all sites</option>
               <option value="movies-core">Torrent-Api-py movies core</option>
               <option value="1337x">1337x only</option>
@@ -171,17 +198,54 @@
             </button>
             <div>
               <h1 class="page-title">Settings</h1>
-              <p class="page-subtitle">Configure how Yoink behaves on your machine.</p>
+              <p class="page-subtitle">Tune Yoink the way you like it.</p>
             </div>
           </div>
         </header>
 
-        <div class="card">
+        <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+          <button type="button" class="settings-nav-item is-active" data-jump="appearance">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18 4 4 0 0 1 0-8 4 4 0 0 0 0-8z"/></svg>
+            Appearance
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="library">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Library
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="bandwidth">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>
+            Bandwidth
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="integrations">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            Integrations
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="sources">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+            Sources
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="about">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+            About
+          </button>
+        </nav>
+
+        <!-- ========= Appearance ========= -->
+        <div class="card" id="settings-appearance">
+          <header class="card-header">
+            <h2 class="card-title">Appearance</h2>
+            <p class="muted small">Light, dark, or follow your system.</p>
+          </header>
           <div class="settings-list">
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-title">Appearance</span>
-                <span class="setting-desc">Match your system or pick a side.</span>
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Theme</span>
+                  <span class="setting-desc">Match your system or pick a side.</span>
+                </div>
               </div>
               <div class="segmented" role="group" aria-label="Theme">
                 <button type="button" data-theme-set="auto" aria-pressed="false">Auto</button>
@@ -189,20 +253,39 @@
                 <button type="button" data-theme-set="dark" aria-pressed="true">Dark</button>
               </div>
             </div>
+          </div>
+        </div>
 
+        <!-- ========= Library & App behavior ========= -->
+        <div class="card" id="settings-library">
+          <header class="card-header">
+            <h2 class="card-title">Library & app behavior</h2>
+            <p class="muted small">Where files land and how the app behaves on your machine.</p>
+          </header>
+          <div class="settings-list">
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-title">Default save folder</span>
-                <span class="setting-desc">New downloads are saved here unless changed.</span>
-                <span class="setting-folder" id="settingFolderPath"></span>
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Default save folder</span>
+                  <span class="setting-desc">New downloads land here unless overridden.</span>
+                  <span class="setting-folder" id="settingFolderPath"></span>
+                </div>
               </div>
-              <button class="btn btn-ghost" id="settingChangeFolder">Change folder</button>
+              <button class="btn btn-ghost" id="settingChangeFolder">Change</button>
             </div>
 
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-title">Native notifications</span>
-                <span class="setting-desc">Show a system notification when a download finishes.</span>
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Native notifications</span>
+                  <span class="setting-desc">System toast when a download finishes.</span>
+                </div>
               </div>
               <label class="toggle">
                 <input type="checkbox" id="settingNotifications" aria-label="Enable notifications" />
@@ -212,8 +295,13 @@
 
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-title">Minimize to system tray</span>
-                <span class="setting-desc">Closing the window keeps Yoink running in the tray instead of quitting.</span>
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Minimize to system tray</span>
+                  <span class="setting-desc">Closing the window keeps Yoink running in the tray.</span>
+                </div>
               </div>
               <label class="toggle">
                 <input type="checkbox" id="settingMinimizeTray" aria-label="Minimize to tray" />
@@ -223,23 +311,177 @@
 
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-title">Start with system</span>
-                <span class="setting-desc">Coming soon: launch automatically when Windows starts.</span>
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Start with system</span>
+                  <span class="setting-desc">Launch minimized to tray when you sign in (Windows only).</span>
+                </div>
               </div>
               <label class="toggle">
-                <input type="checkbox" id="settingAutostart" disabled aria-label="Start with system" />
+                <input type="checkbox" id="settingAutostart" aria-label="Start with system" />
                 <span class="toggle-thumb"></span>
               </label>
             </div>
 
             <div class="setting-row">
               <div class="setting-info">
-                <span class="setting-title">Show welcome tour</span>
-                <span class="setting-desc">Replay the first-run walkthrough.</span>
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Welcome tour</span>
+                  <span class="setting-desc">Replay the first-run walkthrough.</span>
+                </div>
               </div>
               <button class="btn btn-ghost" id="replayOnboardingBtn">Replay</button>
             </div>
           </div>
+        </div>
+
+        <!-- ========= Bandwidth & queue ========= -->
+        <div class="card" id="settings-bandwidth">
+          <header class="card-header">
+            <h2 class="card-title">Bandwidth & queue</h2>
+            <p class="muted small">Hard caps applied to the live libtorrent session. Use <b>0</b> for unlimited.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M4 20h16"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max download</span>
+                  <span class="setting-desc">Cap total download speed across all torrents.</span>
+                </div>
+              </div>
+              <div class="unit-input">
+                <input type="number" min="0" step="64" id="settingDownLimit" aria-label="Download cap in kilobytes per second" />
+                <span>KB/s</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M12 20V8"/><path d="m6 14 6-6 6 6"/><path d="M4 4h16"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max upload</span>
+                  <span class="setting-desc">Cap total upload speed across all torrents.</span>
+                </div>
+              </div>
+              <div class="unit-input">
+                <input type="number" min="0" step="64" id="settingUpLimit" aria-label="Upload cap in kilobytes per second" />
+                <span>KB/s</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max active downloads</span>
+                  <span class="setting-desc">Anything over this gets queued.</span>
+                </div>
+              </div>
+              <input type="number" min="0" step="1" id="settingMaxActiveDl" class="num-input" aria-label="Max active downloads" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M12 2v20"/><path d="M5 9l7-7 7 7"/><path d="M5 15l7 7 7-7"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max active seeds</span>
+                  <span class="setting-desc">How many completed torrents can keep seeding.</span>
+                </div>
+              </div>
+              <input type="number" min="0" step="1" id="settingMaxActiveSeeds" class="num-input" aria-label="Max active seeds" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h10M4 17h6"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Seed ratio limit</span>
+                  <span class="setting-desc">Pause once upload/download ratio hits this. 0 = never.</span>
+                </div>
+              </div>
+              <input type="number" min="0" step="0.1" id="settingSeedRatio" class="num-input" aria-label="Seed ratio limit" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= Integrations ========= -->
+        <div class="card" id="settings-integrations">
+          <header class="card-header">
+            <h2 class="card-title">Integrations & data</h2>
+            <p class="muted small">Optional connections that make Yoink smarter.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row stacked">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">TMDB API key</span>
+                  <span class="setting-desc">Enables posters, ratings, plots, and trailer links. Get a free key at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener" id="tmdbHelpLink">themoviedb.org</a>.</span>
+                </div>
+              </div>
+              <div class="key-input">
+                <input type="password" id="settingTmdbKey" placeholder="paste TMDB v3 key" aria-label="TMDB API key" />
+                <button type="button" class="btn btn-primary" id="settingTmdbSave">Save</button>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Search history</span>
+                  <span class="setting-desc">Last 20 searches appear under the search box.</span>
+                </div>
+              </div>
+              <button class="btn btn-ghost" id="clearHistoryBtn">Clear history</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= Sources ========= -->
+        <div class="card" id="settings-sources">
+          <header class="card-header card-header-row">
+            <div>
+              <h2 class="card-title">Sources</h2>
+              <p class="muted small">Pick which torrent providers Yoink searches. Run a health check to see which are reachable.</p>
+            </div>
+            <button type="button" class="btn btn-ghost" id="refreshHealthBtn">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+              Check health
+            </button>
+          </header>
+          <div class="provider-grid" id="providerGrid" role="group" aria-label="Provider toggles">
+            <p class="muted small">Loading sources&hellip;</p>
+          </div>
+        </div>
+
+        <!-- ========= About ========= -->
+        <div class="card" id="settings-about">
+          <header class="card-header card-header-row">
+            <div>
+              <h2 class="card-title">About</h2>
+              <p class="muted small">Yoink v<span id="aboutVersion">-</span> &middot; <a href="#" id="aboutHomepage">GitHub</a></p>
+            </div>
+            <button type="button" class="btn btn-ghost" id="checkUpdatesBtn">Check for updates</button>
+          </header>
+          <p class="muted small" id="aboutPlatform"></p>
+          <p class="muted small" id="aboutUpdateStatus" aria-live="polite"></p>
         </div>
       </section>
 
@@ -255,6 +497,14 @@
             </div>
           </div>
           <div class="header-actions">
+            <button class="btn btn-ghost" id="pauseAllBtn" title="Pause all torrents">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+              Pause all
+            </button>
+            <button class="btn btn-ghost" id="resumeAllBtn" title="Resume all torrents">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m7 5 12 7-12 7Z"/></svg>
+              Resume all
+            </button>
             <button class="btn btn-ghost" id="changeFolderBtn">
               <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
               Change folder
@@ -264,6 +514,18 @@
             </button>
           </div>
         </header>
+
+        <div class="downloads-tabs" role="tablist" aria-label="Downloads filter">
+          <button class="downloads-tab is-active" role="tab" aria-selected="true" data-dl-tab="active" id="dlTabActive">
+            Active <span class="dl-tab-count" id="dlCountActive">0</span>
+          </button>
+          <button class="downloads-tab" role="tab" aria-selected="false" data-dl-tab="completed" id="dlTabCompleted">
+            Completed <span class="dl-tab-count" id="dlCountCompleted">0</span>
+          </button>
+          <button class="downloads-tab" role="tab" aria-selected="false" data-dl-tab="all" id="dlTabAll">
+            All <span class="dl-tab-count" id="dlCountAll">0</span>
+          </button>
+        </div>
 
         <div class="card downloads-card">
           <div class="downloads-empty empty-state" id="downloadsEmpty">
@@ -278,6 +540,57 @@
   </div>
 
   <div class="toast-stack" id="toastStack" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+  <!-- Movie details modal -->
+  <div class="modal-backdrop" id="detailsBackdrop" role="dialog" aria-modal="true" aria-labelledby="detailsTitle" hidden>
+    <div class="modal modal-details">
+      <div class="details-backdrop" id="detailsBackdropImg" hidden></div>
+      <button type="button" class="modal-close" id="detailsClose" aria-label="Close">&times;</button>
+      <div class="details-body">
+        <div class="details-poster">
+          <img id="detailsPoster" alt="" />
+        </div>
+        <div class="details-info">
+          <h2 id="detailsTitle"></h2>
+          <div class="details-meta">
+            <span id="detailsYear"></span>
+            <span id="detailsRuntime"></span>
+            <span id="detailsRating"></span>
+          </div>
+          <div id="detailsGenres" class="details-genres"></div>
+          <p id="detailsPlot" class="details-plot"></p>
+          <div class="details-links">
+            <a id="detailsTrailer" class="btn btn-ghost" target="_blank" rel="noopener" hidden>Trailer</a>
+            <a id="detailsImdb" class="btn btn-ghost" target="_blank" rel="noopener" hidden>IMDb</a>
+          </div>
+          <h3 class="details-section">Available torrents</h3>
+          <div id="detailsTorrents" class="details-torrents" role="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- File selection modal -->
+  <div class="modal-backdrop" id="filesBackdrop" role="dialog" aria-modal="true" aria-labelledby="filesTitle" hidden>
+    <div class="modal modal-files">
+      <header class="modal-header">
+        <h2 id="filesTitle">Pick files to download</h2>
+        <p class="modal-tag" id="filesSubtitle">Choose which files to include and tweak per-file priority.</p>
+      </header>
+      <div class="modal-body">
+        <div class="files-toolbar">
+          <button type="button" class="btn btn-ghost" id="filesSelectAll">Select all</button>
+          <button type="button" class="btn btn-ghost" id="filesSelectNone">Select none</button>
+          <span class="muted small" id="filesSelectedCount" aria-live="polite"></span>
+        </div>
+        <div class="files-table" id="filesTable" role="table"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="filesCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="filesApply">Apply</button>
+      </footer>
+    </div>
+  </div>
 
   <!-- Onboarding (first-run) -->
   <div class="modal-backdrop" id="onboardingBackdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" hidden>
@@ -336,6 +649,7 @@
           <span class="meta quality" hidden></span>
           <span class="meta rating" hidden></span>
           <a class="meta imdb-link" hidden target="_blank" rel="noopener">IMDb</a>
+          <span class="meta safety-badge" hidden></span>
         </div>
         <div class="result-genres" hidden></div>
         <div class="result-summary" hidden></div>
@@ -352,10 +666,15 @@
           <span>peers</span>
         </div>
       </div>
-      <button class="btn btn-primary result-action">
-        <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-        Download
-      </button>
+      <div class="result-actions">
+        <button class="btn btn-ghost result-info" title="Movie details" aria-label="Show details">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+        </button>
+        <button class="btn btn-primary result-action">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Download
+        </button>
+      </div>
     </article>
   </template>
 
@@ -380,7 +699,34 @@
         <button class="btn btn-ghost dl-pause" hidden>Pause</button>
         <button class="btn btn-ghost dl-resume" hidden>Resume</button>
         <button class="btn btn-ghost dl-open">Open folder</button>
-        <button class="btn btn-danger dl-remove">Remove</button>
+        <div class="dl-kebab-wrap">
+          <button class="btn btn-ghost dl-kebab" aria-haspopup="true" aria-expanded="false" aria-label="More actions" title="More">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+          <div class="dl-menu" role="menu" hidden>
+            <button type="button" class="dl-menu-item dl-pick-files" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Pick files...
+            </button>
+            <button type="button" class="dl-menu-item dl-open-menu" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Open folder
+            </button>
+            <button type="button" class="dl-menu-item dl-copy-magnet" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M9 9h11v11H9z"/><path d="M5 5h10v3H8v7H5z"/></svg>
+              Copy info hash
+            </button>
+            <hr class="dl-menu-sep" />
+            <button type="button" class="dl-menu-item is-danger dl-remove" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>
+              Remove from list
+            </button>
+            <button type="button" class="dl-menu-item is-danger dl-remove-files" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 7h16"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/></svg>
+              Remove and delete files
+            </button>
+          </div>
+        </div>
       </div>
     </article>
   </template>

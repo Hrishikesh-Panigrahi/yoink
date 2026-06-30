@@ -84,6 +84,52 @@ class TestTorrentActions(unittest.TestCase):
         matching = [h for h in self.session.handles if h == first]
         self.assertEqual(len(matching), 1)
 
+    def test_pause_all_and_resume_all_touch_every_handle(self) -> None:
+        torrents.add_magnet(self.session, TEST_MAGNET)
+        paused = torrents.pause_all(self.session)
+        self.assertEqual(paused, 1)
+        resumed = torrents.resume_all(self.session)
+        self.assertEqual(resumed, 1)
+
+    def test_set_file_priorities_returns_false_without_metadata(self) -> None:
+        info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
+        # Magnet-only torrents have no metadata yet, so prioritize must no-op.
+        ok = torrents.set_file_priorities(self.session, info_hash, {0: 0})
+        self.assertFalse(ok)
+
+    def test_list_files_returns_empty_when_metadata_missing(self) -> None:
+        info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
+        self.assertEqual(torrents.list_files(self.session, info_hash), [])
+
+    def test_apply_limits_does_not_raise(self) -> None:
+        torrents.apply_limits(
+            self.session,
+            download_kb_s=512,
+            upload_kb_s=128,
+            active_downloads=3,
+            active_seeds=5,
+        )
+        # Unsetting (passing 0) should also work
+        torrents.apply_limits(self.session, download_kb_s=0, upload_kb_s=0)
+
+
+class TestAutostart(unittest.TestCase):
+    def test_is_enabled_returns_bool(self) -> None:
+        from utils import autostart
+
+        result = autostart.is_enabled()
+        self.assertIsInstance(result, bool)
+
+    def test_set_enabled_noop_off_windows(self) -> None:
+        import sys
+
+        from utils import autostart
+
+        if sys.platform == "win32":
+            self.skipTest("Skipped on Windows where it would touch the registry")
+        # Should be a no-op everywhere else and report False.
+        self.assertFalse(autostart.set_enabled(True))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,13 @@ from typing import List, Optional
 
 from search.dto import SearchOptions, SearchPage, SearchResult
 from search.enums import ProviderMode
-from search.ranking import dedupe_results, expand_region_queries, score_result
+from search.ranking import (
+    dedupe_results,
+    expand_region_queries,
+    filter_by_min_seeds,
+    filter_by_quality,
+    sort_results,
+)
 from utils.logger import setup_logger
 
 logger = setup_logger("search")
@@ -42,7 +48,7 @@ def search(
     page = max(1, page)
 
     if options.provider_mode is ProviderMode.MULTI and available_sites():
-        results = search_multi_site(
+        raw = search_multi_site(
             query=query,
             page=page,
             sites=options.sites,
@@ -50,12 +56,12 @@ def search(
             region=options.region,
             limit_per_site=options.limit_per_site,
         )
-        if results:
-            return _paginate(results, page, limit)
+        if raw:
+            return _finalize(raw, query, options, page, limit)
         logger.warning("Torrent-Api-py returned no usable rows; falling back to stable APIs")
 
-    stable_results = _run_stable(query, options, limit, search_pirate_bay, search_yts)
-    return _paginate(stable_results, page, limit)
+    stable_raw = _run_stable(query, options, limit, search_pirate_bay, search_yts)
+    return _finalize(stable_raw, query, options, page, limit)
 
 
 def _run_stable(query, options, limit, search_pirate_bay, search_yts) -> List[SearchResult]:
@@ -63,13 +69,31 @@ def _run_stable(query, options, limit, search_pirate_bay, search_yts) -> List[Se
     per_query_limit = max(limit, 20)
     collected: List[SearchResult] = []
 
-    for candidate in queries:
-        collected.extend(search_pirate_bay(candidate, 1, per_query_limit))
-    collected.extend(search_yts(query, per_query_limit))
+    enabled = options.enabled_stable
+    use_piratebay = enabled is None or "piratebay_stable" in enabled
+    use_yts = enabled is None or "yts" in enabled
 
-    unique = dedupe_results(collected)
-    unique.sort(key=lambda r: score_result(r, query, options.region), reverse=True)
-    return unique
+    if use_piratebay:
+        for candidate in queries:
+            collected.extend(search_pirate_bay(candidate, 1, per_query_limit))
+    if use_yts:
+        collected.extend(search_yts(query, per_query_limit))
+    return collected
+
+
+def _finalize(
+    raw: List[SearchResult],
+    query: str,
+    options: SearchOptions,
+    page: int,
+    limit: int,
+) -> SearchPage:
+    """Dedupe -> filter (quality, seeds) -> sort -> paginate."""
+    unique = dedupe_results(raw)
+    unique = filter_by_quality(unique, options.quality)
+    unique = filter_by_min_seeds(unique, options.min_seeds)
+    ordered = sort_results(unique, options.sort_by, query, options.region)
+    return _paginate(ordered, page, limit)
 
 
 def _paginate(results: List[SearchResult], page: int, limit: int) -> SearchPage:

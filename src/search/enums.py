@@ -64,6 +64,45 @@ class Category(str, Enum):
             return cls.MOVIES
 
 
+class Quality(str, Enum):
+    """Video quality filter applied client-side after providers respond."""
+
+    ANY = "any"
+    UHD_2160P = "2160p"
+    FHD_1080P = "1080p"
+    HD_720P = "720p"
+    SD_480P = "480p"
+    X265 = "x265"
+    X264 = "x264"
+
+    @classmethod
+    def from_value(cls, value: str | None) -> "Quality":
+        if not value:
+            return cls.ANY
+        try:
+            return cls(value.lower())
+        except ValueError:
+            return cls.ANY
+
+
+class SortBy(str, Enum):
+    """How the final results page is ordered."""
+
+    RELEVANCE = "relevance"  # health_score() — seeds * quality * source weight
+    SEEDS = "seeds"
+    SIZE = "size"
+    NEWEST = "newest"
+
+    @classmethod
+    def from_value(cls, value: str | None) -> "SortBy":
+        if not value:
+            return cls.RELEVANCE
+        try:
+            return cls(value.lower())
+        except ValueError:
+            return cls.RELEVANCE
+
+
 REGION_TERMS: dict[Region, tuple[str, ...]] = {
     Region.ANY: (),
     Region.BOLLYWOOD: ("hindi", "bollywood", "desi"),

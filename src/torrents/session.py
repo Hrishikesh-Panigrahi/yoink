@@ -103,6 +103,56 @@ def stop_session(session: Session) -> None:
         logger.error(f"Session shutdown error: {exc}")
 
 
+def apply_limits(
+    session: Session,
+    *,
+    download_kb_s: int | None = None,
+    upload_kb_s: int | None = None,
+    active_downloads: int | None = None,
+    active_seeds: int | None = None,
+) -> None:
+    """Apply runtime bandwidth / concurrency limits to the live session.
+
+    Pass ``0`` (or negative) for unlimited. ``None`` leaves the value untouched.
+    """
+    patch: dict = {}
+    if download_kb_s is not None:
+        patch["download_rate_limit"] = max(0, int(download_kb_s)) * 1024
+    if upload_kb_s is not None:
+        patch["upload_rate_limit"] = max(0, int(upload_kb_s)) * 1024
+    if active_downloads is not None:
+        patch["active_downloads"] = -1 if active_downloads <= 0 else int(active_downloads)
+    if active_seeds is not None:
+        patch["active_seeds"] = -1 if active_seeds <= 0 else int(active_seeds)
+        if active_seeds > 0 and active_downloads is not None and active_downloads > 0:
+            patch["active_limit"] = int(active_downloads) + int(active_seeds)
+    if patch:
+        session.lt_session.apply_settings(patch)
+        logger.info(f"Applied session limits: {patch}")
+
+
+def enforce_seed_ratio(session: Session, max_ratio: float) -> int:
+    """Pause any torrent that has hit the configured share ratio.
+
+    Returns the number of torrents paused. ``max_ratio <= 0`` disables enforcement.
+    """
+    if max_ratio is None or max_ratio <= 0:
+        return 0
+    paused = 0
+    for info_hash, handle in list(session.handles.items()):
+        if handle is None or not handle.is_valid():
+            continue
+        status = handle.status()
+        if status.total_done <= 0 or status.paused:
+            continue
+        ratio = status.all_time_upload / max(status.all_time_download, status.total_done)
+        if ratio >= max_ratio:
+            handle.pause()
+            paused += 1
+            logger.info(f"Seed ratio {ratio:.2f} reached for {info_hash}; paused")
+    return paused
+
+
 def set_save_path(session: Session, path: str) -> str:
     """Normalize and remember the default save path for new torrents."""
     session.save_path = normalize_path(path)

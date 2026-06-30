@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
 
 from bridge import Bridge
 from utils.logger import setup_logger
+from utils.single_instance import listen as listen_for_handoff
 
 logger = setup_logger("main_window")
 
@@ -37,9 +38,11 @@ def _resource_path(*parts: str) -> Path:
 class MainWindow(QMainWindow):
     """Top-level window: web view + tray icon + bridge."""
 
-    def __init__(self):
+    def __init__(self, initial_payload: str = ""):
         super().__init__()
         logger.info("Initializing MainWindow")
+        self._initial_payload = (initial_payload or "").strip()
+        self._handoff_server = listen_for_handoff(self._handle_handoff_payload)
 
         self.setWindowTitle("Yoink")
         self.setMinimumSize(1080, 720)
@@ -65,6 +68,33 @@ class MainWindow(QMainWindow):
         index_url = QUrl.fromLocalFile(str(_web_root() / "index.html"))
         logger.info(f"Loading UI from {index_url.toString()}")
         self.view.load(index_url)
+        if self._initial_payload:
+            self.view.loadFinished.connect(self._consume_initial_payload)
+
+    def _consume_initial_payload(self, ok: bool) -> None:
+        if not ok or not self._initial_payload:
+            return
+        self._handle_handoff_payload(self._initial_payload)
+        self._initial_payload = ""
+
+    def _handle_handoff_payload(self, payload: str) -> None:
+        """Add a magnet/.torrent passed via CLI handoff and surface the window."""
+        payload = (payload or "").strip()
+        if not payload:
+            return
+        try:
+            if payload.startswith("magnet:"):
+                self.bridge.addTorrent(payload)
+            else:
+                if os.path.isfile(payload):
+                    import torrents
+                    torrents.set_save_path(self.bridge.session, self.bridge.save_folder)
+                    torrents.add_torrent_file(self.bridge.session, payload)
+                    self.bridge.toast.emit("success", f"Added: {os.path.basename(payload)}")
+        except Exception as exc:
+            logger.error(f"Handoff payload failed: {exc}")
+            self.bridge.toast.emit("error", str(exc))
+        self._show_from_tray()
 
     def _build_tray(self) -> QSystemTrayIcon:
         tray = QSystemTrayIcon(self.app_icon, self)

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
 import torrents
+from providers import health, tmdb
 from search import search as run_search
 from search.dto import SearchOptions
 from torrents.session import Session
@@ -35,6 +37,81 @@ class SearchWorker(QThread):
         except Exception as exc:  # pragma: no cover - defensive
             logger.exception("Search failed")
             self.failed.emit(self.query, str(exc))
+
+
+class MetadataEnrichWorker(QThread):
+    """Fan out TMDB lookups in parallel for the visible result page."""
+
+    enriched = pyqtSignal(str, list)  # query, list of {key, metadata}
+
+    def __init__(self, query: str, results: list, max_workers: int = 6):
+        super().__init__()
+        self.query = query
+        self.results = results
+        self.max_workers = max_workers
+
+    def run(self) -> None:
+        if not tmdb.get_api_key() or not self.results:
+            return
+        try:
+            updates: List[dict] = []
+            with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+                futures = {
+                    pool.submit(self._lookup, item): item for item in self.results
+                }
+                for future in futures:
+                    if self.isInterruptionRequested():
+                        break
+                    try:
+                        result = future.result()
+                    except Exception as exc:
+                        logger.warning(f"TMDB enrich worker entry failed: {exc}")
+                        continue
+                    if result:
+                        updates.append(result)
+            if updates:
+                self.enriched.emit(self.query, updates)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception(f"Metadata enrich worker failed: {exc}")
+
+    @staticmethod
+    def _lookup(item: dict) -> Optional[dict]:
+        title = item.get("title") or ""
+        year = tmdb.extract_year(title, item.get("date"))
+        meta = tmdb.enrich(title, year)
+        if not meta:
+            return None
+        key = item.get("magnet") or item.get("infoHash") or title
+        return {"key": key, "metadata": meta}
+
+
+class ProviderHealthWorker(QThread):
+    """Run provider health probes off the UI thread."""
+
+    finished = pyqtSignal(dict)
+
+    def run(self) -> None:
+        try:
+            statuses = health.ping_all()
+            self.finished.emit(statuses)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception(f"Health worker failed: {exc}")
+            self.finished.emit({})
+
+
+class UpdateCheckWorker(QThread):
+    """Check GitHub Releases for a newer build."""
+
+    finished = pyqtSignal(object)  # update dict or None
+
+    def run(self) -> None:
+        try:
+            from utils.updater import check_for_update
+
+            self.finished.emit(check_for_update())
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception(f"Update check worker failed: {exc}")
+            self.finished.emit(None)
 
 
 class DownloadsPollWorker(QThread):

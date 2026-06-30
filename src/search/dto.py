@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from search.enums import Category, ProviderMode, Region
+from search.enums import Category, ProviderMode, Quality, Region, SortBy
 
 
 @dataclass(frozen=True)
@@ -31,6 +31,13 @@ class SearchResult:
 
     def to_dict(self) -> dict:
         """JSON-friendly mapping used by the JS bridge."""
+        from search.safety import evaluate as evaluate_safety
+
+        payload = self._raw_dict()
+        payload["safety"] = evaluate_safety(payload)
+        return payload
+
+    def _raw_dict(self) -> dict:
         return {
             "title": self.title,
             "size": self.size,
@@ -58,8 +65,12 @@ class SearchOptions:
     provider_mode: ProviderMode = ProviderMode.STABLE
     region: Region = Region.ANY
     category: Category = Category.MOVIES
+    quality: Quality = Quality.ANY
+    sort_by: SortBy = SortBy.RELEVANCE
+    min_seeds: int = 0
     sites: Optional[List[str]] = None
     limit_per_site: int = 5
+    enabled_stable: Optional[List[str]] = None  # subset of {"yts", "piratebay_stable"}; None means all on
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "SearchOptions":
@@ -75,12 +86,27 @@ class SearchOptions:
             limit_per_site = int(data.get("limitPerSite") or 5)
         except (TypeError, ValueError):
             limit_per_site = 5
+        try:
+            min_seeds = max(0, int(data.get("minSeeds") or 0))
+        except (TypeError, ValueError):
+            min_seeds = 0
+        enabled_stable_raw = data.get("enabledStable")
+        if isinstance(enabled_stable_raw, list):
+            enabled_stable = [str(s) for s in enabled_stable_raw if s]
+        elif isinstance(enabled_stable_raw, str):
+            enabled_stable = [s.strip() for s in enabled_stable_raw.split(",") if s.strip()]
+        else:
+            enabled_stable = None
         return cls(
             provider_mode=ProviderMode.from_value(data.get("providerMode")),
             region=Region.from_value(data.get("region")),
             category=Category.from_value(data.get("category") or data.get("contentType")),
+            quality=Quality.from_value(data.get("quality")),
+            sort_by=SortBy.from_value(data.get("sortBy")),
+            min_seeds=min_seeds,
             sites=sites,
             limit_per_site=limit_per_site,
+            enabled_stable=enabled_stable,
         )
 
 

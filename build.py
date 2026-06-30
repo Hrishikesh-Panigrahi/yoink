@@ -1,104 +1,158 @@
 #!/usr/bin/env python3
+"""Build Yoink for Windows.
+
+Stages:
+    1. clean   — wipe `build/`, `dist/`, and stale spec files.
+    2. exe     — run PyInstaller --onefile to produce `dist/Yoink.exe`.
+    3. installer (optional, Windows only) — invoke Inno Setup with
+       `installer/yoink.iss` to produce `dist/Yoink-Setup-<ver>.exe`.
+
+Usage:
+    python build.py            # full pipeline (exe + installer if ISCC found)
+    python build.py --exe-only # skip the installer step
+"""
+
+from __future__ import annotations
+
+import argparse
 import os
-import sys
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-def clean_build():
-    """Clean build directories"""
-    dirs_to_clean = ['build', 'dist']
-    files_to_clean = ['TorrentApp.spec', 'Yoink.spec']
-    
-    for dir_name in dirs_to_clean:
-        if os.path.exists(dir_name):
-            shutil.rmtree(dir_name)
-            print(f"Cleaned {dir_name}/")
-    
-    for file_name in files_to_clean:
-        if os.path.exists(file_name):
-            os.remove(file_name)
-            print(f"Cleaned {file_name}")
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
 
-def build_app():
-    """Build the application using PyInstaller"""
-    # Install PyInstaller if not already installed
-    subprocess.run([sys.executable, '-m', 'pip', 'install', 'pyinstaller'], check=True)
-    
-    # Get the absolute path to the src directory
-    src_path = os.path.abspath('src')
-    
-    # Add src directory to Python path
-    sys.path.insert(0, src_path)
-    
-    # PyInstaller uses os-specific path separators in --add-data ("," on Win, ":" elsewhere)
-    sep = ';' if os.name == 'nt' else ':'
+
+def _read_version() -> str:
+    """Read version from `src/version.py` without importing it."""
+    text = (SRC / "version.py").read_text(encoding="utf-8")
+    for line in text.splitlines():
+        if line.startswith("__version__"):
+            return line.split("=")[1].strip().strip('"').strip("'")
+    return "0.0.0"
+
+
+VERSION = _read_version()
+
+
+def clean_build() -> None:
+    for dir_name in ("build", "dist"):
+        path = ROOT / dir_name
+        if path.exists():
+            shutil.rmtree(path)
+            print(f"cleaned {path}")
+    for spec in ("TorrentApp.spec", "Yoink.spec"):
+        spec_path = ROOT / spec
+        if spec_path.exists():
+            spec_path.unlink()
+            print(f"cleaned {spec_path}")
+
+
+def build_exe() -> None:
+    """Run PyInstaller to produce the standalone Yoink.exe."""
+    subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
+
+    sep = ";" if os.name == "nt" else ":"
+    sys.path.insert(0, str(SRC))
 
     cmd = [
-        'pyinstaller',
-        '--name=Yoink',
-        '--onefile',
-        '--windowed',
-        '--clean',
-        f'--paths={src_path}',
-        f'--add-data=src/resources{sep}resources',
-        f'--add-data=src/web{sep}web',
-        f'--add-data=src/vendor{sep}vendor',
-        '--hidden-import=PyQt6',
-        '--hidden-import=PyQt6.QtWidgets',
-        '--hidden-import=PyQt6.QtGui',
-        '--hidden-import=PyQt6.QtCore',
-        '--hidden-import=PyQt6.QtWebEngineWidgets',
-        '--hidden-import=PyQt6.QtWebEngineCore',
-        '--hidden-import=PyQt6.QtWebChannel',
-        '--hidden-import=main_window',
-        '--hidden-import=bridge',
-        '--hidden-import=workers',
-        '--hidden-import=db',
-        '--hidden-import=models',
-        '--hidden-import=torrents',
-        '--hidden-import=torrents.session',
-        '--hidden-import=torrents.actions',
-        '--hidden-import=torrents.state',
-        '--hidden-import=torrents.persistence',
-        '--hidden-import=torrents.dto',
-        '--hidden-import=search',
-        '--hidden-import=search.enums',
-        '--hidden-import=search.dto',
-        '--hidden-import=search.ranking',
-        '--hidden-import=providers',
-        '--hidden-import=providers.yts',
-        '--hidden-import=providers.pirate_bay',
-        '--hidden-import=providers.torrent_api_py',
-        '--hidden-import=utils',
-        '--hidden-import=utils.logger',
-        '--hidden-import=utils.format',
-        '--hidden-import=utils.paths',
-        '--hidden-import=utils.magnets',
-        '--hidden-import=libtorrent',
-        '--hidden-import=sqlalchemy',
-        '--hidden-import=requests',
-        '--hidden-import=bs4',
-        '--hidden-import=PIL',
-        '--hidden-import=magic',
-        '--hidden-import=aiohttp',
-        'src/main.py'
+        "pyinstaller",
+        "--name=Yoink",
+        "--onefile",
+        "--windowed",
+        "--clean",
+        f"--paths={SRC}",
+        f"--add-data=src/resources{sep}resources",
+        f"--add-data=src/web{sep}web",
+        f"--add-data=src/vendor{sep}vendor",
+        # Stable PyQt6 imports
+        "--hidden-import=PyQt6",
+        "--hidden-import=PyQt6.QtWidgets",
+        "--hidden-import=PyQt6.QtGui",
+        "--hidden-import=PyQt6.QtCore",
+        "--hidden-import=PyQt6.QtNetwork",
+        "--hidden-import=PyQt6.QtWebEngineWidgets",
+        "--hidden-import=PyQt6.QtWebEngineCore",
+        "--hidden-import=PyQt6.QtWebChannel",
+        # First-party modules
+        "--hidden-import=main_window",
+        "--hidden-import=bridge",
+        "--hidden-import=workers",
+        "--hidden-import=db",
+        "--hidden-import=models",
+        "--hidden-import=version",
+        "--hidden-import=torrents",
+        "--hidden-import=torrents.session",
+        "--hidden-import=torrents.actions",
+        "--hidden-import=torrents.state",
+        "--hidden-import=torrents.persistence",
+        "--hidden-import=torrents.dto",
+        "--hidden-import=search",
+        "--hidden-import=search.enums",
+        "--hidden-import=search.dto",
+        "--hidden-import=search.ranking",
+        "--hidden-import=search.safety",
+        "--hidden-import=providers",
+        "--hidden-import=providers.yts",
+        "--hidden-import=providers.pirate_bay",
+        "--hidden-import=providers.torrent_api_py",
+        "--hidden-import=providers.tmdb",
+        "--hidden-import=providers.health",
+        "--hidden-import=utils",
+        "--hidden-import=utils.logger",
+        "--hidden-import=utils.format",
+        "--hidden-import=utils.paths",
+        "--hidden-import=utils.magnets",
+        "--hidden-import=utils.autostart",
+        "--hidden-import=utils.single_instance",
+        "--hidden-import=utils.updater",
+        # Third-party
+        "--hidden-import=libtorrent",
+        "--hidden-import=sqlalchemy",
+        "--hidden-import=requests",
+        "--hidden-import=bs4",
+        "--hidden-import=PIL",
+        "--hidden-import=aiohttp",
+        "src/main.py",
     ]
-    
-    # Run PyInstaller
     subprocess.run(cmd, check=True)
-    print("Build completed successfully!")
+    print("PyInstaller build complete -> dist/Yoink.exe")
 
-def main():
-    try:
-        clean_build()
-        build_app()
-    except subprocess.CalledProcessError as e:
-        print(f"Error during build: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        sys.exit(1)
 
-if __name__ == '__main__':
-    main() 
+def build_installer() -> None:
+    """Invoke Inno Setup if available to produce the Windows installer."""
+    if os.name != "nt":
+        print("installer step skipped (non-Windows host)")
+        return
+    iss_path = ROOT / "installer" / "yoink.iss"
+    if not iss_path.exists():
+        print("installer skipped: installer/yoink.iss not found")
+        return
+    iscc = shutil.which("ISCC") or shutil.which("ISCC.exe")
+    if not iscc:
+        candidate = Path(r"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe")
+        if candidate.exists():
+            iscc = str(candidate)
+    if not iscc:
+        print("installer skipped: Inno Setup (ISCC) not on PATH. Install it from https://jrsoftware.org/isinfo.php")
+        return
+    print(f"Running Inno Setup: {iscc} {iss_path}")
+    subprocess.run([iscc, f"/DAppVersion={VERSION}", str(iss_path)], check=True, cwd=ROOT)
+    print("Installer ready in dist/")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--exe-only", action="store_true", help="Skip the Inno Setup installer step")
+    args = parser.parse_args()
+
+    clean_build()
+    build_exe()
+    if not args.exe_only:
+        build_installer()
+
+
+if __name__ == "__main__":
+    main()
