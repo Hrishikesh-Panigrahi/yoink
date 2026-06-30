@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="swarm">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -234,23 +234,132 @@
         <div class="card" id="settings-appearance">
           <header class="card-header">
             <h2 class="card-title">Appearance</h2>
-            <p class="muted small">Light, dark, or follow your system.</p>
+            <p class="muted small">Pick a theme. Changes apply instantly.</p>
           </header>
           <div class="settings-list">
-            <div class="setting-row">
+            <div class="setting-row setting-row-stack">
               <div class="setting-info">
                 <span class="setting-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
                 </span>
                 <div>
                   <span class="setting-title">Theme</span>
-                  <span class="setting-desc">Match your system or pick a side.</span>
+                  <span class="setting-desc">Each preset retunes accents, surfaces, and contrast.</span>
                 </div>
               </div>
-              <div class="segmented" role="group" aria-label="Theme">
-                <button type="button" data-theme-set="auto" aria-pressed="false">Auto</button>
-                <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
-                <button type="button" data-theme-set="dark" aria-pressed="true">Dark</button>
+              <div class="theme-grid" role="radiogroup" aria-label="Theme">
+                <button type="button" class="theme-card" data-theme-set="swarm" aria-pressed="true">
+                  <div class="theme-preview" data-preview="swarm" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Swarm Green</span>
+                    <span class="theme-tag">Brand default</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="pirate" aria-pressed="false">
+                  <div class="theme-preview" data-preview="pirate" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Pirate</span>
+                    <span class="theme-tag">Black & gold</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="cobalt" aria-pressed="false">
+                  <div class="theme-preview" data-preview="cobalt" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Cobalt</span>
+                    <span class="theme-tag">Classic blue</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="sunset" aria-pressed="false">
+                  <div class="theme-preview" data-preview="sunset" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Sunset</span>
+                    <span class="theme-tag">Warm coral</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="terminal" aria-pressed="false">
+                  <div class="theme-preview" data-preview="terminal" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Terminal</span>
+                    <span class="theme-tag">CRT amber</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="slate" aria-pressed="false">
+                  <div class="theme-preview" data-preview="slate" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Slate</span>
+                    <span class="theme-tag">Cyan on graphite</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="mint" aria-pressed="false">
+                  <div class="theme-preview" data-preview="mint" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Mint</span>
+                    <span class="theme-tag">Stone & mint</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="paper" aria-pressed="false">
+                  <div class="theme-preview" data-preview="paper" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Paper</span>
+                    <span class="theme-tag">Light mode</span>
+                  </div>
+                </button>
               </div>
             </div>
           </div>

@@ -4,85 +4,315 @@
    accessibility, responsive breakpoints, motion-safe.
    ============================================================ */
 
-/* ----- Design tokens: dark (default) ----- */
+/* ============================================================
+   Swarm Green theme — Yoink's brand palette.
+   Accent: download-active green. Surfaces: neutral charcoal with
+   a faint green undertone so posters and progress pop.
+   ============================================================ */
+
+/* ----- Theme: Swarm Green (default) ----- */
 :root,
-[data-theme="dark"] {
-  --bg-page: #0b1220;
-  --bg-surface: #111c33;
-  --bg-surface-2: #152244;
-  --bg-elev: #1a2748;
-  --bg-input: #0f1b34;
-  --bg-sidebar: #070d1a;
+[data-theme="swarm"] {
+  --bg-page: #0a0f0d;
+  --bg-surface: #121a17;
+  --bg-surface-2: #17211d;
+  --bg-elev: #1d2823;
+  --bg-input: #0f1715;
+  --bg-sidebar: #070b0a;
 
-  --border: #1f2a44;
-  --border-strong: #2a3a5e;
+  --border: #1f2a25;
+  --border-strong: #2c3a33;
 
-  --text: #e6ecf5;
-  --text-muted: #8b96b0;
-  --text-strong: #f8fafc;
-  --text-subtle: #5d6b88;
+  --text: #e6efe9;
+  --text-muted: #8a9b92;
+  --text-strong: #f6fbf8;
+  --text-subtle: #5f6f67;
 
-  --accent: #6366f1;
-  --accent-2: #a855f7;
-  --accent-hover: #4f46e5;
-  --accent-soft: rgba(99, 102, 241, 0.18);
-  --accent-ring: rgba(99, 102, 241, 0.45);
+  --accent: #3dd68c;
+  --accent-2: #2fbe78;
+  --accent-hover: #2fbe78;
+  --accent-soft: rgba(61, 214, 140, 0.16);
+  --accent-ring: rgba(61, 214, 140, 0.42);
 
-  --green: #22c55e;
-  --green-soft: rgba(34, 197, 94, 0.15);
-  --yellow: #fbbf24;
-  --yellow-soft: rgba(251, 191, 36, 0.15);
-  --red: #f87171;
-  --red-soft: rgba(248, 113, 113, 0.15);
-  --purple: #a78bfa;
-  --purple-soft: rgba(167, 139, 250, 0.15);
+  --green: #3dd68c;
+  --green-soft: rgba(61, 214, 140, 0.16);
+  --yellow: #f5b942;
+  --yellow-soft: rgba(245, 185, 66, 0.16);
+  --red: #f07178;
+  --red-soft: rgba(240, 113, 120, 0.15);
+  --purple: #5fb8c9;
+  --purple-soft: rgba(95, 184, 201, 0.16);
 
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 24px rgba(0, 0, 0, 0.35);
-  --shadow-elev: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.35);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.5);
 
-  --page-bg-glow:
-    radial-gradient(1200px 600px at 20% -10%, rgba(99, 102, 241, 0.10), transparent 60%),
-    radial-gradient(1000px 500px at 100% 100%, rgba(168, 85, 247, 0.08), transparent 60%);
+  --page-bg-glow: none;
 }
 
-/* ----- Design tokens: light ----- */
-[data-theme="light"] {
-  --bg-page: #f6f7fb;
+/* ----- Theme: Paper (light) ----- */
+[data-theme="paper"] {
+  --bg-page: #f4f6f5;
   --bg-surface: #ffffff;
-  --bg-surface-2: #f0f3fa;
-  --bg-elev: #ebeefa;
+  --bg-surface-2: #eef2ef;
+  --bg-elev: #e6ece8;
   --bg-input: #ffffff;
   --bg-sidebar: #ffffff;
 
-  --border: #e5e9f2;
-  --border-strong: #cbd2e0;
+  --border: #e1e7e3;
+  --border-strong: #c5cfc9;
 
-  --text: #1d2742;
-  --text-muted: #5d6b88;
-  --text-strong: #0b1220;
-  --text-subtle: #8b96b0;
+  --text: #142019;
+  --text-muted: #5b6b63;
+  --text-strong: #081310;
+  --text-subtle: #8a9b92;
 
-  --accent: #6366f1;
-  --accent-2: #a855f7;
-  --accent-hover: #4f46e5;
-  --accent-soft: rgba(99, 102, 241, 0.10);
-  --accent-ring: rgba(99, 102, 241, 0.35);
+  --accent: #16a34a;
+  --accent-2: #15803d;
+  --accent-hover: #15803d;
+  --accent-soft: rgba(22, 163, 74, 0.12);
+  --accent-ring: rgba(22, 163, 74, 0.35);
 
   --green: #16a34a;
-  --green-soft: rgba(22, 163, 74, 0.10);
-  --yellow: #ca8a04;
-  --yellow-soft: rgba(202, 138, 4, 0.12);
+  --green-soft: rgba(22, 163, 74, 0.12);
+  --yellow: #b45309;
+  --yellow-soft: rgba(180, 83, 9, 0.12);
   --red: #dc2626;
   --red-soft: rgba(220, 38, 38, 0.10);
-  --purple: #7c3aed;
-  --purple-soft: rgba(124, 58, 237, 0.12);
+  --purple: #0e7490;
+  --purple-soft: rgba(14, 116, 144, 0.12);
 
   --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
   --shadow-elev: 0 16px 48px rgba(15, 23, 42, 0.18);
 
-  --page-bg-glow:
-    radial-gradient(1200px 600px at 20% -10%, rgba(99, 102, 241, 0.10), transparent 60%),
-    radial-gradient(1000px 500px at 100% 100%, rgba(168, 85, 247, 0.06), transparent 60%);
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Pirate (black + gold) ----- */
+[data-theme="pirate"] {
+  --bg-page: #0d0d0e;
+  --bg-surface: #161617;
+  --bg-surface-2: #1c1c1e;
+  --bg-elev: #232325;
+  --bg-input: #131314;
+  --bg-sidebar: #000000;
+
+  --border: #2a2a2d;
+  --border-strong: #3a3a3d;
+
+  --text: #ece9d8;
+  --text-muted: #9d9b8c;
+  --text-strong: #f6f4e6;
+  --text-subtle: #6b695e;
+
+  --accent: #d4a017;
+  --accent-2: #b88810;
+  --accent-hover: #b88810;
+  --accent-soft: rgba(212, 160, 23, 0.16);
+  --accent-ring: rgba(212, 160, 23, 0.42);
+
+  --green: #84cc16;
+  --green-soft: rgba(132, 204, 22, 0.15);
+  --yellow: #f5b942;
+  --yellow-soft: rgba(245, 185, 66, 0.16);
+  --red: #d4503a;
+  --red-soft: rgba(212, 80, 58, 0.15);
+  --purple: #c0c5d0;
+  --purple-soft: rgba(192, 197, 208, 0.12);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.45);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Cobalt (classic torrent blue) ----- */
+[data-theme="cobalt"] {
+  --bg-page: #0c1320;
+  --bg-surface: #152033;
+  --bg-surface-2: #1a2840;
+  --bg-elev: #20304d;
+  --bg-input: #0f1828;
+  --bg-sidebar: #080d18;
+
+  --border: #1f2d44;
+  --border-strong: #2c3c58;
+
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-strong: #f8fafc;
+  --text-subtle: #64748b;
+
+  --accent: #3b82f6;
+  --accent-2: #60a5fa;
+  --accent-hover: #2563eb;
+  --accent-soft: rgba(59, 130, 246, 0.16);
+  --accent-ring: rgba(59, 130, 246, 0.42);
+
+  --green: #10b981;
+  --green-soft: rgba(16, 185, 129, 0.15);
+  --yellow: #f59e0b;
+  --yellow-soft: rgba(245, 158, 11, 0.16);
+  --red: #ef4444;
+  --red-soft: rgba(239, 68, 68, 0.15);
+  --purple: #8b5cf6;
+  --purple-soft: rgba(139, 92, 246, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Sunset (warm coral / amber) ----- */
+[data-theme="sunset"] {
+  --bg-page: #1a1410;
+  --bg-surface: #241c16;
+  --bg-surface-2: #2c221b;
+  --bg-elev: #33271f;
+  --bg-input: #1f1813;
+  --bg-sidebar: #120c08;
+
+  --border: #3a2c22;
+  --border-strong: #4d3a2c;
+
+  --text: #f5ebe0;
+  --text-muted: #b8a796;
+  --text-strong: #fdf6ed;
+  --text-subtle: #8a7d6e;
+
+  --accent: #ff6b4a;
+  --accent-2: #ffb347;
+  --accent-hover: #e85a3c;
+  --accent-soft: rgba(255, 107, 74, 0.16);
+  --accent-ring: rgba(255, 107, 74, 0.42);
+
+  --green: #84cc16;
+  --green-soft: rgba(132, 204, 22, 0.15);
+  --yellow: #ffb347;
+  --yellow-soft: rgba(255, 179, 71, 0.16);
+  --red: #dc2626;
+  --red-soft: rgba(220, 38, 38, 0.15);
+  --purple: #d97706;
+  --purple-soft: rgba(217, 119, 6, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Terminal Amber (CRT power-user) ----- */
+[data-theme="terminal"] {
+  --bg-page: #0a0a0a;
+  --bg-surface: #111111;
+  --bg-surface-2: #161616;
+  --bg-elev: #1c1c1c;
+  --bg-input: #0d0d0d;
+  --bg-sidebar: #000000;
+
+  --border: #222222;
+  --border-strong: #333333;
+
+  --text: #e0d6b8;
+  --text-muted: #8a8268;
+  --text-strong: #f4ebc4;
+  --text-subtle: #5a5544;
+
+  --accent: #ffb000;
+  --accent-2: #ff7700;
+  --accent-hover: #e89c00;
+  --accent-soft: rgba(255, 176, 0, 0.16);
+  --accent-ring: rgba(255, 176, 0, 0.42);
+
+  --green: #88c070;
+  --green-soft: rgba(136, 192, 112, 0.15);
+  --yellow: #ffb000;
+  --yellow-soft: rgba(255, 176, 0, 0.16);
+  --red: #ff4d4d;
+  --red-soft: rgba(255, 77, 77, 0.15);
+  --purple: #7a8b80;
+  --purple-soft: rgba(122, 139, 128, 0.15);
+
+  --shadow-card: 0 1px 0 rgba(255, 176, 0, 0.04) inset, 0 4px 18px rgba(0, 0, 0, 0.5);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.65);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Slate Cyan (GitHub-dark calmer) ----- */
+[data-theme="slate"] {
+  --bg-page: #0d1117;
+  --bg-surface: #161b22;
+  --bg-surface-2: #1c232b;
+  --bg-elev: #21272f;
+  --bg-input: #0f141a;
+  --bg-sidebar: #010409;
+
+  --border: #21262d;
+  --border-strong: #30363d;
+
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --text-strong: #f0f6fc;
+  --text-subtle: #6e7681;
+
+  --accent: #22d3ee;
+  --accent-2: #06b6d4;
+  --accent-hover: #0891b2;
+  --accent-soft: rgba(34, 211, 238, 0.16);
+  --accent-ring: rgba(34, 211, 238, 0.42);
+
+  --green: #3fb950;
+  --green-soft: rgba(63, 185, 80, 0.15);
+  --yellow: #d29922;
+  --yellow-soft: rgba(210, 153, 34, 0.16);
+  --red: #f85149;
+  --red-soft: rgba(248, 81, 73, 0.15);
+  --purple: #a371f7;
+  --purple-soft: rgba(163, 113, 247, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Mint Charcoal (warm stone + mint) ----- */
+[data-theme="mint"] {
+  --bg-page: #101412;
+  --bg-surface: #1a1f1c;
+  --bg-surface-2: #20251f;
+  --bg-elev: #262b25;
+  --bg-input: #131815;
+  --bg-sidebar: #0a0d0c;
+
+  --border: #28302a;
+  --border-strong: #353d36;
+
+  --text: #e7e5e4;
+  --text-muted: #a8a29e;
+  --text-strong: #f5f5f4;
+  --text-subtle: #6e6964;
+
+  --accent: #5eead4;
+  --accent-2: #34d399;
+  --accent-hover: #14b8a6;
+  --accent-soft: rgba(94, 234, 212, 0.16);
+  --accent-ring: rgba(94, 234, 212, 0.42);
+
+  --green: #84cc16;
+  --green-soft: rgba(132, 204, 22, 0.15);
+  --yellow: #fbbf24;
+  --yellow-soft: rgba(251, 191, 36, 0.16);
+  --red: #f43f5e;
+  --red-soft: rgba(244, 63, 94, 0.15);
+  --purple: #c084fc;
+  --purple-soft: rgba(192, 132, 252, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  --page-bg-glow: none;
 }
 
 /* ----- Static tokens ----- */
@@ -725,7 +955,8 @@ kbd {
   text-decoration: none;
   cursor: pointer;
 }
-[data-theme="dark"] .meta.imdb-link { color: #f5c518; }
+.meta.imdb-link { color: #f5c518; }
+[data-theme="paper"] .meta.imdb-link { color: #b08600; }
 .meta.imdb-link:hover { background: rgba(245, 197, 24, 0.25); }
 
 .result-genres { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -993,6 +1224,11 @@ kbd {
   border-bottom: 1px solid var(--border);
 }
 .setting-row:last-child { border-bottom: none; }
+.setting-row.setting-row-stack {
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 14px;
+}
 .setting-info {
   display: flex;
   flex-direction: row;
@@ -1069,6 +1305,82 @@ kbd {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   color: white;
   box-shadow: 0 2px 8px var(--accent-ring);
+}
+
+/* ----- Theme picker (Settings -> Appearance) ----- */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+  font: inherit;
+  color: inherit;
+}
+.theme-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.theme-card[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.theme-preview {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  height: 78px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--tp-page);
+  border: 1px solid var(--tp-border);
+}
+.tp-sidebar { background: var(--tp-sidebar); height: 100%; }
+.tp-surface {
+  background: var(--tp-surface);
+  padding: 9px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  position: relative;
+}
+.tp-line {
+  height: 5px;
+  background: var(--tp-text);
+  opacity: 0.55;
+  border-radius: 3px;
+  width: 78%;
+}
+.tp-line.short { width: 50%; opacity: 0.3; }
+.tp-button {
+  height: 14px;
+  width: 56px;
+  background: var(--tp-accent);
+  border-radius: 4px;
+  margin-top: auto;
+  align-self: flex-start;
+}
+.theme-meta { display: flex; flex-direction: column; gap: 2px; }
+.theme-name { font-weight: 600; font-size: 13px; color: var(--text); }
+.theme-tag { font-size: 11px; color: var(--text-muted); }
+.theme-card[aria-pressed="true"] .theme-name { color: var(--accent); }
+
+/* Per-theme preview swatches (do not depend on active theme) */
+.theme-preview[data-preview="swarm"]   { --tp-page:#0a0f0d; --tp-sidebar:#070b0a; --tp-surface:#121a17; --tp-border:#1f2a25; --tp-text:#e6efe9; --tp-accent:#3dd68c; }
+.theme-preview[data-preview="paper"]   { --tp-page:#f4f6f5; --tp-sidebar:#ffffff; --tp-surface:#ffffff; --tp-border:#e1e7e3; --tp-text:#142019; --tp-accent:#16a34a; }
+.theme-preview[data-preview="pirate"]  { --tp-page:#0d0d0e; --tp-sidebar:#000000; --tp-surface:#161617; --tp-border:#2a2a2d; --tp-text:#ece9d8; --tp-accent:#d4a017; }
+.theme-preview[data-preview="cobalt"]  { --tp-page:#0c1320; --tp-sidebar:#080d18; --tp-surface:#152033; --tp-border:#1f2d44; --tp-text:#e2e8f0; --tp-accent:#3b82f6; }
+.theme-preview[data-preview="sunset"]  { --tp-page:#1a1410; --tp-sidebar:#120c08; --tp-surface:#241c16; --tp-border:#3a2c22; --tp-text:#f5ebe0; --tp-accent:#ff6b4a; }
+.theme-preview[data-preview="terminal"]{ --tp-page:#0a0a0a; --tp-sidebar:#000000; --tp-surface:#111111; --tp-border:#222222; --tp-text:#e0d6b8; --tp-accent:#ffb000; }
+.theme-preview[data-preview="slate"]   { --tp-page:#0d1117; --tp-sidebar:#010409; --tp-surface:#161b22; --tp-border:#21262d; --tp-text:#c9d1d9; --tp-accent:#22d3ee; }
+.theme-preview[data-preview="mint"]    { --tp-page:#101412; --tp-sidebar:#0a0d0c; --tp-surface:#1a1f1c; --tp-border:#28302a; --tp-text:#e7e5e4; --tp-accent:#5eead4;
 }
 
 /* iOS-style toggle */

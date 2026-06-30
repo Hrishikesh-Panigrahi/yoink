@@ -180,30 +180,31 @@ const App = (() => {
   }
 
   // ----- Theme -----
-  const systemPrefersDark = () =>
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const THEMES = new Set([
+    "swarm", "paper", "pirate", "cobalt", "sunset", "terminal", "slate", "mint",
+  ]);
+  const LEGACY_THEME_MAP = { dark: "swarm", light: "paper", auto: "swarm" };
 
-  function resolvedTheme(pref) {
-    if (pref === "light") return "light";
-    if (pref === "dark") return "dark";
-    return systemPrefersDark() ? "dark" : "light";
+  function normalizeTheme(name) {
+    if (!name) return "swarm";
+    if (THEMES.has(name)) return name;
+    if (LEGACY_THEME_MAP[name]) return LEGACY_THEME_MAP[name];
+    return "swarm";
   }
 
-  function applyTheme(pref) {
-    state.theme = pref;
-    document.documentElement.setAttribute("data-theme", resolvedTheme(pref));
+  function applyTheme(name) {
+    const theme = normalizeTheme(name);
+    state.theme = theme;
+    document.documentElement.setAttribute("data-theme", theme);
     els.themeButtons.forEach((b) =>
-      b.setAttribute("aria-pressed", b.dataset.themeSet === pref ? "true" : "false")
+      b.setAttribute("aria-pressed", b.dataset.themeSet === theme ? "true" : "false")
     );
-    localStorage.setItem("yoink.theme", pref);
+    localStorage.setItem("yoink.theme", theme);
   }
 
   function initTheme() {
-    const saved = localStorage.getItem("yoink.theme") || "dark";
+    const saved = localStorage.getItem("yoink.theme");
     applyTheme(saved);
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-      if (state.theme === "auto") applyTheme("auto");
-    });
   }
 
   // ----- Sidebar -----
