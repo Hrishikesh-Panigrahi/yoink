@@ -56,8 +56,14 @@ def search_pirate_bay(query: str, page: int = 1, limit: int = 20) -> List[Search
 
     results: List[SearchResult] = []
     for item in data:
-        info_hash = item.get("info_hash")
-        if not info_hash:
+        info_hash = item.get("info_hash") or ""
+        # TPB's JSON endpoint returns a single sentinel row when nothing matches:
+        # {"name": "No results returned", "info_hash": "0000...0", ...}. Treat
+        # all-zero hashes (or the literal name) as "empty" so the UI shows its
+        # own empty state instead of a fake row.
+        if not info_hash or set(info_hash) <= {"0"}:
+            continue
+        if (item.get("name") or "").strip().lower() == "no results returned":
             continue
         try:
             results.append(

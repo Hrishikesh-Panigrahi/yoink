@@ -1,0 +1,21 @@
+  <!-- File selection modal -->
+  <div class="modal-backdrop" id="filesBackdrop" role="dialog" aria-modal="true" aria-labelledby="filesTitle" hidden>
+    <div class="modal modal-files">
+      <header class="modal-header">
+        <h2 id="filesTitle">Pick files to download</h2>
+        <p class="modal-tag" id="filesSubtitle">Choose which files to include and tweak per-file priority.</p>
+      </header>
+      <div class="modal-body">
+        <div class="files-toolbar">
+          <button type="button" class="btn btn-ghost" id="filesSelectAll">Select all</button>
+          <button type="button" class="btn btn-ghost" id="filesSelectNone">Select none</button>
+          <span class="muted small" id="filesSelectedCount" aria-live="polite"></span>
+        </div>
+        <div class="files-table" id="filesTable" role="table"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="filesCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="filesApply">Apply</button>
+      </footer>
+    </div>
+  </div>

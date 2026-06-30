@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="swarm">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>Yoink - Just yoink it</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+</head>
+<body>
+  <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+  <div class="app" id="app">
+    <div class="sidebar-scrim" id="sidebarScrim" aria-hidden="true"></div>
+
+<!-- include:sidebar -->
+
+    <main class="main" id="mainContent" tabindex="-1">
+<!-- include:view-search -->
+
+<!-- include:view-settings -->
+
+<!-- include:view-downloads -->
+    </main>
+  </div>
+
+  <div class="toast-stack" id="toastStack" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+<!-- include:overlay-drop -->
+
+<!-- include:modals-safety -->
+
+<!-- include:modals-details -->
+
+<!-- include:modals-files -->
+
+<!-- include:modals-onboarding -->
+
+<!-- include:modals-palette -->
+
+<!-- include:modals-labels -->
+
+<!-- include:modals-shortcuts -->
+
+<!-- include:templates -->
+</body>
+</html>

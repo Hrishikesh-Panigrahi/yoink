@@ -1,0 +1,16 @@
+  <div class="modal-backdrop" id="safetyBackdrop" role="dialog" aria-modal="true" aria-labelledby="safetyTitle" hidden>
+    <div class="modal modal-small">
+      <header class="modal-header">
+        <h2 id="safetyTitle">Safety check</h2>
+        <p class="modal-tag" id="safetyTag"></p>
+      </header>
+      <div class="modal-body">
+        <p class="muted small" id="safetyIntro">Yoink scores torrents using uploader trust, seeder counts, and filename heuristics. Here's why this one was flagged:</p>
+        <ul class="safety-reasons" id="safetyReasons"></ul>
+        <p class="muted small">These are heuristics, not guarantees. When in doubt, prefer trusted uploaders and well-seeded releases.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-primary" id="safetyClose">Got it</button>
+      </footer>
+    </div>
+  </div>

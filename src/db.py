@@ -79,6 +79,17 @@ def get_setting(key: str) -> Optional[str]:
         return None
 
 
+def get_all_settings() -> dict:
+    """Return all persisted settings as a {key: value} dict."""
+    try:
+        with _session() as session:
+            rows = session.query(Setting).all()
+            return {r.key: r.value for r in rows}
+    except Exception as exc:
+        logger.error(f"get_all_settings failed: {exc}")
+        return {}
+
+
 def set_setting(key: str, value: str) -> None:
     """Persist a setting value (insert or update)."""
     try:

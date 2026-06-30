@@ -48,8 +48,16 @@ def load_saved(session: Session) -> int:
 
             session.handles[row.info_hash.lower()] = handle
             if (row.status or "").lower() == "paused":
+                try:
+                    handle.unset_flags(lt.torrent_flags.auto_managed)
+                except Exception:
+                    pass
                 handle.pause()
             else:
+                try:
+                    handle.set_flags(lt.torrent_flags.auto_managed)
+                except Exception:
+                    pass
                 handle.resume()
             restored += 1
         except Exception as exc:

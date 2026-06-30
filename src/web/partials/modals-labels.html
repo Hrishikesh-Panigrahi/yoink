@@ -1,0 +1,19 @@
+  <!-- Labels editor for a torrent (7.3) -->
+  <div class="modal-backdrop" id="labelsBackdrop" role="dialog" aria-modal="true" aria-labelledby="labelsTitle" hidden>
+    <div class="modal modal-small">
+      <header class="modal-header">
+        <h2 id="labelsTitle">Edit labels</h2>
+        <p class="modal-tag" id="labelsSubtitle"></p>
+      </header>
+      <div class="modal-body">
+        <div class="labels-chips" id="labelsChips"></div>
+        <input type="text" id="labelsInput" class="text-input" placeholder="Add label and press Enter" />
+        <p class="muted small">Suggestions:</p>
+        <div class="labels-suggestions" id="labelsSuggestions"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="labelsCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="labelsApply">Save</button>
+      </footer>
+    </div>
+  </div>

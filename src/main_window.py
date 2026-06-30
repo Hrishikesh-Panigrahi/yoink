@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import QEvent, QUrl
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
+
+import db
 
 from bridge import Bridge
 from utils.logger import setup_logger
@@ -64,6 +67,9 @@ class MainWindow(QMainWindow):
 
         self._force_quit = False
         self.tray = self._build_tray()
+        self._last_clipboard_magnet = ""
+
+        self.bridge.downloadsUpdated.connect(self._update_tray_tooltip)
 
         index_url = QUrl.fromLocalFile(str(_web_root() / "index.html"))
         logger.info(f"Loading UI from {index_url.toString()}")
@@ -130,6 +136,43 @@ class MainWindow(QMainWindow):
     def _quit_from_tray(self) -> None:
         self._force_quit = True
         self.close()
+
+    def _update_tray_tooltip(self, payload_json: str) -> None:
+        """Tray progress (9.1): reflect active count + speeds in the tooltip."""
+        try:
+            items = json.loads(payload_json or "[]")
+        except Exception:
+            return
+        active = [t for t in items if (t.get("progress") or 0) < 100 and "error" not in (t.get("status") or "").lower()]
+        if not active:
+            self.tray.setToolTip("Yoink — idle")
+            return
+        names = ", ".join((t.get("name") or "?")[:32] for t in active[:2])
+        tail = "" if len(active) <= 2 else f" and {len(active) - 2} more"
+        self.tray.setToolTip(f"Yoink — {len(active)} downloading\n{names}{tail}")
+
+    def changeEvent(self, event):
+        """Clipboard magnet watcher (2.2): peek when the window gains focus."""
+        try:
+            if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
+                self._maybe_emit_clipboard_magnet()
+        except Exception:
+            pass
+        super().changeEvent(event)
+
+    def _maybe_emit_clipboard_magnet(self) -> None:
+        if (db.get_setting("clipboard_watcher_enabled") or "0") != "1":
+            return
+        try:
+            text = (QApplication.clipboard().text() or "").strip()
+        except Exception:
+            return
+        if not text or not text.startswith("magnet:?xt=urn:btih:"):
+            return
+        if text == self._last_clipboard_magnet:
+            return
+        self._last_clipboard_magnet = text
+        self.bridge.clipboardMagnet.emit(text)
 
     def _show_notification(self, title: str, body: str) -> None:
         try:

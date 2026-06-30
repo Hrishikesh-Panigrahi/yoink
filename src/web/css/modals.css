@@ -1,0 +1,76 @@
+/* modals.css - Base modal styles. */
+
+/* ----- Modal ----- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 200;
+  animation: fadeIn 150ms ease;
+  padding: 20px;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elev);
+  width: 520px;
+  max-width: 100%;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  animation: popIn 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes popIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-header { padding: 28px 28px 8px; text-align: center; }
+.modal-mark {
+  width: 56px; height: 56px;
+  margin: 0 auto 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 16px;
+  display: grid; place-items: center;
+  color: white;
+  font-weight: 800;
+  font-size: 26px;
+  box-shadow: 0 12px 28px var(--accent-ring);
+  letter-spacing: -0.5px;
+}
+.modal-header h2 { margin: 0; font-size: 22px; font-weight: 800; color: var(--text-strong); letter-spacing: -0.4px; }
+.modal-tag { margin: 8px 0 0; color: var(--text-muted); font-size: 13px; }
+.modal-body { padding: 18px 28px 8px; color: var(--text); font-size: 14px; line-height: 1.6; }
+.modal-body p { margin: 0 0 10px; }
+.feature-list {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.feature-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.feature-list .ic {
+  width: 18px; height: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.feature-list b { color: var(--text-strong); font-weight: 700; }
+.feature-list small { display: block; color: var(--text-muted); font-size: 12px; margin-top: 2px; line-height: 1.5; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 28px 24px;
+}
+

@@ -1,0 +1,434 @@
+/* tokens.css - Color tokens, theme variables, accessibility primitives. */
+
+/* ============================================================
+   Yoink - Web UI
+   Production-ready styles: dark + light theme, full keyboard
+   accessibility, responsive breakpoints, motion-safe.
+   ============================================================ */
+
+/* ============================================================
+   Swarm Green theme — Yoink's brand palette.
+   Accent: download-active green. Surfaces: neutral charcoal with
+   a faint green undertone so posters and progress pop.
+   ============================================================ */
+
+/* ----- Theme: Swarm Green (default) ----- */
+:root,
+[data-theme="swarm"] {
+  --bg-page: #0a0f0d;
+  --bg-surface: #121a17;
+  --bg-surface-2: #17211d;
+  --bg-elev: #1d2823;
+  --bg-input: #0f1715;
+  --bg-sidebar: #070b0a;
+
+  --border: #1f2a25;
+  --border-strong: #2c3a33;
+
+  --text: #e6efe9;
+  --text-muted: #8a9b92;
+  --text-strong: #f6fbf8;
+  --text-subtle: #5f6f67;
+
+  --accent: #3dd68c;
+  --accent-2: #2fbe78;
+  --accent-hover: #2fbe78;
+  --accent-soft: rgba(61, 214, 140, 0.16);
+  --accent-ring: rgba(61, 214, 140, 0.42);
+  --accent-on: #06251a;
+
+  --green: #3dd68c;
+  --green-soft: rgba(61, 214, 140, 0.16);
+  --yellow: #f5b942;
+  --yellow-soft: rgba(245, 185, 66, 0.16);
+  --red: #f07178;
+  --red-soft: rgba(240, 113, 120, 0.15);
+  --danger: #f07178;
+  --purple: #5fb8c9;
+  --purple-soft: rgba(95, 184, 201, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.35);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Paper (light) ----- */
+[data-theme="paper"] {
+  --bg-page: #f4f6f5;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #eef2ef;
+  --bg-elev: #e6ece8;
+  --bg-input: #ffffff;
+  --bg-sidebar: #ffffff;
+
+  --border: #e1e7e3;
+  --border-strong: #c5cfc9;
+
+  --text: #142019;
+  --text-muted: #5b6b63;
+  --text-strong: #081310;
+  --text-subtle: #8a9b92;
+
+  --accent: #16a34a;
+  --accent-2: #15803d;
+  --accent-hover: #15803d;
+  --accent-soft: rgba(22, 163, 74, 0.12);
+  --accent-ring: rgba(22, 163, 74, 0.35);
+  --accent-on: #ffffff;
+
+  --green: #16a34a;
+  --green-soft: rgba(22, 163, 74, 0.12);
+  --yellow: #b45309;
+  --yellow-soft: rgba(180, 83, 9, 0.12);
+  --red: #dc2626;
+  --red-soft: rgba(220, 38, 38, 0.10);
+  --purple: #0e7490;
+  --purple-soft: rgba(14, 116, 144, 0.12);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --shadow-elev: 0 16px 48px rgba(15, 23, 42, 0.18);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Pirate (black + gold) ----- */
+[data-theme="pirate"] {
+  --bg-page: #0d0d0e;
+  --bg-surface: #161617;
+  --bg-surface-2: #1c1c1e;
+  --bg-elev: #232325;
+  --bg-input: #131314;
+  --bg-sidebar: #000000;
+
+  --border: #2a2a2d;
+  --border-strong: #3a3a3d;
+
+  --text: #ece9d8;
+  --text-muted: #9d9b8c;
+  --text-strong: #f6f4e6;
+  --text-subtle: #6b695e;
+
+  --accent: #d4a017;
+  --accent-2: #b88810;
+  --accent-hover: #b88810;
+  --accent-soft: rgba(212, 160, 23, 0.16);
+  --accent-ring: rgba(212, 160, 23, 0.42);
+  --accent-on: #1a1208;
+
+  --green: #84cc16;
+  --green-soft: rgba(132, 204, 22, 0.15);
+  --yellow: #f5b942;
+  --yellow-soft: rgba(245, 185, 66, 0.16);
+  --red: #d4503a;
+  --red-soft: rgba(212, 80, 58, 0.15);
+  --purple: #c0c5d0;
+  --purple-soft: rgba(192, 197, 208, 0.12);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.45);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.6);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Cobalt (classic torrent blue) ----- */
+[data-theme="cobalt"] {
+  --bg-page: #0c1320;
+  --bg-surface: #152033;
+  --bg-surface-2: #1a2840;
+  --bg-elev: #20304d;
+  --bg-input: #0f1828;
+  --bg-sidebar: #080d18;
+
+  --border: #1f2d44;
+  --border-strong: #2c3c58;
+
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-strong: #f8fafc;
+  --text-subtle: #64748b;
+
+  --accent: #3b82f6;
+  --accent-2: #60a5fa;
+  --accent-hover: #2563eb;
+  --accent-soft: rgba(59, 130, 246, 0.16);
+  --accent-ring: rgba(59, 130, 246, 0.42);
+  --accent-on: #ffffff;
+
+  --green: #10b981;
+  --green-soft: rgba(16, 185, 129, 0.15);
+  --yellow: #f59e0b;
+  --yellow-soft: rgba(245, 158, 11, 0.16);
+  --red: #ef4444;
+  --red-soft: rgba(239, 68, 68, 0.15);
+  --purple: #8b5cf6;
+  --purple-soft: rgba(139, 92, 246, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Sunset (warm coral / amber) ----- */
+[data-theme="sunset"] {
+  --bg-page: #1a1410;
+  --bg-surface: #241c16;
+  --bg-surface-2: #2c221b;
+  --bg-elev: #33271f;
+  --bg-input: #1f1813;
+  --bg-sidebar: #120c08;
+
+  --border: #3a2c22;
+  --border-strong: #4d3a2c;
+
+  --text: #f5ebe0;
+  --text-muted: #b8a796;
+  --text-strong: #fdf6ed;
+  --text-subtle: #8a7d6e;
+
+  --accent: #ff6b4a;
+  --accent-2: #ffb347;
+  --accent-hover: #e85a3c;
+  --accent-soft: rgba(255, 107, 74, 0.16);
+  --accent-ring: rgba(255, 107, 74, 0.42);
+  --accent-on: #2a0e07;
+
+  --green: #84cc16;
+  --green-soft: rgba(132, 204, 22, 0.15);
+  --yellow: #ffb347;
+  --yellow-soft: rgba(255, 179, 71, 0.16);
+  --red: #dc2626;
+  --red-soft: rgba(220, 38, 38, 0.15);
+  --purple: #d97706;
+  --purple-soft: rgba(217, 119, 6, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Terminal Amber (CRT power-user) ----- */
+[data-theme="terminal"] {
+  --bg-page: #0a0a0a;
+  --bg-surface: #111111;
+  --bg-surface-2: #161616;
+  --bg-elev: #1c1c1c;
+  --bg-input: #0d0d0d;
+  --bg-sidebar: #000000;
+
+  --border: #222222;
+  --border-strong: #333333;
+
+  --text: #e0d6b8;
+  --text-muted: #8a8268;
+  --text-strong: #f4ebc4;
+  --text-subtle: #5a5544;
+
+  --accent: #ffb000;
+  --accent-2: #ff7700;
+  --accent-hover: #e89c00;
+  --accent-soft: rgba(255, 176, 0, 0.16);
+  --accent-ring: rgba(255, 176, 0, 0.42);
+  --accent-on: #1a1100;
+
+  --green: #88c070;
+  --green-soft: rgba(136, 192, 112, 0.15);
+  --yellow: #ffb000;
+  --yellow-soft: rgba(255, 176, 0, 0.16);
+  --red: #ff4d4d;
+  --red-soft: rgba(255, 77, 77, 0.15);
+  --purple: #7a8b80;
+  --purple-soft: rgba(122, 139, 128, 0.15);
+
+  --shadow-card: 0 1px 0 rgba(255, 176, 0, 0.04) inset, 0 4px 18px rgba(0, 0, 0, 0.5);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.65);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Slate Cyan (GitHub-dark calmer) ----- */
+[data-theme="slate"] {
+  --bg-page: #0d1117;
+  --bg-surface: #161b22;
+  --bg-surface-2: #1c232b;
+  --bg-elev: #21272f;
+  --bg-input: #0f141a;
+  --bg-sidebar: #010409;
+
+  --border: #21262d;
+  --border-strong: #30363d;
+
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --text-strong: #f0f6fc;
+  --text-subtle: #6e7681;
+
+  --accent: #22d3ee;
+  --accent-2: #06b6d4;
+  --accent-hover: #0891b2;
+  --accent-soft: rgba(34, 211, 238, 0.16);
+  --accent-ring: rgba(34, 211, 238, 0.42);
+  --accent-on: #04222a;
+
+  --green: #3fb950;
+  --green-soft: rgba(63, 185, 80, 0.15);
+  --yellow: #d29922;
+  --yellow-soft: rgba(210, 153, 34, 0.16);
+  --red: #f85149;
+  --red-soft: rgba(248, 81, 73, 0.15);
+  --purple: #a371f7;
+  --purple-soft: rgba(163, 113, 247, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Theme: Mint Charcoal (warm stone + mint) ----- */
+[data-theme="mint"] {
+  --bg-page: #101412;
+  --bg-surface: #1a1f1c;
+  --bg-surface-2: #20251f;
+  --bg-elev: #262b25;
+  --bg-input: #131815;
+  --bg-sidebar: #0a0d0c;
+
+  --border: #28302a;
+  --border-strong: #353d36;
+
+  --text: #e7e5e4;
+  --text-muted: #a8a29e;
+  --text-strong: #f5f5f4;
+  --text-subtle: #6e6964;
+
+  --accent: #5eead4;
+  --accent-2: #34d399;
+  --accent-hover: #14b8a6;
+  --accent-soft: rgba(94, 234, 212, 0.16);
+  --accent-ring: rgba(94, 234, 212, 0.42);
+  --accent-on: #06241f;
+
+  --green: #84cc16;
+  --green-soft: rgba(132, 204, 22, 0.15);
+  --yellow: #fbbf24;
+  --yellow-soft: rgba(251, 191, 36, 0.16);
+  --red: #f43f5e;
+  --red-soft: rgba(244, 63, 94, 0.15);
+  --purple: #c084fc;
+  --purple-soft: rgba(192, 132, 252, 0.16);
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.4);
+  --shadow-elev: 0 16px 40px rgba(0, 0, 0, 0.55);
+
+  --page-bg-glow: none;
+}
+
+/* ----- Static tokens ----- */
+:root {
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 72px;
+  --transition: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+*[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-page);
+  background-image: var(--page-bg-glow);
+  background-attachment: fixed;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+button { cursor: pointer; }
+
+/* ----- Accessibility ----- */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.btn:focus-visible,
+.nav-item:focus-visible,
+.page-num:focus-visible,
+.folder-pill:focus-visible,
+.brand:focus-visible,
+select:focus-visible,
+.input-clear:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-page), 0 0 0 4px var(--accent-ring);
+}
+.text-input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  background: var(--accent);
+  color: white;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+  z-index: 1000;
+  transition: top 150ms ease;
+}
+.skip-link:focus-visible { top: 12px; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* All inline SVG icons render as stroked outlines */
+.ic {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: inline-block;
+  vertical-align: middle;
+}
+kbd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+}
+

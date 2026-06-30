@@ -5,7 +5,7 @@
 #
 # Requires GNU Make. On Windows, install via `choco install make` or use Git Bash.
 
-.PHONY: help venv install run run-minimized test build build-exe clean
+.PHONY: help venv install run run-minimized test build build-exe compose-html clean
 
 ROOT := $(CURDIR)
 
@@ -30,6 +30,7 @@ help:
 	@echo   make run           Start the desktop app
 	@echo   make run-minimized Start hidden to tray (--minimized)
 	@echo   make test          Run pytest
+	@echo   make compose-html  Re-assemble src/web/index.html from partials
 	@echo   make build         PyInstaller exe + Inno Setup installer (Windows)
 	@echo   make build-exe     PyInstaller exe only
 	@echo   make clean         Remove build/dist artifacts
@@ -41,11 +42,14 @@ install: venv
 	$(PIP) install -r requirements.txt
 	$(PIP) install -r requirements-dev.txt
 
-run:
+run: compose-html
 	$(PYTHON) src/main.py
 
-run-minimized:
+run-minimized: compose-html
 	$(PYTHON) src/main.py --minimized
+
+compose-html:
+	$(PYTHON) build.py --compose-html
 
 test:
 	$(PYTHON) -m pytest tests/ -q

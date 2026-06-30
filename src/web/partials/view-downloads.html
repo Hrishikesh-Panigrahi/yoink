@@ -1,0 +1,77 @@
+      <section class="view view-downloads hidden" id="view-downloads" data-view="downloads" role="tabpanel" aria-labelledby="nav-downloads">
+        <header class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+            <button class="menu-toggle" data-menu-toggle aria-label="Open navigation" title="Menu">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div>
+              <h1 class="page-title">Downloads</h1>
+              <p class="page-subtitle" id="downloadsSummary" aria-live="polite">No downloads yet.</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="pauseAllBtn" title="Pause all torrents">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+              Pause all
+            </button>
+            <button class="btn btn-ghost" id="resumeAllBtn" title="Resume all torrents">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m7 5 12 7-12 7Z"/></svg>
+              Resume all
+            </button>
+            <button class="btn btn-ghost" id="changeFolderBtn">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Change folder
+            </button>
+            <button class="btn btn-primary" id="addTorrentBtn">
+              <span class="plus" aria-hidden="true">+</span> Add .torrent
+            </button>
+          </div>
+        </header>
+
+        <div class="downloads-tabs" role="tablist" aria-label="Downloads filter">
+          <button class="downloads-tab is-active" role="tab" aria-selected="true" data-dl-tab="active" id="dlTabActive">
+            Active <span class="dl-tab-count" id="dlCountActive">0</span>
+          </button>
+          <button class="downloads-tab" role="tab" aria-selected="false" data-dl-tab="completed" id="dlTabCompleted">
+            Completed <span class="dl-tab-count" id="dlCountCompleted">0</span>
+          </button>
+          <button class="downloads-tab" role="tab" aria-selected="false" data-dl-tab="all" id="dlTabAll">
+            All <span class="dl-tab-count" id="dlCountAll">0</span>
+          </button>
+        </div>
+
+        <div class="downloads-summary-bar" id="downloadsSummaryBar" hidden>
+          <div class="dsb-chunk">
+            <span class="dsb-num" id="dsbActive">0</span>
+            <span class="dsb-label">downloading</span>
+          </div>
+          <div class="dsb-chunk">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            <span class="dsb-num" id="dsbDown">0 KB/s</span>
+            <span class="dsb-label">down</span>
+          </div>
+          <div class="dsb-chunk">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 5v14"/><path d="m5 12 7 7 7-7"/></svg>
+            <span class="dsb-num" id="dsbUp">0 KB/s</span>
+            <span class="dsb-label">up</span>
+          </div>
+          <div class="dsb-chunk">
+            <span class="dsb-num" id="dsbCompletedToday">0</span>
+            <span class="dsb-label">completed today</span>
+          </div>
+        </div>
+
+        <div class="card downloads-card">
+          <div class="downloads-empty empty-state" id="downloadsEmpty">
+            <svg viewBox="0 0 24 24" class="ic empty-ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            <h3>Nothing downloading yet</h3>
+            <p>Get started in any of these ways:</p>
+            <ul class="empty-tips">
+              <li><b>Drag a .torrent</b> anywhere on this window</li>
+              <li><b>Paste a magnet link</b> (Ctrl+V) into the search bar</li>
+              <li><b>Run a search</b> and click <em>Download</em></li>
+            </ul>
+          </div>
+          <div class="downloads-list" id="downloadsList" hidden role="list"></div>
+        </div>
+      </section>

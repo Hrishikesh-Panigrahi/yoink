@@ -141,6 +141,151 @@ class DownloadsPollWorker(QThread):
         self._running = False
 
 
+class WatchFolderWorker(QThread):
+    """Poll a folder for new .torrent files and add them to the session (7.1)."""
+
+    added = pyqtSignal(str, str)  # path, info hash
+
+    def __init__(self, session: Session, folder: str, interval_ms: int = 10000):
+        super().__init__()
+        self.session = session
+        self.folder = folder
+        self.interval_ms = interval_ms
+        self._running = True
+
+    def update_folder(self, folder: str) -> None:
+        self.folder = folder or ""
+
+    def run(self) -> None:
+        from torrents import watch
+
+        while self._running:
+            try:
+                if self.folder:
+                    for path in watch.discover(self.folder):
+                        try:
+                            info_hash = torrents.add_torrent_file(self.session, path)
+                            watch.mark_processed(path)
+                            self.added.emit(path, info_hash)
+                        except Exception as exc:
+                            logger.warning(f"Watch-folder add failed for {path}: {exc}")
+            except Exception as exc:
+                logger.error(f"Watch-folder poll error: {exc}")
+            self.msleep(self.interval_ms)
+
+    def stop(self) -> None:
+        self._running = False
+
+
+class RssPollWorker(QThread):
+    """Poll subscribed RSS feeds and auto-add matching items (7.2)."""
+
+    added = pyqtSignal(str, str)  # feed name, info hash
+
+    def __init__(self, session: Session, interval_ms: int = 600_000):
+        super().__init__()
+        self.session = session
+        self.interval_ms = interval_ms
+        self._running = True
+
+    def run(self) -> None:
+        import re
+        import feeds
+
+        while self._running:
+            try:
+                for feed in feeds.load_feeds():
+                    if not feed.enabled:
+                        continue
+                    pattern = re.compile(feed.filter_regex, re.I) if feed.filter_regex else None
+                    seen = feeds.get_seen(feed.id)
+                    new_guids = []
+                    for item in feeds.fetch_feed_items(feed.url):
+                        if item["guid"] in seen:
+                            continue
+                        if pattern and not pattern.search(item["title"]):
+                            new_guids.append(item["guid"])
+                            continue
+                        if feed.min_seeders and item.get("seeders", 0) < feed.min_seeders:
+                            new_guids.append(item["guid"])
+                            continue
+                        try:
+                            info_hash = torrents.add_magnet(self.session, item["magnet"])
+                            self.added.emit(feed.name or feed.url, info_hash)
+                        except Exception as exc:
+                            logger.warning(f"RSS add failed: {exc}")
+                        new_guids.append(item["guid"])
+                    if new_guids:
+                        feeds.mark_seen(feed.id, new_guids)
+            except Exception as exc:
+                logger.error(f"RSS poll error: {exc}")
+            self.msleep(self.interval_ms)
+
+    def stop(self) -> None:
+        self._running = False
+
+
+class ScheduledBandwidthWorker(QThread):
+    """Apply different bandwidth caps at user-defined time ranges (5.2)."""
+
+    applied = pyqtSignal(str)  # window name
+
+    def __init__(self, apply_callback, interval_ms: int = 60_000):
+        super().__init__()
+        self.apply_callback = apply_callback
+        self.interval_ms = interval_ms
+        self._running = True
+        self._last_window = ""
+
+    def run(self) -> None:
+        import db
+
+        while self._running:
+            try:
+                if (db.get_setting("schedule_enabled") or "0") == "1":
+                    window = self._current_window()
+                    if window != self._last_window:
+                        self._last_window = window
+                        self.apply_callback(window)
+                        self.applied.emit(window)
+            except Exception as exc:
+                logger.error(f"Schedule worker error: {exc}")
+            self.msleep(self.interval_ms)
+
+    def stop(self) -> None:
+        self._running = False
+
+    @staticmethod
+    def _current_window() -> str:
+        import time
+        import db
+
+        try:
+            start = (db.get_setting("schedule_quiet_start") or "00:00").strip()
+            end = (db.get_setting("schedule_quiet_end") or "08:00").strip()
+            now = time.localtime()
+            minutes = now.tm_hour * 60 + now.tm_min
+            start_m = ScheduledBandwidthWorker._parse_minutes(start)
+            end_m = ScheduledBandwidthWorker._parse_minutes(end)
+            if start_m == end_m:
+                return "default"
+            if start_m < end_m:
+                in_window = start_m <= minutes < end_m
+            else:
+                in_window = minutes >= start_m or minutes < end_m
+            return "quiet" if in_window else "default"
+        except Exception:
+            return "default"
+
+    @staticmethod
+    def _parse_minutes(hhmm: str) -> int:
+        try:
+            h, m = hhmm.split(":", 1)
+            return int(h) * 60 + int(m)
+        except Exception:
+            return 0
+
+
 class NetworkSpeedWorker(QThread):
     """Poll the libtorrent session for aggregate throughput."""
 

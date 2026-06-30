@@ -1,0 +1,64 @@
+  <!-- Onboarding (first-run, multi-step) -->
+  <div class="modal-backdrop" id="onboardingBackdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" hidden>
+    <div class="modal modal-wizard">
+      <header class="modal-header">
+        <div class="modal-mark" aria-hidden="true">Y</div>
+        <h2 id="onboardingTitle">Welcome to Yoink</h2>
+        <p class="modal-tag" id="onboardingTag">Just yoink it from the swarm.</p>
+        <div class="wizard-progress" aria-hidden="true">
+          <span class="wizard-dot is-active"></span>
+          <span class="wizard-dot"></span>
+          <span class="wizard-dot"></span>
+          <span class="wizard-dot"></span>
+        </div>
+      </header>
+      <div class="modal-body wizard-body">
+        <!-- Step 1 -->
+        <section class="wizard-step is-active" data-step="1">
+          <h3>Pick a download folder</h3>
+          <p class="muted small">Where Yoink will save the files it pulls. You can change this any time in Settings or per-torrent.</p>
+          <div class="wizard-folder">
+            <span class="muted small" id="wizardFolderPath">~/Downloads</span>
+            <button type="button" class="btn btn-ghost" id="wizardPickFolder">Choose folder...</button>
+          </div>
+        </section>
+        <!-- Step 2 -->
+        <section class="wizard-step" data-step="2">
+          <h3>What do you mostly grab?</h3>
+          <p class="muted small">We'll pre-set a sensible category filter. You can change everything later.</p>
+          <div class="wizard-picks" role="radiogroup" aria-label="Preferred content">
+            <button type="button" class="wizard-pick" data-category="movies" aria-pressed="true">🎬 Movies</button>
+            <button type="button" class="wizard-pick" data-category="tv" aria-pressed="false">📺 TV</button>
+            <button type="button" class="wizard-pick" data-category="anime" aria-pressed="false">🎌 Anime</button>
+            <button type="button" class="wizard-pick" data-category="other" aria-pressed="false">📦 Other</button>
+          </div>
+        </section>
+        <!-- Step 3 -->
+        <section class="wizard-step" data-step="3">
+          <h3>Optional: TMDB key for posters</h3>
+          <p class="muted small">Yoink shows movie posters, plots, and trailers when you supply a free TMDB v3 API key. Totally optional — skip if you don't care.</p>
+          <input type="password" id="wizardTmdbKey" class="text-input" placeholder="paste TMDB v3 key (optional)" autocomplete="off" />
+          <p class="muted small"><a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener" id="wizardTmdbHelp">How to get a key</a></p>
+        </section>
+        <!-- Step 4 -->
+        <section class="wizard-step" data-step="4">
+          <h3>Tray & notifications</h3>
+          <p class="muted small">Yoink keeps running in the system tray so downloads can finish. You'll get a native notification when something completes.</p>
+          <label class="toggle-row">
+            <input type="checkbox" id="wizardMinimizeTray" checked />
+            <span>Minimize to tray instead of quitting</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="wizardNotifications" checked />
+            <span>Show completion notifications</span>
+          </label>
+        </section>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="wizardSkip">Skip</button>
+        <button class="btn btn-ghost" id="wizardBack" hidden>Back</button>
+        <button class="btn btn-primary" id="wizardNext">Next</button>
+        <button class="btn btn-primary" id="onboardingDone" hidden>Let's go</button>
+      </div>
+    </div>
+  </div>

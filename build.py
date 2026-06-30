@@ -25,6 +25,30 @@ ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 
 
+def compose_html() -> Path:
+    """Assemble src/web/index.html from index.template.html + partials.
+
+    Each partial in src/web/partials/<name>.html replaces the matching
+    ``<!-- include:<name> -->`` placeholder in the template.
+
+    Idempotent and safe to run before PyInstaller; the generated file
+    is checked in so direct ``python src/main.py`` keeps working.
+    """
+    template_path = SRC / "web" / "index.template.html"
+    partials_dir = SRC / "web" / "partials"
+    out_path = SRC / "web" / "index.html"
+    if not template_path.exists():
+        print("compose-html: template missing, leaving index.html untouched")
+        return out_path
+    text = template_path.read_text(encoding="utf-8")
+    for partial in sorted(partials_dir.glob("*.html")):
+        marker = f"<!-- include:{partial.stem} -->"
+        text = text.replace(marker, partial.read_text(encoding="utf-8").rstrip("\n"))
+    out_path.write_text(text, encoding="utf-8")
+    print(f"compose-html: wrote {out_path.relative_to(ROOT)}")
+    return out_path
+
+
 def _read_version() -> str:
     """Read version from `src/version.py` without importing it."""
     text = (SRC / "version.py").read_text(encoding="utf-8")
@@ -147,9 +171,15 @@ def build_installer() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe-only", action="store_true", help="Skip the Inno Setup installer step")
+    parser.add_argument("--compose-html", action="store_true", help="Only re-assemble src/web/index.html from partials and exit")
     args = parser.parse_args()
 
+    if args.compose_html:
+        compose_html()
+        return
+
     clean_build()
+    compose_html()
     build_exe()
     if not args.exe_only:
         build_installer()

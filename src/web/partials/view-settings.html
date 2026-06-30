@@ -1,0 +1,537 @@
+      <section class="view view-settings hidden" id="view-settings" data-view="settings" role="tabpanel" aria-labelledby="nav-settings">
+        <header class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <button class="menu-toggle" data-menu-toggle aria-label="Open navigation" title="Menu">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div>
+              <h1 class="page-title">Settings</h1>
+              <p class="page-subtitle">Tune Yoink the way you like it.</p>
+            </div>
+          </div>
+        </header>
+
+        <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+          <button type="button" class="settings-nav-item is-active" data-jump="appearance">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18 4 4 0 0 1 0-8 4 4 0 0 0 0-8z"/></svg>
+            Appearance
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="library">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            Library
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="bandwidth">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>
+            Bandwidth
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="integrations">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            Integrations
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="sources">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+            Sources
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="advanced">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .4 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.4 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .4-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.4-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.4h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.4 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            Advanced
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="about">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+            About
+          </button>
+        </nav>
+
+        <!-- ========= Appearance ========= -->
+        <div class="card" id="settings-appearance">
+          <header class="card-header">
+            <h2 class="card-title">Appearance</h2>
+            <p class="muted small">Pick a theme. Changes apply instantly.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Theme</span>
+                  <span class="setting-desc">Each preset retunes accents, surfaces, and contrast.</span>
+                </div>
+              </div>
+              <div class="theme-grid" role="radiogroup" aria-label="Theme">
+                <button type="button" class="theme-card" data-theme-set="swarm" aria-pressed="true">
+                  <div class="theme-preview" data-preview="swarm" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Swarm Green</span>
+                    <span class="theme-tag">Brand default</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="pirate" aria-pressed="false">
+                  <div class="theme-preview" data-preview="pirate" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Pirate</span>
+                    <span class="theme-tag">Black & gold</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="cobalt" aria-pressed="false">
+                  <div class="theme-preview" data-preview="cobalt" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Cobalt</span>
+                    <span class="theme-tag">Classic blue</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="sunset" aria-pressed="false">
+                  <div class="theme-preview" data-preview="sunset" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Sunset</span>
+                    <span class="theme-tag">Warm coral</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="terminal" aria-pressed="false">
+                  <div class="theme-preview" data-preview="terminal" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Terminal</span>
+                    <span class="theme-tag">CRT amber</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="slate" aria-pressed="false">
+                  <div class="theme-preview" data-preview="slate" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Slate</span>
+                    <span class="theme-tag">Cyan on graphite</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="mint" aria-pressed="false">
+                  <div class="theme-preview" data-preview="mint" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Mint</span>
+                    <span class="theme-tag">Stone & mint</span>
+                  </div>
+                </button>
+                <button type="button" class="theme-card" data-theme-set="paper" aria-pressed="false">
+                  <div class="theme-preview" data-preview="paper" aria-hidden="true">
+                    <span class="tp-sidebar"></span>
+                    <span class="tp-surface">
+                      <span class="tp-line"></span>
+                      <span class="tp-line short"></span>
+                      <span class="tp-button"></span>
+                    </span>
+                  </div>
+                  <div class="theme-meta">
+                    <span class="theme-name">Paper</span>
+                    <span class="theme-tag">Light mode</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= Library & App behavior ========= -->
+        <div class="card" id="settings-library">
+          <header class="card-header">
+            <h2 class="card-title">Library & app behavior</h2>
+            <p class="muted small">Where files land and how the app behaves on your machine.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Default save folder</span>
+                  <span class="setting-desc">New downloads land here unless overridden.</span>
+                  <span class="setting-folder" id="settingFolderPath"></span>
+                </div>
+              </div>
+              <button class="btn btn-ghost" id="settingChangeFolder">Change</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Native notifications</span>
+                  <span class="setting-desc">System toast when a download finishes.</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingNotifications" aria-label="Enable notifications" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Minimize to system tray</span>
+                  <span class="setting-desc">Closing the window keeps Yoink running in the tray.</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingMinimizeTray" aria-label="Minimize to tray" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Start with system</span>
+                  <span class="setting-desc">Launch minimized to tray when you sign in (Windows only).</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingAutostart" aria-label="Start with system" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Welcome tour</span>
+                  <span class="setting-desc">Replay the first-run walkthrough.</span>
+                </div>
+              </div>
+              <button class="btn btn-ghost" id="replayOnboardingBtn">Replay</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M16 8h5v5"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Clipboard magnet watcher</span>
+                  <span class="setting-desc">When you bring Yoink to the front and your clipboard has a <code>magnet:</code> link, prompt to add it.</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingClipboardWatcher" aria-label="Clipboard magnet watcher" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v12"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Export / import settings</span>
+                  <span class="setting-desc">Backup or migrate everything except your TMDB key.</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost" id="exportSettingsBtn">Export</button>
+                <button class="btn btn-ghost" id="importSettingsBtn">Import</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= Bandwidth & queue ========= -->
+        <div class="card" id="settings-bandwidth">
+          <header class="card-header">
+            <h2 class="card-title">Bandwidth & queue</h2>
+            <p class="muted small">Hard caps applied to the live libtorrent session. Use <b>0</b> for unlimited.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M4 20h16"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max download</span>
+                  <span class="setting-desc">Cap total download speed across all torrents.</span>
+                </div>
+              </div>
+              <div class="unit-input">
+                <input type="number" min="0" step="64" id="settingDownLimit" aria-label="Download cap in kilobytes per second" />
+                <span>KB/s</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M12 20V8"/><path d="m6 14 6-6 6 6"/><path d="M4 4h16"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max upload</span>
+                  <span class="setting-desc">Cap total upload speed across all torrents.</span>
+                </div>
+              </div>
+              <div class="unit-input">
+                <input type="number" min="0" step="64" id="settingUpLimit" aria-label="Upload cap in kilobytes per second" />
+                <span>KB/s</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max active downloads</span>
+                  <span class="setting-desc">Anything over this gets queued.</span>
+                </div>
+              </div>
+              <input type="number" min="0" step="1" id="settingMaxActiveDl" class="num-input" aria-label="Max active downloads" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M12 2v20"/><path d="M5 9l7-7 7 7"/><path d="M5 15l7 7 7-7"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Max active seeds</span>
+                  <span class="setting-desc">How many completed torrents can keep seeding.</span>
+                </div>
+              </div>
+              <input type="number" min="0" step="1" id="settingMaxActiveSeeds" class="num-input" aria-label="Max active seeds" />
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M4 7h16M4 12h10M4 17h6"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Seed ratio limit</span>
+                  <span class="setting-desc">Pause once upload/download ratio hits this. 0 = never.</span>
+                </div>
+              </div>
+              <input type="number" min="0" step="0.1" id="settingSeedRatio" class="num-input" aria-label="Seed ratio limit" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= Integrations ========= -->
+        <div class="card" id="settings-integrations">
+          <header class="card-header">
+            <h2 class="card-title">Integrations & data</h2>
+            <p class="muted small">Optional connections that make Yoink smarter.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row stacked">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">TMDB API key</span>
+                  <span class="setting-desc">Enables posters, ratings, plots, and trailer links. Get a free key at <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener" id="tmdbHelpLink">themoviedb.org</a>.</span>
+                </div>
+              </div>
+              <div class="key-input">
+                <input type="password" id="settingTmdbKey" placeholder="paste TMDB v3 key" aria-label="TMDB API key" />
+                <button type="button" class="btn btn-primary" id="settingTmdbSave">Save</button>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Search history</span>
+                  <span class="setting-desc">Last 20 searches appear under the search box.</span>
+                </div>
+              </div>
+              <button class="btn btn-ghost" id="clearHistoryBtn">Clear history</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= Sources ========= -->
+        <div class="card" id="settings-sources">
+          <header class="card-header card-header-row">
+            <div>
+              <h2 class="card-title">Sources</h2>
+              <p class="muted small">Pick which torrent providers Yoink searches. Run a health check to see which are reachable.</p>
+            </div>
+            <button type="button" class="btn btn-ghost" id="refreshHealthBtn">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+              Check health
+            </button>
+          </header>
+          <div class="provider-grid" id="providerGrid" role="group" aria-label="Provider toggles">
+            <p class="muted small">Loading sources&hellip;</p>
+          </div>
+        </div>
+
+        <!-- ========= Advanced ========= -->
+        <div class="card" id="settings-advanced">
+          <header class="card-header">
+            <h2 class="card-title">Advanced</h2>
+            <p class="muted small">Power-user knobs. Safe to ignore.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Watch folder</span>
+                  <span class="setting-desc">Yoink will auto-add any <code>.torrent</code> dropped in this folder.</span>
+                </div>
+              </div>
+              <div class="advanced-row">
+                <span class="muted small" id="watchFolderPath">Not set</span>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-ghost" id="watchFolderPick">Pick folder...</button>
+                  <button class="btn btn-ghost" id="watchFolderClear">Clear</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="2"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">RSS feeds</span>
+                  <span class="setting-desc">Subscribe to a feed; matching items auto-add. Useful for podcasts and tracked shows.</span>
+                </div>
+              </div>
+              <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
+                <ul class="feeds-list" id="feedsList"></ul>
+                <div class="feed-add-row">
+                  <input type="text" id="feedUrl" class="text-input" placeholder="Feed URL" />
+                  <input type="text" id="feedName" class="text-input" placeholder="Name (optional)" />
+                  <input type="text" id="feedRegex" class="text-input" placeholder="Title regex (optional)" />
+                  <input type="number" id="feedMinSeeders" class="text-input" placeholder="Min seeders" min="0" />
+                  <button class="btn btn-primary" id="feedAddBtn">Add feed</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Proxy & user agent</span>
+                  <span class="setting-desc">Route provider HTTP traffic through a proxy. Supports <code>http://</code>, <code>https://</code>, and <code>socks5://</code> URLs.</span>
+                </div>
+              </div>
+              <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
+                <input type="text" id="proxyUrl" class="text-input" placeholder="http://user:pass@host:port" />
+                <input type="text" id="proxyUa" class="text-input" placeholder="Custom user-agent (optional)" />
+                <button class="btn btn-primary" id="proxySaveBtn" style="align-self:flex-start;">Save proxy settings</button>
+              </div>
+            </div>
+
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Scheduled bandwidth</span>
+                  <span class="setting-desc">Apply different caps during a quiet window (e.g. work hours).</span>
+                </div>
+              </div>
+              <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
+                <label class="toggle-row"><input type="checkbox" id="scheduleEnabled" /> <span>Enable scheduled caps</span></label>
+                <div class="schedule-row">
+                  <label>Quiet from <input type="time" id="scheduleStart" value="09:00" /></label>
+                  <label>to <input type="time" id="scheduleEnd" value="18:00" /></label>
+                </div>
+                <div class="schedule-row">
+                  <label>Quiet down (KB/s) <input type="number" id="scheduleDown" min="0" value="0" /></label>
+                  <label>Quiet up (KB/s) <input type="number" id="scheduleUp" min="0" value="0" /></label>
+                </div>
+                <button class="btn btn-primary" id="scheduleSaveBtn" style="align-self:flex-start;">Save schedule</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========= About ========= -->
+        <div class="card" id="settings-about">
+          <header class="card-header card-header-row">
+            <div>
+              <h2 class="card-title">About</h2>
+              <p class="muted small">Yoink v<span id="aboutVersion">-</span> &middot; <a href="#" id="aboutHomepage">GitHub</a></p>
+            </div>
+            <button type="button" class="btn btn-ghost" id="checkUpdatesBtn">Check for updates</button>
+          </header>
+          <p class="muted small" id="aboutPlatform"></p>
+          <p class="muted small" id="aboutUpdateStatus" aria-live="polite"></p>
+          <div class="about-actions">
+            <button type="button" class="btn btn-ghost" id="openDataFolderBtn" title="Open the folder where Yoink stores its database and logs">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Open data folder
+            </button>
+          </div>
+        </div>
+      </section>
+

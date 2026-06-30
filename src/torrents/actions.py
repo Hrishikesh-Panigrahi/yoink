@@ -18,6 +18,17 @@ logger = setup_logger("torrents.actions")
 
 def add_magnet(session: Session, magnet: str, save_path: Optional[str] = None) -> str:
     """Add a torrent from a magnet URI. Returns its info hash (lowercase)."""
+    info_hash, _ = add_magnet_verbose(session, magnet, save_path)
+    return info_hash
+
+
+def add_magnet_verbose(
+    session: Session, magnet: str, save_path: Optional[str] = None
+) -> tuple[str, bool]:
+    """Add a torrent and report whether it was already known.
+
+    Returns ``(info_hash, was_existing)``.
+    """
     if not magnet or not magnet.startswith("magnet:"):
         raise ValueError("Invalid magnet link")
 
@@ -28,7 +39,7 @@ def add_magnet(session: Session, magnet: str, save_path: Optional[str] = None) -
     info_hash = str(params.info_hash).lower()
     if info_hash in session.handles:
         logger.info(f"Torrent already added: {info_hash}")
-        return info_hash
+        return info_hash, True
 
     params.save_path = destination
     handle = session.lt_session.add_torrent(params)
@@ -38,7 +49,7 @@ def add_magnet(session: Session, magnet: str, save_path: Optional[str] = None) -
     db.save_torrent(info_hash=info_hash, name=name, magnet_link=magnet, save_path=destination)
 
     logger.info(f"Added magnet torrent {info_hash} ({name})")
-    return info_hash
+    return info_hash, False
 
 
 def add_torrent_file(session: Session, file_path: str, save_path: Optional[str] = None) -> str:
@@ -103,12 +114,29 @@ def set_file_priorities(session: Session, info_hash: str, priorities: dict[int, 
     return True
 
 
+def _clear_auto_managed(handle) -> None:
+    """Drop the auto_managed flag so libtorrent's queue manager won't auto-resume."""
+    try:
+        handle.unset_flags(lt.torrent_flags.auto_managed)
+    except Exception:
+        pass
+
+
+def _set_auto_managed(handle) -> None:
+    """Restore the auto_managed flag so libtorrent can schedule the torrent again."""
+    try:
+        handle.set_flags(lt.torrent_flags.auto_managed)
+    except Exception:
+        pass
+
+
 def pause_all(session: Session) -> int:
     """Pause every torrent in the session. Returns how many were paused."""
     count = 0
     for info_hash, handle in list(session.handles.items()):
         if handle is None or not handle.is_valid():
             continue
+        _clear_auto_managed(handle)
         handle.pause()
         db.update_torrent_status(info_hash, "paused")
         count += 1
@@ -121,6 +149,7 @@ def resume_all(session: Session) -> int:
     for info_hash, handle in list(session.handles.items()):
         if handle is None or not handle.is_valid():
             continue
+        _set_auto_managed(handle)
         handle.resume()
         db.update_torrent_status(info_hash, "downloading")
         count += 1
@@ -132,6 +161,7 @@ def pause(session: Session, info_hash: str) -> bool:
     handle = session.handles.get(info_hash.lower())
     if handle is None:
         return False
+    _clear_auto_managed(handle)
     handle.pause()
     db.update_torrent_status(info_hash, "paused")
     return True
@@ -142,6 +172,7 @@ def resume(session: Session, info_hash: str) -> bool:
     handle = session.handles.get(info_hash.lower())
     if handle is None:
         return False
+    _set_auto_managed(handle)
     handle.resume()
     db.update_torrent_status(info_hash, "downloading")
     return True

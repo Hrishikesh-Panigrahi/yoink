@@ -2,6 +2,7 @@
 
 from torrents.actions import (
     add_magnet,
+    add_magnet_verbose,
     add_torrent_file,
     pause,
     pause_all,
@@ -32,6 +33,7 @@ __all__ = [
     "apply_limits",
     "enforce_seed_ratio",
     "add_magnet",
+    "add_magnet_verbose",
     "add_torrent_file",
     "pause",
     "resume",

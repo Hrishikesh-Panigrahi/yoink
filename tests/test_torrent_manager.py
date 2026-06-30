@@ -91,6 +91,28 @@ class TestTorrentActions(unittest.TestCase):
         resumed = torrents.resume_all(self.session)
         self.assertEqual(resumed, 1)
 
+    def test_pause_clears_auto_managed_flag(self) -> None:
+        """Pause must drop auto_managed so libtorrent's queue won't auto-resume."""
+        from unittest import mock
+
+        info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
+        real_handle = self.session.handles[info_hash]
+
+        fake_handle = mock.MagicMock()
+        fake_handle.is_valid.return_value = True
+        self.session.handles[info_hash] = fake_handle
+        try:
+            self.assertTrue(torrents.pause(self.session, info_hash))
+            fake_handle.unset_flags.assert_called_once_with(lt.torrent_flags.auto_managed)
+            fake_handle.pause.assert_called_once()
+
+            fake_handle.reset_mock()
+            self.assertTrue(torrents.resume(self.session, info_hash))
+            fake_handle.set_flags.assert_called_once_with(lt.torrent_flags.auto_managed)
+            fake_handle.resume.assert_called_once()
+        finally:
+            self.session.handles[info_hash] = real_handle
+
     def test_set_file_priorities_returns_false_without_metadata(self) -> None:
         info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
         # Magnet-only torrents have no metadata yet, so prioritize must no-op.

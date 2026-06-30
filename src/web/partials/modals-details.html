@@ -1,0 +1,28 @@
+  <!-- Movie details modal -->
+  <div class="modal-backdrop" id="detailsBackdrop" role="dialog" aria-modal="true" aria-labelledby="detailsTitle" hidden>
+    <div class="modal modal-details">
+      <div class="details-backdrop" id="detailsBackdropImg" hidden></div>
+      <button type="button" class="modal-close" id="detailsClose" aria-label="Close">&times;</button>
+      <div class="details-body">
+        <div class="details-poster">
+          <img id="detailsPoster" alt="" />
+        </div>
+        <div class="details-info">
+          <h2 id="detailsTitle"></h2>
+          <div class="details-meta">
+            <span id="detailsYear"></span>
+            <span id="detailsRuntime"></span>
+            <span id="detailsRating"></span>
+          </div>
+          <div id="detailsGenres" class="details-genres"></div>
+          <p id="detailsPlot" class="details-plot"></p>
+          <div class="details-links">
+            <a id="detailsTrailer" class="btn btn-ghost" target="_blank" rel="noopener" hidden>Trailer</a>
+            <a id="detailsImdb" class="btn btn-ghost" target="_blank" rel="noopener" hidden>IMDb</a>
+          </div>
+          <h3 class="details-section">Available torrents</h3>
+          <div id="detailsTorrents" class="details-torrents" role="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>

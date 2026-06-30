@@ -160,15 +160,30 @@
             <div class="card-title-row">
               <h2 class="card-title">Results</h2>
               <span class="muted" id="resultsCount" aria-live="polite"></span>
+              <div class="view-toggle" role="group" aria-label="Result view">
+                <button type="button" class="view-toggle-btn is-active" data-view-mode="list" aria-pressed="true" title="List view">
+                  <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                </button>
+                <button type="button" class="view-toggle-btn" data-view-mode="cards" aria-pressed="false" title="Card view">
+                  <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                </button>
+              </div>
             </div>
-            <p class="muted small">Click <b>Download</b> to yoink a torrent. Press <kbd>/</kbd> to focus search.</p>
+            <p class="muted small">Click <b>Download</b> to yoink a torrent. Press <kbd>/</kbd> to focus search or <kbd>?</kbd> for shortcuts.</p>
           </header>
 
           <div class="results-body" id="resultsBody">
             <div class="empty-state" id="searchEmpty">
               <svg viewBox="0 0 24 24" class="ic empty-ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
               <h3>Find something to yoink</h3>
-              <p>Type a title above and press <kbd>Enter</kbd>. Stable search uses The Pirate Bay and YTS; advanced search uses Torrent-Api-py.</p>
+              <p>Type a title above and press <kbd>Enter</kbd>. You can also paste a <code>magnet:</code> link or a <code>.torrent</code> URL right into the search bar.</p>
+              <div class="example-chips" id="exampleChips" aria-label="Example searches">
+                <span class="example-chips-label">Try:</span>
+                <button type="button" class="chip" data-example="Dune 2021">Dune 2021</button>
+                <button type="button" class="chip" data-example="Mr Robot">Mr Robot</button>
+                <button type="button" class="chip" data-example="Ubuntu 24.04">Ubuntu 24.04</button>
+                <button type="button" class="chip" data-example="Big Buck Bunny">Big Buck Bunny</button>
+              </div>
             </div>
 
             <div class="loader" id="searchLoader" hidden role="status" aria-live="polite">
@@ -223,6 +238,10 @@
           <button type="button" class="settings-nav-item" data-jump="sources">
             <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
             Sources
+          </button>
+          <button type="button" class="settings-nav-item" data-jump="advanced">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .4 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.4 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .4-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.4-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.4h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.4 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            Advanced
           </button>
           <button type="button" class="settings-nav-item" data-jump="about">
             <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
@@ -446,6 +465,38 @@
               </div>
               <button class="btn btn-ghost" id="replayOnboardingBtn">Replay</button>
             </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M16 8h5v5"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Clipboard magnet watcher</span>
+                  <span class="setting-desc">When you bring Yoink to the front and your clipboard has a <code>magnet:</code> link, prompt to add it.</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingClipboardWatcher" aria-label="Clipboard magnet watcher" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v12"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Export / import settings</span>
+                  <span class="setting-desc">Backup or migrate everything except your TMDB key.</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost" id="exportSettingsBtn">Export</button>
+                <button class="btn btn-ghost" id="importSettingsBtn">Import</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -580,6 +631,97 @@
           </div>
         </div>
 
+        <!-- ========= Advanced ========= -->
+        <div class="card" id="settings-advanced">
+          <header class="card-header">
+            <h2 class="card-title">Advanced</h2>
+            <p class="muted small">Power-user knobs. Safe to ignore.</p>
+          </header>
+          <div class="settings-list">
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Watch folder</span>
+                  <span class="setting-desc">Yoink will auto-add any <code>.torrent</code> dropped in this folder.</span>
+                </div>
+              </div>
+              <div class="advanced-row">
+                <span class="muted small" id="watchFolderPath">Not set</span>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn btn-ghost" id="watchFolderPick">Pick folder...</button>
+                  <button class="btn btn-ghost" id="watchFolderClear">Clear</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="2"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">RSS feeds</span>
+                  <span class="setting-desc">Subscribe to a feed; matching items auto-add. Useful for podcasts and tracked shows.</span>
+                </div>
+              </div>
+              <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
+                <ul class="feeds-list" id="feedsList"></ul>
+                <div class="feed-add-row">
+                  <input type="text" id="feedUrl" class="text-input" placeholder="Feed URL" />
+                  <input type="text" id="feedName" class="text-input" placeholder="Name (optional)" />
+                  <input type="text" id="feedRegex" class="text-input" placeholder="Title regex (optional)" />
+                  <input type="number" id="feedMinSeeders" class="text-input" placeholder="Min seeders" min="0" />
+                  <button class="btn btn-primary" id="feedAddBtn">Add feed</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Proxy & user agent</span>
+                  <span class="setting-desc">Route provider HTTP traffic through a proxy. Supports <code>http://</code>, <code>https://</code>, and <code>socks5://</code> URLs.</span>
+                </div>
+              </div>
+              <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
+                <input type="text" id="proxyUrl" class="text-input" placeholder="http://user:pass@host:port" />
+                <input type="text" id="proxyUa" class="text-input" placeholder="Custom user-agent (optional)" />
+                <button class="btn btn-primary" id="proxySaveBtn" style="align-self:flex-start;">Save proxy settings</button>
+              </div>
+            </div>
+
+            <div class="setting-row setting-row-stack">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Scheduled bandwidth</span>
+                  <span class="setting-desc">Apply different caps during a quiet window (e.g. work hours).</span>
+                </div>
+              </div>
+              <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
+                <label class="toggle-row"><input type="checkbox" id="scheduleEnabled" /> <span>Enable scheduled caps</span></label>
+                <div class="schedule-row">
+                  <label>Quiet from <input type="time" id="scheduleStart" value="09:00" /></label>
+                  <label>to <input type="time" id="scheduleEnd" value="18:00" /></label>
+                </div>
+                <div class="schedule-row">
+                  <label>Quiet down (KB/s) <input type="number" id="scheduleDown" min="0" value="0" /></label>
+                  <label>Quiet up (KB/s) <input type="number" id="scheduleUp" min="0" value="0" /></label>
+                </div>
+                <button class="btn btn-primary" id="scheduleSaveBtn" style="align-self:flex-start;">Save schedule</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ========= About ========= -->
         <div class="card" id="settings-about">
           <header class="card-header card-header-row">
@@ -591,6 +733,12 @@
           </header>
           <p class="muted small" id="aboutPlatform"></p>
           <p class="muted small" id="aboutUpdateStatus" aria-live="polite"></p>
+          <div class="about-actions">
+            <button type="button" class="btn btn-ghost" id="openDataFolderBtn" title="Open the folder where Yoink stores its database and logs">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Open data folder
+            </button>
+          </div>
         </div>
       </section>
 
@@ -636,11 +784,37 @@
           </button>
         </div>
 
+        <div class="downloads-summary-bar" id="downloadsSummaryBar" hidden>
+          <div class="dsb-chunk">
+            <span class="dsb-num" id="dsbActive">0</span>
+            <span class="dsb-label">downloading</span>
+          </div>
+          <div class="dsb-chunk">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            <span class="dsb-num" id="dsbDown">0 KB/s</span>
+            <span class="dsb-label">down</span>
+          </div>
+          <div class="dsb-chunk">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 5v14"/><path d="m5 12 7 7 7-7"/></svg>
+            <span class="dsb-num" id="dsbUp">0 KB/s</span>
+            <span class="dsb-label">up</span>
+          </div>
+          <div class="dsb-chunk">
+            <span class="dsb-num" id="dsbCompletedToday">0</span>
+            <span class="dsb-label">completed today</span>
+          </div>
+        </div>
+
         <div class="card downloads-card">
           <div class="downloads-empty empty-state" id="downloadsEmpty">
             <svg viewBox="0 0 24 24" class="ic empty-ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
             <h3>Nothing downloading yet</h3>
-            <p>Search for something, click <b>Download</b>, or open a .torrent file to begin.</p>
+            <p>Get started in any of these ways:</p>
+            <ul class="empty-tips">
+              <li><b>Drag a .torrent</b> anywhere on this window</li>
+              <li><b>Paste a magnet link</b> (Ctrl+V) into the search bar</li>
+              <li><b>Run a search</b> and click <em>Download</em></li>
+            </ul>
           </div>
           <div class="downloads-list" id="downloadsList" hidden role="list"></div>
         </div>
@@ -649,6 +823,31 @@
   </div>
 
   <div class="toast-stack" id="toastStack" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+  <div class="drop-overlay" id="dropOverlay" hidden aria-hidden="true">
+    <div class="drop-card">
+      <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      <h2>Drop to add</h2>
+      <p>Release the <code>.torrent</code> here to start downloading.</p>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="safetyBackdrop" role="dialog" aria-modal="true" aria-labelledby="safetyTitle" hidden>
+    <div class="modal modal-small">
+      <header class="modal-header">
+        <h2 id="safetyTitle">Safety check</h2>
+        <p class="modal-tag" id="safetyTag"></p>
+      </header>
+      <div class="modal-body">
+        <p class="muted small" id="safetyIntro">Yoink scores torrents using uploader trust, seeder counts, and filename heuristics. Here's why this one was flagged:</p>
+        <ul class="safety-reasons" id="safetyReasons"></ul>
+        <p class="muted small">These are heuristics, not guarantees. When in doubt, prefer trusted uploaders and well-seeded releases.</p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-primary" id="safetyClose">Got it</button>
+      </footer>
+    </div>
+  </div>
 
   <!-- Movie details modal -->
   <div class="modal-backdrop" id="detailsBackdrop" role="dialog" aria-modal="true" aria-labelledby="detailsTitle" hidden>
@@ -701,42 +900,120 @@
     </div>
   </div>
 
-  <!-- Onboarding (first-run) -->
+  <!-- Onboarding (first-run, multi-step) -->
   <div class="modal-backdrop" id="onboardingBackdrop" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" hidden>
-    <div class="modal">
+    <div class="modal modal-wizard">
       <header class="modal-header">
         <div class="modal-mark" aria-hidden="true">Y</div>
         <h2 id="onboardingTitle">Welcome to Yoink</h2>
-        <p class="modal-tag">Just yoink it from the swarm.</p>
+        <p class="modal-tag" id="onboardingTag">Just yoink it from the swarm.</p>
+        <div class="wizard-progress" aria-hidden="true">
+          <span class="wizard-dot is-active"></span>
+          <span class="wizard-dot"></span>
+          <span class="wizard-dot"></span>
+          <span class="wizard-dot"></span>
+        </div>
       </header>
-      <div class="modal-body">
-        <ul class="feature-list">
-          <li>
-            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <div>
-              <b>Search anywhere</b>
-              <small>Stable APIs (Pirate Bay, YTS) are on by default. Region filter unlocks Bollywood, K-drama, anime, and more.</small>
-            </div>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-            <div>
-              <b>One-click downloads</b>
-              <small>Hit <kbd>Yoink it</kbd> on any result. Track progress, pause, and open the folder from the Downloads tab.</small>
-            </div>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 3v6M16 3v6"/></svg>
-            <div>
-              <b>Stays out of your way</b>
-              <small>Minimizes to the system tray. Native notifications when a download finishes. Toggle either from Settings.</small>
-            </div>
-          </li>
-        </ul>
+      <div class="modal-body wizard-body">
+        <!-- Step 1 -->
+        <section class="wizard-step is-active" data-step="1">
+          <h3>Pick a download folder</h3>
+          <p class="muted small">Where Yoink will save the files it pulls. You can change this any time in Settings or per-torrent.</p>
+          <div class="wizard-folder">
+            <span class="muted small" id="wizardFolderPath">~/Downloads</span>
+            <button type="button" class="btn btn-ghost" id="wizardPickFolder">Choose folder...</button>
+          </div>
+        </section>
+        <!-- Step 2 -->
+        <section class="wizard-step" data-step="2">
+          <h3>What do you mostly grab?</h3>
+          <p class="muted small">We'll pre-set a sensible category filter. You can change everything later.</p>
+          <div class="wizard-picks" role="radiogroup" aria-label="Preferred content">
+            <button type="button" class="wizard-pick" data-category="movies" aria-pressed="true">🎬 Movies</button>
+            <button type="button" class="wizard-pick" data-category="tv" aria-pressed="false">📺 TV</button>
+            <button type="button" class="wizard-pick" data-category="anime" aria-pressed="false">🎌 Anime</button>
+            <button type="button" class="wizard-pick" data-category="other" aria-pressed="false">📦 Other</button>
+          </div>
+        </section>
+        <!-- Step 3 -->
+        <section class="wizard-step" data-step="3">
+          <h3>Optional: TMDB key for posters</h3>
+          <p class="muted small">Yoink shows movie posters, plots, and trailers when you supply a free TMDB v3 API key. Totally optional — skip if you don't care.</p>
+          <input type="password" id="wizardTmdbKey" class="text-input" placeholder="paste TMDB v3 key (optional)" autocomplete="off" />
+          <p class="muted small"><a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener" id="wizardTmdbHelp">How to get a key</a></p>
+        </section>
+        <!-- Step 4 -->
+        <section class="wizard-step" data-step="4">
+          <h3>Tray & notifications</h3>
+          <p class="muted small">Yoink keeps running in the system tray so downloads can finish. You'll get a native notification when something completes.</p>
+          <label class="toggle-row">
+            <input type="checkbox" id="wizardMinimizeTray" checked />
+            <span>Minimize to tray instead of quitting</span>
+          </label>
+          <label class="toggle-row">
+            <input type="checkbox" id="wizardNotifications" checked />
+            <span>Show completion notifications</span>
+          </label>
+        </section>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-primary" id="onboardingDone">Let's go</button>
+        <button class="btn btn-ghost" id="wizardSkip">Skip</button>
+        <button class="btn btn-ghost" id="wizardBack" hidden>Back</button>
+        <button class="btn btn-primary" id="wizardNext">Next</button>
+        <button class="btn btn-primary" id="onboardingDone" hidden>Let's go</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Command palette (7.4) -->
+  <div class="modal-backdrop palette-backdrop" id="paletteBackdrop" role="dialog" aria-modal="true" aria-labelledby="paletteTitle" hidden>
+    <div class="modal modal-palette">
+      <input type="text" id="paletteInput" class="text-input palette-input" placeholder="Type a command..." aria-label="Command" autocomplete="off" />
+      <ul class="palette-list" id="paletteList" role="listbox"></ul>
+      <p class="muted small palette-hint">Type to filter &middot; <kbd>↑</kbd>/<kbd>↓</kbd> to navigate &middot; <kbd>Enter</kbd> to run &middot; <kbd>Esc</kbd> to close</p>
+    </div>
+  </div>
+
+  <!-- Labels editor for a torrent (7.3) -->
+  <div class="modal-backdrop" id="labelsBackdrop" role="dialog" aria-modal="true" aria-labelledby="labelsTitle" hidden>
+    <div class="modal modal-small">
+      <header class="modal-header">
+        <h2 id="labelsTitle">Edit labels</h2>
+        <p class="modal-tag" id="labelsSubtitle"></p>
+      </header>
+      <div class="modal-body">
+        <div class="labels-chips" id="labelsChips"></div>
+        <input type="text" id="labelsInput" class="text-input" placeholder="Add label and press Enter" />
+        <p class="muted small">Suggestions:</p>
+        <div class="labels-suggestions" id="labelsSuggestions"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="labelsCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="labelsApply">Save</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts panel (7.5) -->
+  <div class="modal-backdrop" id="shortcutsBackdrop" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" hidden>
+    <div class="modal modal-small">
+      <header class="modal-header">
+        <h2 id="shortcutsTitle">Keyboard shortcuts</h2>
+        <p class="modal-tag">Press <kbd>?</kbd> any time to open this panel.</p>
+      </header>
+      <div class="modal-body">
+        <dl class="shortcuts">
+          <dt><kbd>/</kbd></dt><dd>Focus the search bar</dd>
+          <dt><kbd>?</kbd></dt><dd>Show this shortcuts panel</dd>
+          <dt><kbd>Ctrl</kbd>+<kbd>F</kbd></dt><dd>Focus the search bar</dd>
+          <dt><kbd>Ctrl</kbd>+<kbd>D</kbd></dt><dd>Open Downloads</dd>
+          <dt><kbd>Ctrl</kbd>+<kbd>,</kbd></dt><dd>Open Settings</dd>
+          <dt><kbd>Esc</kbd></dt><dd>Close the current modal / dropdown</dd>
+        </dl>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-primary" id="shortcutsClose">Close</button>
+      </footer>
     </div>
   </div>
 
@@ -805,9 +1082,16 @@
         <span class="dl-stat"><span class="dl-label">Peers</span><span class="dl-value dl-peers"></span></span>
       </div>
       <div class="dl-actions">
+        <button class="btn btn-primary dl-open-file" hidden title="Open the downloaded file">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="m7 5 12 7-12 7Z"/></svg>
+          Open file
+        </button>
         <button class="btn btn-ghost dl-pause" hidden>Pause</button>
         <button class="btn btn-ghost dl-resume" hidden>Resume</button>
         <button class="btn btn-ghost dl-open">Open folder</button>
+        <button class="btn btn-ghost dl-cancel" type="button" title="Cancel and remove" aria-label="Cancel and remove">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>
+        </button>
         <div class="dl-kebab-wrap">
           <button class="btn btn-ghost dl-kebab" aria-haspopup="true" aria-expanded="false" aria-label="More actions" title="More">
             <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
@@ -820,6 +1104,14 @@
             <button type="button" class="dl-menu-item dl-open-menu" role="menuitem">
               <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
               Open folder
+            </button>
+            <button type="button" class="dl-menu-item dl-move-folder" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              Move to folder...
+            </button>
+            <button type="button" class="dl-menu-item dl-labels" role="menuitem">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M20 13.5 13.5 20a2 2 0 0 1-2.8 0l-7-7V4h9z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
+              Labels...
             </button>
             <button type="button" class="dl-menu-item dl-copy-magnet" role="menuitem">
               <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M9 9h11v11H9z"/><path d="M5 5h10v3H8v7H5z"/></svg>
@@ -840,6 +1132,7 @@
     </article>
   </template>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
 </body>
 </html>

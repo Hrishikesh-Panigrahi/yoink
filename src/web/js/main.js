@@ -1,6 +1,18 @@
-/* Yoink - Frontend
-   Vanilla JS, no build step. Talks to Python via QWebChannel.
-*/
+/* Yoink - Frontend entry module.
+ *
+ * Loaded as a native ES module (`<script type="module">`). All UI wiring,
+ * search/downloads rendering, theming and modals currently live in this
+ * file as a single closure (`App`). Domain-specific sibling modules under
+ * `src/web/js/` (theme.js, util.js, search.js, downloads.js, ...) act as
+ * documented landing zones for future incremental extraction; main.js is
+ * deliberately the only module that owns runtime side-effects today so the
+ * QWebChannel boot path stays predictable.
+ */
+
+import "./bridge.js";
+import "./theme.js";
+import "./util.js";
+import "./toasts.js";
 
 const App = (() => {
   let bridge = null;
@@ -24,6 +36,12 @@ const App = (() => {
     metadataByKey: new Map(),
     rowsByKey: new Map(),
     providerHealth: {},
+    completedToday: 0,
+    completedTodayDate: "",
+    completedSeen: new Set(),
+    networkDown: 0,
+    networkUp: 0,
+    hadInitialDownloadsSnapshot: false,
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -136,6 +154,89 @@ const App = (() => {
 
     els.resultTpl = $("#resultRowTpl");
     els.downloadTpl = $("#downloadRowTpl");
+
+    els.exampleChips = $("#exampleChips");
+    els.dropOverlay = $("#dropOverlay");
+    els.downloadsSummaryBar = $("#downloadsSummaryBar");
+    els.dsbActive = $("#dsbActive");
+    els.dsbDown = $("#dsbDown");
+    els.dsbUp = $("#dsbUp");
+    els.dsbCompletedToday = $("#dsbCompletedToday");
+    els.safetyBackdrop = $("#safetyBackdrop");
+    els.safetyTitle = $("#safetyTitle");
+    els.safetyTag = $("#safetyTag");
+    els.safetyReasons = $("#safetyReasons");
+    els.safetyClose = $("#safetyClose");
+    els.openDataFolderBtn = $("#openDataFolderBtn");
+
+    els.viewToggleBtns = $$(".view-toggle-btn");
+    els.settingClipboardWatcher = $("#settingClipboardWatcher");
+    els.exportSettingsBtn = $("#exportSettingsBtn");
+    els.importSettingsBtn = $("#importSettingsBtn");
+    els.shortcutsBackdrop = $("#shortcutsBackdrop");
+    els.shortcutsClose = $("#shortcutsClose");
+
+    els.wizardSteps = $$(".wizard-step");
+    els.wizardDots = $$(".wizard-dot");
+    els.wizardSkip = $("#wizardSkip");
+    els.wizardBack = $("#wizardBack");
+    els.wizardNext = $("#wizardNext");
+    els.wizardFolderPath = $("#wizardFolderPath");
+    els.wizardPickFolder = $("#wizardPickFolder");
+    els.wizardPicks = $$(".wizard-pick");
+    els.wizardTmdbKey = $("#wizardTmdbKey");
+    els.wizardTmdbHelp = $("#wizardTmdbHelp");
+    els.wizardMinimizeTray = $("#wizardMinimizeTray");
+    els.wizardNotifications = $("#wizardNotifications");
+
+    els.paletteBackdrop = $("#paletteBackdrop");
+    els.paletteInput = $("#paletteInput");
+    els.paletteList = $("#paletteList");
+
+    els.labelsBackdrop = $("#labelsBackdrop");
+    els.labelsSubtitle = $("#labelsSubtitle");
+    els.labelsChips = $("#labelsChips");
+    els.labelsInput = $("#labelsInput");
+    els.labelsSuggestions = $("#labelsSuggestions");
+    els.labelsCancel = $("#labelsCancel");
+    els.labelsApply = $("#labelsApply");
+
+    els.watchFolderPath = $("#watchFolderPath");
+    els.watchFolderPick = $("#watchFolderPick");
+    els.watchFolderClear = $("#watchFolderClear");
+
+    els.feedsList = $("#feedsList");
+    els.feedUrl = $("#feedUrl");
+    els.feedName = $("#feedName");
+    els.feedRegex = $("#feedRegex");
+    els.feedMinSeeders = $("#feedMinSeeders");
+    els.feedAddBtn = $("#feedAddBtn");
+
+    els.proxyUrl = $("#proxyUrl");
+    els.proxyUa = $("#proxyUa");
+    els.proxySaveBtn = $("#proxySaveBtn");
+
+    els.scheduleEnabled = $("#scheduleEnabled");
+    els.scheduleStart = $("#scheduleStart");
+    els.scheduleEnd = $("#scheduleEnd");
+    els.scheduleDown = $("#scheduleDown");
+    els.scheduleUp = $("#scheduleUp");
+    els.scheduleSaveBtn = $("#scheduleSaveBtn");
+  }
+
+  // ----- Magnet / torrent URL detection (1.1) -----
+  const MAGNET_RE = /^magnet:\?xt=urn:btih:[a-z0-9]+/i;
+  const INFOHASH_RE = /^[a-f0-9]{40}$|^[a-z2-7]{32}$/i;
+  const TORRENT_URL_RE = /^https?:\/\/\S+\.torrent(\?\S*)?$/i;
+  function detectTorrentInput(raw) {
+    const v = (raw || "").trim();
+    if (!v) return null;
+    if (MAGNET_RE.test(v)) return { kind: "magnet", value: v };
+    if (TORRENT_URL_RE.test(v)) return { kind: "url", value: v };
+    if (INFOHASH_RE.test(v)) {
+      return { kind: "magnet", value: `magnet:?xt=urn:btih:${v}` };
+    }
+    return null;
   }
 
   // ----- Helpers -----
@@ -340,20 +441,33 @@ const App = (() => {
 
       const safetyEl = node.querySelector(".meta.safety-badge");
       if (safetyEl && r.safety) {
+        let level = null;
         if (r.safety.level === "risky") {
           safetyEl.textContent = "Risky";
           safetyEl.classList.add("risky");
-          safetyEl.title = (r.safety.reasons || []).join("; ");
-          safetyEl.hidden = false;
+          level = "risky";
         } else if (r.safety.level === "caution") {
           safetyEl.textContent = "Check";
           safetyEl.classList.add("caution");
-          safetyEl.title = (r.safety.reasons || []).join("; ");
-          safetyEl.hidden = false;
+          level = "caution";
         } else if (r.safety.level === "safe" && (r.safety.reasons || []).some((x) => /trusted/i.test(x))) {
           safetyEl.textContent = "Trusted";
           safetyEl.classList.add("safe");
+          level = "safe";
+        }
+        if (level) {
+          safetyEl.title = "Click to see why";
           safetyEl.hidden = false;
+          safetyEl.setAttribute("role", "button");
+          safetyEl.setAttribute("tabindex", "0");
+          const open = (e) => {
+            e.stopPropagation();
+            openSafetyModal(level, r.safety.reasons || [], r.title);
+          };
+          safetyEl.addEventListener("click", open);
+          safetyEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(e); }
+          });
         }
       }
 
@@ -376,7 +490,13 @@ const App = (() => {
         summaryEl.hidden = false;
       }
 
-      node.querySelector(".stat-line.seeders .num").textContent = r.seeds ?? 0;
+      const seedersLine = node.querySelector(".stat-line.seeders");
+      seedersLine.querySelector(".num").textContent = r.seeds ?? 0;
+      seedersLine.classList.add(seederHealthClass(r.seeds));
+      const n = Number(r.seeds) || 0;
+      const healthLabel = n > 50 ? "Excellent" : n >= 10 ? "OK" : "Risky";
+      seedersLine.title =
+        `Seeders: ${n} (${healthLabel}). Green >50, yellow 10-50, red <10. More seeders = faster download.`;
       node.querySelector(".stat-line.peers .num").textContent = r.peers ?? 0;
 
       const actionBtn = node.querySelector(".result-action");
@@ -853,6 +973,31 @@ const App = (() => {
     if (counter) counter.textContent = `${enabledCount}/${items.length} on`;
   }
 
+  function parseAddResult(raw) {
+    if (!raw) return { hash: "", wasExisting: false };
+    if (typeof raw === "object") return raw;
+    try {
+      const obj = JSON.parse(raw);
+      return obj && typeof obj === "object"
+        ? { hash: obj.hash || "", wasExisting: !!obj.wasExisting, name: obj.name }
+        : { hash: String(raw), wasExisting: false };
+    } catch (_) {
+      return { hash: String(raw), wasExisting: false };
+    }
+  }
+
+  function focusDownloadRow(hash) {
+    switchView("downloads");
+    setTimeout(() => {
+      const node = els.downloadsList.querySelector(`.download-row[data-hash="${hash}"]`);
+      if (node) {
+        node.scrollIntoView({ behavior: "smooth", block: "center" });
+        node.classList.add("flash");
+        setTimeout(() => node.classList.remove("flash"), 1500);
+      }
+    }, 250);
+  }
+
   function addFromResult(result, btn) {
     const safety = result.safety;
     if (safety && safety.level === "risky") {
@@ -866,16 +1011,62 @@ const App = (() => {
       btn.disabled = true;
       btn.textContent = "Adding...";
     }
-    bridge.addTorrent(result.magnet, (hash) => {
+    bridge.addTorrent(result.magnet, (raw) => {
+      const { hash, wasExisting } = parseAddResult(raw);
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = `<svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Yoinked`;
       }
-      if (hash) {
+      if (!hash) return;
+      if (wasExisting) {
+        showDuplicateToast(hash);
+      } else {
         toast("success", "Added to downloads");
         setTimeout(() => switchView("downloads"), 500);
       }
     });
+  }
+
+  function showClipboardOfferToast(magnet) {
+    const el = document.createElement("div");
+    el.className = "toast info";
+    el.setAttribute("role", "status");
+    el.innerHTML = `Clipboard magnet detected. <button type="button" class="toast-action add-it">Add</button> <button type="button" class="toast-action" style="background:transparent;color:var(--text);">Dismiss</button>`;
+    const [add, dismiss] = el.querySelectorAll(".toast-action");
+    add.addEventListener("click", () => {
+      addByDetection({ kind: "magnet", value: magnet });
+      el.remove();
+    });
+    dismiss.addEventListener("click", () => el.remove());
+    els.toastStack.appendChild(el);
+    setTimeout(() => {
+      el.classList.add("fade-out");
+      el.addEventListener("animationend", () => el.remove(), { once: true });
+    }, 8000);
+  }
+
+  function showDuplicateToast(hash) {
+    const el = document.createElement("div");
+    el.className = "toast info";
+    el.setAttribute("role", "status");
+    el.innerHTML = `Already in your library. <button type="button" class="toast-action">Jump to it</button>`;
+    el.querySelector(".toast-action").addEventListener("click", () => {
+      focusDownloadRow(hash);
+      el.remove();
+    });
+    els.toastStack.appendChild(el);
+    setTimeout(() => {
+      el.classList.add("fade-out");
+      el.addEventListener("animationend", () => el.remove(), { once: true });
+    }, 6000);
+  }
+
+  // ----- Seeder health color (1.7) -----
+  function seederHealthClass(seeds) {
+    const n = Number(seeds) || 0;
+    if (n > 50) return "health-good";
+    if (n >= 10) return "health-ok";
+    return "health-poor";
   }
 
   // ----- Downloads rendering -----
@@ -889,6 +1080,8 @@ const App = (() => {
 
   function renderDownloads(items) {
     state.downloads = items;
+    trackCompletions(items);
+    updateSummaryBar(items);
     const total = items.length;
     const activeCount = items.filter(isActive).length;
     const completedCount = items.filter(isCompleted).length;
@@ -929,25 +1122,76 @@ const App = (() => {
       return;
     }
 
-    const existing = new Map();
-    els.downloadsList.querySelectorAll(".download-row").forEach((n) => existing.set(n.dataset.hash, n));
+    renderGroupedDownloads(visible);
+  }
 
-    const frag = document.createDocumentFragment();
-    visible.forEach((t) => {
-      let node = existing.get(t.hash);
-      if (!node) {
-        node = els.downloadTpl.content.firstElementChild.cloneNode(true);
-        node.dataset.hash = t.hash;
-        wireDownloadRow(node, t.hash);
-      } else {
-        existing.delete(t.hash);
-      }
-      updateDownloadRow(node, t);
-      frag.appendChild(node);
+  // ----- Grouped downloads (3.2) -----
+  const GROUP_DEFS = [
+    { key: "downloading", title: "Downloading", match: (t) => /download|metadata/i.test(t.status || "") && (t.progress || 0) < 100 },
+    { key: "queued",      title: "Queued",      match: (t) => /queue/i.test(t.status || "") },
+    { key: "paused",      title: "Paused",      match: (t) => /paused/i.test(t.status || "") },
+    { key: "seeding",     title: "Seeding",     match: (t) => /seed/i.test(t.status || "") },
+    { key: "done",        title: "Done",        match: (t) => (t.progress || 0) >= 100 && !/seed/i.test(t.status || "") },
+    { key: "error",       title: "Needs attention", match: (t) => /error/i.test(t.status || "") },
+  ];
+
+  function classifyGroup(t) {
+    for (const def of GROUP_DEFS) {
+      if (def.match(t)) return def.key;
+    }
+    return "other";
+  }
+
+  function renderGroupedDownloads(items) {
+    const buckets = new Map(GROUP_DEFS.map((d) => [d.key, []]));
+    items.forEach((t) => {
+      const g = classifyGroup(t);
+      if (!buckets.has(g)) buckets.set(g, []);
+      buckets.get(g).push(t);
     });
-    existing.forEach((node) => node.remove());
+
+    const existingRows = new Map();
+    els.downloadsList.querySelectorAll(".download-row").forEach((n) => existingRows.set(n.dataset.hash, n));
     els.downloadsList.innerHTML = "";
-    els.downloadsList.appendChild(frag);
+
+    GROUP_DEFS.forEach((def) => {
+      const list = buckets.get(def.key) || [];
+      if (!list.length) return;
+      const group = document.createElement("section");
+      group.className = "dl-group";
+      group.dataset.group = def.key;
+      const collapsedKey = `yoink.dlGroup.${def.key}.collapsed`;
+      if (localStorage.getItem(collapsedKey) === "1") group.classList.add("collapsed");
+      const head = document.createElement("header");
+      head.className = "dl-group-head";
+      head.innerHTML = `
+        <span class="dl-group-title">${def.title}</span>
+        <span class="dl-group-count">${list.length}</span>
+        <button type="button" class="dl-group-toggle" aria-label="Toggle ${def.title}">${group.classList.contains("collapsed") ? "+" : "−"}</button>
+      `;
+      head.addEventListener("click", () => {
+        const wasCollapsed = group.classList.toggle("collapsed");
+        head.querySelector(".dl-group-toggle").textContent = wasCollapsed ? "+" : "−";
+        localStorage.setItem(collapsedKey, wasCollapsed ? "1" : "0");
+      });
+      group.appendChild(head);
+      const body = document.createElement("div");
+      body.className = "dl-group-items";
+      list.forEach((t) => {
+        let node = existingRows.get(t.hash);
+        if (!node) {
+          node = els.downloadTpl.content.firstElementChild.cloneNode(true);
+          node.dataset.hash = t.hash;
+          wireDownloadRow(node, t.hash);
+        } else {
+          existingRows.delete(t.hash);
+        }
+        updateDownloadRow(node, t);
+        body.appendChild(node);
+      });
+      group.appendChild(body);
+      els.downloadsList.appendChild(group);
+    });
   }
 
   function wireDownloadRow(node, hash) {
@@ -957,6 +1201,15 @@ const App = (() => {
       const t = state.downloads.find((d) => d.hash === hash);
       bridge.openSaveFolder(t ? t.savePath : "");
     });
+    const openFileBtn = node.querySelector(".dl-open-file");
+    if (openFileBtn) {
+      openFileBtn.addEventListener("click", () => {
+        bridge.getDownloadFile(hash, (path) => {
+          if (path) bridge.openPath(path);
+          else toast("error", "File not ready yet.");
+        });
+      });
+    }
 
     const kebabBtn = node.querySelector(".dl-kebab");
     const menu = node.querySelector(".dl-menu");
@@ -978,6 +1231,23 @@ const App = (() => {
       const t = state.downloads.find((d) => d.hash === hash);
       bridge.openSaveFolder(t ? t.savePath : "");
     });
+    const moveBtn = node.querySelector(".dl-move-folder");
+    if (moveBtn) {
+      moveBtn.addEventListener("click", () => {
+        menu.hidden = true;
+        bridge.pickAndMoveTorrent(hash, (path) => {
+          if (path) toast("success", "Move queued");
+        });
+      });
+    }
+    const labelsBtn = node.querySelector(".dl-labels");
+    if (labelsBtn) {
+      labelsBtn.addEventListener("click", () => {
+        menu.hidden = true;
+        const t = state.downloads.find((d) => d.hash === hash);
+        openLabelsModal(hash, t?.name || "");
+      });
+    }
     node.querySelector(".dl-copy-magnet").addEventListener("click", () => {
       menu.hidden = true;
       navigator.clipboard.writeText(hash).then(
@@ -989,6 +1259,34 @@ const App = (() => {
       menu.hidden = true;
       bridge.removeTorrent(hash, false, () => {});
     });
+    const cancelBtn = node.querySelector(".dl-cancel");
+    if (cancelBtn) {
+      let armed = false;
+      let armTimer = null;
+      const disarm = () => {
+        armed = false;
+        cancelBtn.classList.remove("is-armed");
+        cancelBtn.title = "Cancel and remove";
+        if (armTimer) {
+          clearTimeout(armTimer);
+          armTimer = null;
+        }
+      };
+      cancelBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!armed) {
+          armed = true;
+          cancelBtn.classList.add("is-armed");
+          cancelBtn.title = "Click again to confirm removal";
+          toast("Click again to cancel this download", "info");
+          armTimer = setTimeout(disarm, 3000);
+          return;
+        }
+        disarm();
+        bridge.removeTorrent(hash, false, () => {});
+      });
+      cancelBtn.addEventListener("blur", disarm);
+    }
     node.querySelector(".dl-remove-files").addEventListener("click", () => {
       menu.hidden = true;
       const t = state.downloads.find((d) => d.hash === hash);
@@ -1029,8 +1327,11 @@ const App = (() => {
 
     const isPaused = /paused/i.test(t.status || "");
     const isDownloading = /download|metadata/i.test(t.status || "");
+    const completed = pct >= 100 || /seed|finish|complete/i.test(t.status || "");
     node.querySelector(".dl-pause").hidden = !isDownloading;
     node.querySelector(".dl-resume").hidden = !isPaused;
+    const openFileBtn = node.querySelector(".dl-open-file");
+    if (openFileBtn) openFileBtn.hidden = !completed;
   }
 
   // ----- File-selection modal -----
@@ -1118,20 +1419,423 @@ const App = (() => {
     });
   }
 
-  // ----- Onboarding -----
+  // ----- Onboarding wizard (6.1) -----
+  const wizard = { step: 1, total: 4, category: "movies" };
+
+  function showWizardStep(step) {
+    wizard.step = step;
+    els.wizardSteps.forEach((s) => s.classList.toggle("is-active", Number(s.dataset.step) === step));
+    els.wizardDots.forEach((d, i) => d.classList.toggle("is-active", i < step));
+    els.wizardBack.hidden = step <= 1;
+    els.wizardNext.hidden = step >= wizard.total;
+    els.onboardingDone.hidden = step < wizard.total;
+  }
   function showOnboarding() {
     els.onboardingBackdrop.hidden = false;
-    setTimeout(() => els.onboardingDone.focus(), 50);
+    showWizardStep(1);
+    setTimeout(() => els.wizardNext.focus(), 50);
   }
   function hideOnboarding() {
     els.onboardingBackdrop.hidden = true;
     localStorage.setItem("yoink.onboardingSeen", "1");
-    els.searchInput.focus();
+    els.searchInput && els.searchInput.focus();
+  }
+  function finishWizard() {
+    // Apply choices
+    if (wizard.category && els.categoryFilter) {
+      const map = { movies: "movies", tv: "tv", anime: "anime", other: "any" };
+      const val = map[wizard.category];
+      if (val) {
+        els.categoryFilter.value = val;
+        saveFilters();
+      }
+    }
+    if (bridge && bridge.setBoolSetting) {
+      bridge.setBoolSetting("minimize_to_tray", !!els.wizardMinimizeTray.checked);
+      bridge.setBoolSetting("notifications_enabled", !!els.wizardNotifications.checked);
+    }
+    if (bridge && bridge.setTmdbApiKey) {
+      const key = (els.wizardTmdbKey.value || "").trim();
+      if (key) bridge.setTmdbApiKey(key);
+    }
+    hideOnboarding();
   }
   function maybeShowOnboarding() {
     if (!localStorage.getItem("yoink.onboardingSeen")) {
       showOnboarding();
     }
+  }
+
+  // ----- Shortcuts panel (7.5) -----
+  function showShortcuts() {
+    els.shortcutsBackdrop.hidden = false;
+    setTimeout(() => els.shortcutsClose && els.shortcutsClose.focus(), 50);
+  }
+  function hideShortcuts() { els.shortcutsBackdrop.hidden = true; }
+
+  // ----- Command palette (7.4) -----
+  const palette = { commands: [], filtered: [], active: 0 };
+  function loadPaletteCommands() {
+    if (!bridge || !bridge.listCommands) return;
+    bridge.listCommands((raw) => {
+      try {
+        palette.commands = JSON.parse(raw || "[]");
+      } catch (_) {
+        palette.commands = [];
+      }
+      // Static UI-side commands
+      THEMES.forEach((t) => palette.commands.push({ id: `theme:${t}`, label: `Theme: ${t}` }));
+      palette.commands.push({ id: "ui:shortcuts", label: "Show keyboard shortcuts" });
+      palette.commands.push({ id: "ui:onboarding", label: "Replay welcome tour" });
+    });
+  }
+  function showPalette() {
+    els.paletteInput.value = "";
+    filterPalette("");
+    els.paletteBackdrop.hidden = false;
+    setTimeout(() => els.paletteInput.focus(), 50);
+  }
+  function hidePalette() { els.paletteBackdrop.hidden = true; }
+  function filterPalette(q) {
+    const query = (q || "").trim().toLowerCase();
+    palette.filtered = palette.commands.filter((c) =>
+      !query || c.label.toLowerCase().includes(query)
+    );
+    palette.active = 0;
+    renderPalette();
+  }
+  function renderPalette() {
+    els.paletteList.innerHTML = "";
+    palette.filtered.forEach((c, i) => {
+      const li = document.createElement("li");
+      li.textContent = c.label;
+      li.setAttribute("role", "option");
+      if (i === palette.active) li.classList.add("is-active");
+      li.addEventListener("click", () => runPaletteCommand(c));
+      els.paletteList.appendChild(li);
+    });
+  }
+  function runPaletteCommand(cmd) {
+    hidePalette();
+    if (!cmd) return;
+    if (cmd.id.startsWith("theme:")) {
+      applyTheme(cmd.id.slice(6));
+    } else if (cmd.id === "ui:shortcuts") {
+      showShortcuts();
+    } else if (cmd.id === "ui:onboarding") {
+      showOnboarding();
+    } else if (bridge && bridge.runCommand) {
+      bridge.runCommand(cmd.id);
+    }
+  }
+
+  // ----- Labels (7.3) -----
+  const labelsState = { hash: "", labels: [], allLabels: [] };
+  function openLabelsModal(hash, name) {
+    labelsState.hash = hash;
+    els.labelsSubtitle.textContent = name || "";
+    bridge.getLabels(hash, (raw) => {
+      try { labelsState.labels = JSON.parse(raw || "[]"); } catch (_) { labelsState.labels = []; }
+      bridge.getAllLabels((rawAll) => {
+        try { labelsState.allLabels = JSON.parse(rawAll || "[]"); } catch (_) { labelsState.allLabels = []; }
+        renderLabelsEditor();
+        els.labelsBackdrop.hidden = false;
+        setTimeout(() => els.labelsInput && els.labelsInput.focus(), 50);
+      });
+    });
+  }
+  function renderLabelsEditor() {
+    els.labelsChips.innerHTML = "";
+    labelsState.labels.forEach((lbl) => {
+      const pill = document.createElement("span");
+      pill.className = "label-pill";
+      pill.innerHTML = `${escapeHtml(lbl)}<button type="button" class="remove" aria-label="Remove ${escapeHtml(lbl)}">×</button>`;
+      pill.querySelector(".remove").addEventListener("click", () => {
+        labelsState.labels = labelsState.labels.filter((l) => l !== lbl);
+        renderLabelsEditor();
+      });
+      els.labelsChips.appendChild(pill);
+    });
+    els.labelsSuggestions.innerHTML = "";
+    labelsState.allLabels
+      .filter((l) => !labelsState.labels.includes(l))
+      .slice(0, 10)
+      .forEach((lbl) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = lbl;
+        chip.addEventListener("click", () => {
+          labelsState.labels.push(lbl);
+          renderLabelsEditor();
+        });
+        els.labelsSuggestions.appendChild(chip);
+      });
+  }
+  function closeLabelsModal() { els.labelsBackdrop.hidden = true; }
+  function applyLabels() {
+    bridge.setLabels(labelsState.hash, JSON.stringify(labelsState.labels));
+    closeLabelsModal();
+    toast("success", "Labels saved");
+  }
+
+  // ----- Advanced settings: watch folder / feeds / proxy / schedule -----
+  function loadWatchFolder() {
+    const raw = localStorage.getItem("yoink.watchFolderCached") || "";
+    if (raw) els.watchFolderPath.textContent = raw;
+  }
+  function loadFeeds() {
+    if (!bridge || !bridge.getFeeds) return;
+    bridge.getFeeds((raw) => {
+      let payload = [];
+      try { payload = JSON.parse(raw || "[]"); } catch (_) {}
+      els.feedsList.innerHTML = "";
+      payload.forEach((f) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <div class="feed-meta">
+            <span class="feed-name">${escapeHtml(f.name || f.url)}</span>
+            <span class="feed-url">${escapeHtml(f.url)}${f.filterRegex ? ` &middot; filter: <code>${escapeHtml(f.filterRegex)}</code>` : ""}${f.minSeeders ? ` &middot; min seeds: ${f.minSeeders}` : ""}</span>
+          </div>
+          <button class="btn btn-ghost" type="button">Remove</button>
+        `;
+        li.querySelector("button").addEventListener("click", () => {
+          bridge.removeFeed(f.id);
+          setTimeout(loadFeeds, 200);
+        });
+        els.feedsList.appendChild(li);
+      });
+      if (!payload.length) {
+        els.feedsList.innerHTML = '<li class="muted small" style="background:transparent;border:0;">No feeds yet.</li>';
+      }
+    });
+  }
+  function loadProxy() {
+    if (!bridge || !bridge.getProxy) return;
+    bridge.getProxy((raw) => {
+      try {
+        const p = JSON.parse(raw || "{}");
+        els.proxyUrl.value = p.proxyUrl || "";
+        els.proxyUa.value = p.userAgent || "";
+      } catch (_) {}
+    });
+  }
+  function loadSchedule() {
+    if (!bridge || !bridge.getSchedule) return;
+    bridge.getSchedule((raw) => {
+      try {
+        const s = JSON.parse(raw || "{}");
+        els.scheduleEnabled.checked = !!s.enabled;
+        els.scheduleStart.value = s.quietStart || "09:00";
+        els.scheduleEnd.value = s.quietEnd || "18:00";
+        els.scheduleDown.value = s.quietDownKbS || 0;
+        els.scheduleUp.value = s.quietUpKbS || 0;
+      } catch (_) {}
+    });
+  }
+
+  // ----- Result view mode (1.6) -----
+  function applyViewMode(mode) {
+    const m = mode === "cards" ? "cards" : "list";
+    els.resultsList.setAttribute("data-view-mode", m);
+    els.viewToggleBtns.forEach((b) => {
+      const active = b.dataset.viewMode === m;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-pressed", String(active));
+    });
+    localStorage.setItem("yoink.viewMode", m);
+  }
+  function initViewMode() {
+    applyViewMode(localStorage.getItem("yoink.viewMode") || "list");
+  }
+
+  // ----- Safety modal (4.1) -----
+  function openSafetyModal(level, reasons, title) {
+    const tagText = level === "risky"
+      ? "Risky — Yoink flagged several concerns"
+      : level === "caution"
+      ? "Check — proceed with care"
+      : "Trusted — known good uploader / well-seeded";
+    els.safetyTitle.textContent = `Safety: ${title || "this torrent"}`;
+    els.safetyTag.textContent = tagText;
+    els.safetyReasons.innerHTML = "";
+    if (!reasons.length) {
+      const li = document.createElement("li");
+      li.textContent = "No specific concerns recorded.";
+      els.safetyReasons.appendChild(li);
+    } else {
+      reasons.forEach((reason) => {
+        const li = document.createElement("li");
+        if (level === "caution") li.classList.add("is-caution");
+        li.textContent = reason;
+        els.safetyReasons.appendChild(li);
+      });
+    }
+    els.safetyBackdrop.hidden = false;
+    setTimeout(() => els.safetyClose && els.safetyClose.focus(), 50);
+  }
+  function closeSafetyModal() { els.safetyBackdrop.hidden = true; }
+
+  // ----- Smart input bar (1.1) -----
+  let smartHint = null;
+  function showSmartHint(detection) {
+    hideSmartHint();
+    smartHint = document.createElement("div");
+    smartHint.className = "search-mode-hint";
+    smartHint.innerHTML = `
+      <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      <span>Detected ${detection.kind === "magnet" ? "<strong>magnet link</strong>" : "<strong>.torrent URL</strong>"} — press <kbd>Enter</kbd> to add it to downloads.</span>
+    `;
+    const row = els.searchInput.closest(".search-row, .search-shell, form") || els.searchForm;
+    row.style.position = row.style.position || "relative";
+    row.appendChild(smartHint);
+  }
+  function hideSmartHint() {
+    if (smartHint) { smartHint.remove(); smartHint = null; }
+  }
+
+  function submitSearchOrAdd() {
+    const raw = els.searchInput.value;
+    const detection = detectTorrentInput(raw);
+    if (detection) {
+      hideSmartHint();
+      addByDetection(detection);
+      els.searchInput.value = "";
+      els.searchClear.hidden = true;
+      return;
+    }
+    doSearch(raw);
+  }
+
+  function addByDetection(detection) {
+    if (detection.kind === "magnet") {
+      bridge.addTorrent(detection.value, (raw) => {
+        const { hash, wasExisting } = parseAddResult(raw);
+        if (!hash) return;
+        if (wasExisting) showDuplicateToast(hash);
+        else { toast("success", "Added to downloads"); setTimeout(() => switchView("downloads"), 400); }
+      });
+    } else {
+      toast("info", "Add via URL is coming soon — paste the magnet instead.");
+    }
+  }
+
+  // ----- Drag and drop .torrent files (2.1) -----
+  function arrayBufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }
+
+  function isTorrentFile(file) {
+    if (!file) return false;
+    if ((file.name || "").toLowerCase().endsWith(".torrent")) return true;
+    if (file.type === "application/x-bittorrent") return true;
+    return false;
+  }
+
+  function showDropOverlay(show) {
+    els.dropOverlay.hidden = !show;
+  }
+
+  function handleDroppedFiles(files) {
+    const torrentFiles = Array.from(files || []).filter(isTorrentFile);
+    if (!torrentFiles.length) {
+      toast("error", "Only .torrent files can be dropped here.");
+      return;
+    }
+    torrentFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = arrayBufferToBase64(reader.result);
+        bridge.addTorrentFromBytes(file.name, base64, (raw) => {
+          const { hash, wasExisting } = parseAddResult(raw);
+          if (hash && !wasExisting) {
+            setTimeout(() => switchView("downloads"), 400);
+          } else if (hash && wasExisting) {
+            showDuplicateToast(hash);
+          }
+        });
+      };
+      reader.onerror = () => toast("error", `Could not read ${file.name}`);
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function handleDroppedText(text) {
+    const detection = detectTorrentInput(text);
+    if (detection) addByDetection(detection);
+    else toast("error", "Dropped text is not a magnet or torrent URL.");
+  }
+
+  // ----- Downloads summary bar (3.5) -----
+  function todayStamp() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+  function loadCompletedToday() {
+    try {
+      const stamp = todayStamp();
+      const stored = JSON.parse(localStorage.getItem("yoink.completedToday") || "{}");
+      if (stored.date === stamp) {
+        state.completedTodayDate = stamp;
+        state.completedToday = stored.count || 0;
+        state.completedSeen = new Set(stored.seen || []);
+      } else {
+        state.completedTodayDate = stamp;
+        state.completedToday = 0;
+        state.completedSeen = new Set();
+        saveCompletedToday();
+      }
+    } catch (_) {
+      state.completedToday = 0;
+      state.completedSeen = new Set();
+    }
+  }
+  function saveCompletedToday() {
+    try {
+      localStorage.setItem("yoink.completedToday", JSON.stringify({
+        date: state.completedTodayDate,
+        count: state.completedToday,
+        seen: Array.from(state.completedSeen),
+      }));
+    } catch (_) {}
+  }
+
+  function updateSummaryBar(items) {
+    if (!els.downloadsSummaryBar) return;
+    if (!items.length) {
+      els.downloadsSummaryBar.hidden = true;
+      return;
+    }
+    els.downloadsSummaryBar.hidden = false;
+    const active = items.filter(isActive).length;
+    els.dsbActive.textContent = String(active);
+    els.dsbDown.textContent = formatKB(state.networkDown);
+    els.dsbUp.textContent = formatKB(state.networkUp);
+    els.dsbCompletedToday.textContent = String(state.completedToday);
+  }
+
+  function trackCompletions(items) {
+    if (!state.hadInitialDownloadsSnapshot) {
+      items.filter(isCompleted).forEach((t) => state.completedSeen.add(t.hash));
+      state.hadInitialDownloadsSnapshot = true;
+      saveCompletedToday();
+      return;
+    }
+    let changed = false;
+    items.forEach((t) => {
+      if (isCompleted(t) && !state.completedSeen.has(t.hash)) {
+        state.completedSeen.add(t.hash);
+        state.completedToday += 1;
+        changed = true;
+      }
+    });
+    if (changed) saveCompletedToday();
   }
 
   // ----- Bridge event wiring -----
@@ -1225,11 +1929,19 @@ const App = (() => {
     });
 
     bridge.networkSpeed.connect((down, up) => {
+      state.networkDown = down;
+      state.networkUp = up;
       els.netDown.textContent = formatKB(down);
       els.netUp.textContent = formatKB(up);
+      if (els.dsbDown) els.dsbDown.textContent = formatKB(down);
+      if (els.dsbUp) els.dsbUp.textContent = formatKB(up);
     });
 
     bridge.toast.connect((kind, msg) => toast(kind, msg));
+
+    if (bridge.clipboardMagnet) {
+      bridge.clipboardMagnet.connect((magnet) => showClipboardOfferToast(magnet));
+    }
 
     bridge.saveFolderChanged.connect((folder) => {
       state.saveFolder = folder;
@@ -1252,7 +1964,14 @@ const App = (() => {
       els.settingFolderPath.title = folder;
     });
     bridge.getDownloads((payload) => {
-      try { renderDownloads(JSON.parse(payload || "[]")); } catch (e) {}
+      try {
+        const items = JSON.parse(payload || "[]");
+        renderDownloads(items);
+        // 3.1 — open Downloads by default if anything is active
+        if (items.some(isActive) && state.view === "search") {
+          switchView("downloads");
+        }
+      } catch (e) {}
     });
     bridge.getSettings((payload) => {
       try { applySettings(JSON.parse(payload)); } catch (e) {}
@@ -1260,6 +1979,11 @@ const App = (() => {
     loadSearchHistory();
     loadProviderChoices();
     loadAboutInfo();
+    loadPaletteCommands();
+    loadWatchFolder();
+    loadFeeds();
+    loadProxy();
+    loadSchedule();
     if (bridge.checkForUpdates) bridge.checkForUpdates();
   }
 
@@ -1313,6 +2037,11 @@ const App = (() => {
     }
     els.settingNotifications.checked = !!s.notifications;
     els.settingMinimizeTray.checked = !!s.minimizeToTray;
+    if (els.settingClipboardWatcher) els.settingClipboardWatcher.checked = !!s.clipboardWatcher;
+    if (els.watchFolderPath) {
+      els.watchFolderPath.textContent = s.watchFolder || "Not set";
+      if (s.watchFolder) localStorage.setItem("yoink.watchFolderCached", s.watchFolder);
+    }
     if (els.settingAutostart) els.settingAutostart.checked = !!s.launchAtLogin;
     if (els.settingDownLimit) els.settingDownLimit.value = s.downloadLimitKbS ?? 0;
     if (els.settingUpLimit) els.settingUpLimit.value = s.uploadLimitKbS ?? 0;
@@ -1360,11 +2089,25 @@ const App = (() => {
 
     els.searchForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      doSearch(els.searchInput.value);
+      submitSearchOrAdd();
     });
+    const searchWrap = els.searchInput.closest(".input-wrap");
+    const refreshInputAffordance = () => {
+      const hasValue = !!els.searchInput.value;
+      els.searchClear.hidden = !hasValue;
+      if (searchWrap) searchWrap.classList.toggle("has-value", hasValue);
+    };
+    refreshInputAffordance();
     els.searchInput.addEventListener("input", () => {
-      els.searchClear.hidden = !els.searchInput.value;
-      renderHistoryDropdown(els.searchInput.value);
+      refreshInputAffordance();
+      const detection = detectTorrentInput(els.searchInput.value);
+      if (detection) {
+        hideHistoryDropdown();
+        showSmartHint(detection);
+      } else {
+        hideSmartHint();
+        renderHistoryDropdown(els.searchInput.value);
+      }
     });
     els.searchInput.addEventListener("focus", () => {
       renderHistoryDropdown(els.searchInput.value);
@@ -1374,11 +2117,64 @@ const App = (() => {
     });
     els.searchClear.addEventListener("click", () => {
       els.searchInput.value = "";
-      els.searchClear.hidden = true;
+      refreshInputAffordance();
       els.searchInput.focus();
       setSearchingState(false);
       resetSearchView();
       hideHistoryDropdown();
+      hideSmartHint();
+    });
+
+    if (els.exampleChips) {
+      els.exampleChips.querySelectorAll("[data-example]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const q = btn.dataset.example;
+          els.searchInput.value = q;
+          refreshInputAffordance();
+          doSearch(q, 1);
+        });
+      });
+    }
+
+    if (els.safetyClose) els.safetyClose.addEventListener("click", closeSafetyModal);
+    if (els.safetyBackdrop) {
+      els.safetyBackdrop.addEventListener("click", (e) => {
+        if (e.target === els.safetyBackdrop) closeSafetyModal();
+      });
+    }
+
+    if (els.openDataFolderBtn) {
+      els.openDataFolderBtn.addEventListener("click", () => bridge.openDataFolder());
+    }
+
+    let dragDepth = 0;
+    document.addEventListener("dragenter", (e) => {
+      if (!e.dataTransfer) return;
+      const types = Array.from(e.dataTransfer.types || []);
+      if (types.includes("Files") || types.includes("text/uri-list") || types.includes("text/plain")) {
+        dragDepth += 1;
+        showDropOverlay(true);
+      }
+    });
+    document.addEventListener("dragover", (e) => {
+      if (e.dataTransfer) e.preventDefault();
+    });
+    document.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) showDropOverlay(false);
+    });
+    document.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragDepth = 0;
+      showDropOverlay(false);
+      const dt = e.dataTransfer;
+      if (!dt) return;
+      if (dt.files && dt.files.length) {
+        handleDroppedFiles(dt.files);
+        return;
+      }
+      const text = dt.getData("text/uri-list") || dt.getData("text/plain");
+      if (text) handleDroppedText(text);
     });
     [els.regionFilter, els.categoryFilter, els.qualityFilter, els.sortFilter, els.sourceFilter].forEach((control) => {
       control.addEventListener("change", () => {
@@ -1549,13 +2345,159 @@ const App = (() => {
       });
     }
 
-    els.onboardingDone.addEventListener("click", hideOnboarding);
+    els.onboardingDone.addEventListener("click", finishWizard);
     els.onboardingBackdrop.addEventListener("click", (e) => {
       if (e.target === els.onboardingBackdrop) hideOnboarding();
     });
+    els.wizardSkip.addEventListener("click", hideOnboarding);
+    els.wizardBack.addEventListener("click", () => showWizardStep(Math.max(1, wizard.step - 1)));
+    els.wizardNext.addEventListener("click", () => showWizardStep(Math.min(wizard.total, wizard.step + 1)));
+    els.wizardPickFolder.addEventListener("click", () => {
+      bridge.pickSaveFolder((folder) => {
+        if (folder) els.wizardFolderPath.textContent = folder;
+      });
+    });
+    els.wizardPicks.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        els.wizardPicks.forEach((b) => b.setAttribute("aria-pressed", "false"));
+        btn.setAttribute("aria-pressed", "true");
+        wizard.category = btn.dataset.category;
+      });
+    });
+    if (els.wizardTmdbHelp) {
+      els.wizardTmdbHelp.addEventListener("click", (e) => {
+        e.preventDefault();
+        bridge.openExternal(els.wizardTmdbHelp.href);
+      });
+    }
+
+    if (els.shortcutsClose) els.shortcutsClose.addEventListener("click", hideShortcuts);
+    if (els.shortcutsBackdrop) {
+      els.shortcutsBackdrop.addEventListener("click", (e) => {
+        if (e.target === els.shortcutsBackdrop) hideShortcuts();
+      });
+    }
+
+    els.viewToggleBtns.forEach((btn) => {
+      btn.addEventListener("click", () => applyViewMode(btn.dataset.viewMode));
+    });
+
+    if (els.settingClipboardWatcher) {
+      els.settingClipboardWatcher.addEventListener("change", (e) =>
+        bridge.setBoolSetting("clipboard_watcher_enabled", e.target.checked)
+      );
+    }
+    if (els.exportSettingsBtn) {
+      els.exportSettingsBtn.addEventListener("click", () => bridge.exportSettings(() => {}));
+    }
+    if (els.importSettingsBtn) {
+      els.importSettingsBtn.addEventListener("click", () => bridge.importSettings(() => {}));
+    }
+
+    // Command palette
+    if (els.paletteInput) {
+      els.paletteInput.addEventListener("input", (e) => filterPalette(e.target.value));
+      els.paletteInput.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          palette.active = Math.min(palette.filtered.length - 1, palette.active + 1);
+          renderPalette();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          palette.active = Math.max(0, palette.active - 1);
+          renderPalette();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          runPaletteCommand(palette.filtered[palette.active]);
+        }
+      });
+      els.paletteBackdrop.addEventListener("click", (e) => {
+        if (e.target === els.paletteBackdrop) hidePalette();
+      });
+    }
+
+    // Labels modal
+    if (els.labelsInput) {
+      els.labelsInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const val = (els.labelsInput.value || "").trim();
+          if (val && !labelsState.labels.includes(val)) {
+            labelsState.labels.push(val);
+            renderLabelsEditor();
+          }
+          els.labelsInput.value = "";
+        }
+      });
+    }
+    if (els.labelsCancel) els.labelsCancel.addEventListener("click", closeLabelsModal);
+    if (els.labelsApply) els.labelsApply.addEventListener("click", applyLabels);
+    if (els.labelsBackdrop) {
+      els.labelsBackdrop.addEventListener("click", (e) => {
+        if (e.target === els.labelsBackdrop) closeLabelsModal();
+      });
+    }
+
+    // Advanced settings
+    if (els.watchFolderPick) {
+      els.watchFolderPick.addEventListener("click", () => {
+        bridge.pickWatchFolder((folder) => {
+          if (folder) {
+            els.watchFolderPath.textContent = folder;
+            localStorage.setItem("yoink.watchFolderCached", folder);
+          }
+        });
+      });
+    }
+    if (els.watchFolderClear) {
+      els.watchFolderClear.addEventListener("click", () => {
+        bridge.clearWatchFolder();
+        els.watchFolderPath.textContent = "Not set";
+        localStorage.removeItem("yoink.watchFolderCached");
+      });
+    }
+    if (els.feedAddBtn) {
+      els.feedAddBtn.addEventListener("click", () => {
+        const url = (els.feedUrl.value || "").trim();
+        if (!url) { toast("error", "Feed URL is required"); return; }
+        bridge.addFeed(
+          url,
+          (els.feedName.value || "").trim(),
+          (els.feedRegex.value || "").trim(),
+          parseInt(els.feedMinSeeders.value || "0", 10) || 0,
+          () => {
+            els.feedUrl.value = "";
+            els.feedName.value = "";
+            els.feedRegex.value = "";
+            els.feedMinSeeders.value = "";
+            setTimeout(loadFeeds, 200);
+          }
+        );
+      });
+    }
+    if (els.proxySaveBtn) {
+      els.proxySaveBtn.addEventListener("click", () => {
+        bridge.setProxy(els.proxyUrl.value || "", els.proxyUa.value || "");
+        toast("success", "Proxy settings saved");
+      });
+    }
+    if (els.scheduleSaveBtn) {
+      els.scheduleSaveBtn.addEventListener("click", () => {
+        bridge.setSchedule(JSON.stringify({
+          enabled: !!els.scheduleEnabled.checked,
+          quietStart: els.scheduleStart.value || "09:00",
+          quietEnd: els.scheduleEnd.value || "18:00",
+          quietDownKbS: parseInt(els.scheduleDown.value || "0", 10) || 0,
+          quietUpKbS: parseInt(els.scheduleUp.value || "0", 10) || 0,
+        }));
+        toast("success", "Schedule saved");
+      });
+    }
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && els.detailsBackdrop && !els.detailsBackdrop.hidden) {
+      if (e.key === "Escape" && els.safetyBackdrop && !els.safetyBackdrop.hidden) {
+        closeSafetyModal();
+      } else if (e.key === "Escape" && els.detailsBackdrop && !els.detailsBackdrop.hidden) {
         closeDetailsModal();
       } else if (e.key === "Escape" && els.filesBackdrop && !els.filesBackdrop.hidden) {
         closeFilesModal();
@@ -1563,11 +2505,34 @@ const App = (() => {
         hideOnboarding();
       } else if (e.key === "Escape" && state.sidebarOpenMobile) {
         closeMobileSidebar();
+      } else if (e.key === "Escape" && els.paletteBackdrop && !els.paletteBackdrop.hidden) {
+        hidePalette();
+      } else if (e.key === "Escape" && els.labelsBackdrop && !els.labelsBackdrop.hidden) {
+        closeLabelsModal();
+      } else if (e.key === "Escape" && els.shortcutsBackdrop && !els.shortcutsBackdrop.hidden) {
+        hideShortcuts();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        showPalette();
       } else if (e.key === "/" && document.activeElement !== els.searchInput) {
         e.preventDefault();
         switchView("search");
         els.searchInput.focus();
         els.searchInput.select();
+      } else if (e.key === "?" && document.activeElement !== els.searchInput) {
+        e.preventDefault();
+        showShortcuts();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        switchView("search");
+        els.searchInput.focus();
+        els.searchInput.select();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "d") {
+        e.preventDefault();
+        switchView("downloads");
+      } else if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault();
+        switchView("settings");
       }
     });
   }
@@ -1576,6 +2541,8 @@ const App = (() => {
     cacheEls();
     initTheme();
     loadFilters();
+    loadCompletedToday();
+    initViewMode();
     bindEvents();
     maybeShowOnboarding();
     new QWebChannel(qt.webChannelTransport, onBridgeReady);

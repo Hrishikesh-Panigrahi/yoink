@@ -1,0 +1,146 @@
+      <section class="view view-search" id="view-search" data-view="search" role="tabpanel" aria-labelledby="nav-search">
+        <header class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" title="Menu">
+              <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div>
+              <h1 class="page-title">Search</h1>
+              <p class="page-subtitle">Find torrents from public sources, or paste a magnet link to start instantly.</p>
+            </div>
+          </div>
+        </header>
+
+        <form class="search-row" id="searchForm" autocomplete="off" role="search">
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" class="ic input-ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <label class="sr-only" for="searchInput">Search torrents</label>
+            <input
+              type="text"
+              id="searchInput"
+              class="text-input"
+              placeholder="Search movies, shows, or paste a magnet link..."
+              autofocus
+              autocomplete="off"
+              aria-label="Search torrents"
+              aria-autocomplete="list"
+              aria-controls="searchHistoryList"
+              aria-expanded="false"
+            />
+            <button type="button" class="input-clear" id="searchClear" hidden title="Clear" aria-label="Clear search">&times;</button>
+            <div class="history-dropdown" id="searchHistoryList" role="listbox" aria-label="Recent searches" hidden></div>
+          </div>
+          <button type="submit" class="btn btn-primary" id="searchBtn">Yoink it</button>
+        </form>
+
+        <div class="filter-row" id="filterRow" role="group" aria-label="Search filters">
+          <label class="filter-control">
+            <span>Region</span>
+            <select id="regionFilter" aria-label="Region filter">
+              <option value="any">Any</option>
+              <option value="bollywood">Bollywood / Hindi</option>
+              <option value="hollywood">Hollywood / English</option>
+              <option value="south-indian">South Indian</option>
+              <option value="korean">Korean</option>
+              <option value="anime">Anime</option>
+            </select>
+          </label>
+          <label class="filter-control">
+            <span>Category</span>
+            <select id="categoryFilter" aria-label="Category filter">
+              <option value="movies">Movies</option>
+              <option value="tv">TV</option>
+              <option value="anime">Anime</option>
+              <option value="music">Music</option>
+              <option value="games">Games</option>
+              <option value="apps">Apps</option>
+              <option value="books">Books</option>
+              <option value="any">Any</option>
+            </select>
+          </label>
+          <label class="filter-control">
+            <span>Quality</span>
+            <select id="qualityFilter" aria-label="Quality filter">
+              <option value="any">Any</option>
+              <option value="2160p">4K (2160p)</option>
+              <option value="1080p">1080p</option>
+              <option value="720p">720p</option>
+              <option value="480p">480p</option>
+              <option value="x265">x265 / HEVC</option>
+              <option value="x264">x264</option>
+            </select>
+          </label>
+          <label class="filter-control">
+            <span>Sort by</span>
+            <select id="sortFilter" aria-label="Sort by">
+              <option value="relevance">Best match</option>
+              <option value="seeds">Most seeds</option>
+              <option value="size">Largest size</option>
+              <option value="newest">Newest</option>
+            </select>
+          </label>
+          <label class="filter-control filter-control-wide">
+            <span>Sources</span>
+            <select id="sourceFilter" aria-label="Sources filter">
+              <option value="stable">Stable (YTS + Pirate Bay)</option>
+              <option value="multi-default">All my enabled sites</option>
+              <option value="torrent-api-py-all">Torrent-Api-py all sites</option>
+              <option value="movies-core">Torrent-Api-py movies core</option>
+              <option value="1337x">1337x only</option>
+              <option value="tgx">TorrentGalaxy only</option>
+              <option value="yts">YTS only</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-ghost" id="resetFiltersBtn">Reset</button>
+        </div>
+
+        <div class="card results-card">
+          <header class="card-header">
+            <div class="card-title-row">
+              <h2 class="card-title">Results</h2>
+              <span class="muted" id="resultsCount" aria-live="polite"></span>
+              <div class="view-toggle" role="group" aria-label="Result view">
+                <button type="button" class="view-toggle-btn is-active" data-view-mode="list" aria-pressed="true" title="List view">
+                  <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                </button>
+                <button type="button" class="view-toggle-btn" data-view-mode="cards" aria-pressed="false" title="Card view">
+                  <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                </button>
+              </div>
+            </div>
+            <p class="muted small">Click <b>Download</b> to yoink a torrent. Press <kbd>/</kbd> to focus search or <kbd>?</kbd> for shortcuts.</p>
+          </header>
+
+          <div class="results-body" id="resultsBody">
+            <div class="empty-state" id="searchEmpty">
+              <svg viewBox="0 0 24 24" class="ic empty-ic" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <h3>Find something to yoink</h3>
+              <p>Type a title above and press <kbd>Enter</kbd>. You can also paste a <code>magnet:</code> link or a <code>.torrent</code> URL right into the search bar.</p>
+              <div class="example-chips" id="exampleChips" aria-label="Example searches">
+                <span class="example-chips-label">Try:</span>
+                <button type="button" class="chip" data-example="Dune 2021">Dune 2021</button>
+                <button type="button" class="chip" data-example="Mr Robot">Mr Robot</button>
+                <button type="button" class="chip" data-example="Ubuntu 24.04">Ubuntu 24.04</button>
+                <button type="button" class="chip" data-example="Big Buck Bunny">Big Buck Bunny</button>
+              </div>
+            </div>
+
+            <div class="loader" id="searchLoader" hidden role="status" aria-live="polite">
+              <div class="spinner" aria-hidden="true"></div>
+              <p class="loader-text" id="searchLoaderText">Searching...</p>
+            </div>
+
+            <div class="results-list" id="resultsList" hidden role="list"></div>
+          </div>
+
+          <footer class="pagination" id="pagination" hidden>
+            <span class="muted small" id="pageInfo"></span>
+            <div class="page-buttons" role="navigation" aria-label="Pagination">
+              <button class="btn btn-ghost icon-btn" id="prevBtn" title="Previous page" aria-label="Previous page">&larr;</button>
+              <div class="page-numbers" id="pageNumbers"></div>
+              <button class="btn btn-ghost icon-btn" id="nextBtn" title="Next page" aria-label="Next page">&rarr;</button>
+            </div>
+          </footer>
+        </div>
+      </section>
+

@@ -1,0 +1,122 @@
+/* downloads.css - Download rows, summary bar, toasts. */
+
+/* ----- Downloads ----- */
+.downloads-list { display: flex; flex-direction: column; }
+.download-row {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: background var(--transition);
+}
+.download-row:last-child { border-bottom: none; }
+.download-row:hover { background: var(--bg-surface-2); }
+
+.download-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.dl-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.status-chip::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status-chip.downloading { background: var(--accent-soft); color: var(--accent); }
+.status-chip.seeding, .status-chip.finished, .status-chip.completed { background: var(--green-soft); color: var(--green); }
+.status-chip.paused { background: var(--yellow-soft); color: var(--yellow); }
+.status-chip.error { background: var(--red-soft); color: var(--red); }
+.status-chip.metadata, .status-chip.checking { background: var(--purple-soft); color: var(--purple); }
+.status-chip.queued, .status-chip.unknown { background: var(--bg-elev); color: var(--text-muted); }
+
+.dl-progress-wrap { display: flex; align-items: center; gap: 12px; }
+.dl-progress {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.dl-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+  transition: width 400ms ease;
+}
+.download-row.completed .dl-bar { background: linear-gradient(90deg, var(--green), #16a34a); }
+.dl-progress-text { font-size: 12px; color: var(--text-muted); font-weight: 700; min-width: 44px; text-align: right; }
+
+.dl-meta { display: flex; gap: 22px; flex-wrap: wrap; }
+.dl-stat { display: flex; flex-direction: column; gap: 2px; }
+.dl-label { font-size: 10px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
+.dl-value { font-size: 13px; color: var(--text); font-weight: 600; }
+
+.dl-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.dl-actions .btn { padding: 7px 14px; font-size: 12px; }
+
+/* ----- Toasts ----- */
+.toast-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+  pointer-events: none;
+  max-width: calc(100vw - 40px);
+}
+.toast {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-elev);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 360px;
+  pointer-events: auto;
+  animation: slideIn 200ms ease;
+}
+.toast::before { content: ""; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.toast.success { border-left: 3px solid var(--green); }
+.toast.success::before { background: var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+.toast.error::before { background: var(--red); }
+.toast.info { border-left: 3px solid var(--accent); }
+.toast.info::before { background: var(--accent); }
+.toast.fade-out { animation: slideOut 200ms ease forwards; }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideOut { to { transform: translateX(20px); opacity: 0; } }
+
