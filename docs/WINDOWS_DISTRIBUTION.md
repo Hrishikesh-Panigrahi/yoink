@@ -70,7 +70,9 @@ Unsigned torrent software may trigger extra trust prompts. For public distributi
 
 ## Code Signing Notes
 
-- Sign both `dist/Yoink.exe` and `dist/Yoink-Setup-*.exe` before uploading public release assets.
+- Sign `dist/Yoink.exe` and `dist/Yoink-Setup-*.exe` before uploading public release assets.
+- Sign before the workflow's "Add stable-named installer alias" step, so `Yoink-Setup.exe`
+  is a copy of the *signed* installer rather than an unsigned duplicate.
 - Store signing credentials as GitHub Actions secrets; do not commit certificate files or passwords.
 - Re-generate `SHA256SUMS.txt` after signing so hashes match the published binaries.
 - If signing is not available yet, call that out on the download page and release notes so users know why Windows may show SmartScreen warnings.

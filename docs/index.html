@@ -1,92 +1,1384 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="swarm">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Yoink - Desktop Torrent Client</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      font-family: Inter, Segoe UI, system-ui, sans-serif;
-      background: #0b1020;
-      color: #f4f7fb;
-    }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 32px;
-    }
-    main {
-      width: min(920px, 100%);
-      background: #121a2e;
-      border: 1px solid #26324f;
-      border-radius: 24px;
-      padding: clamp(28px, 6vw, 64px);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-    }
-    h1 {
-      font-size: clamp(40px, 8vw, 72px);
-      margin: 0 0 12px;
-      letter-spacing: -0.06em;
-    }
-    p {
-      color: #c9d4e5;
-      font-size: 18px;
-      line-height: 1.6;
-      max-width: 720px;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      margin: 32px 0;
-    }
-    a {
-      color: #8ab4ff;
-    }
-    .button {
-      border-radius: 999px;
-      padding: 13px 20px;
-      background: #5b8cff;
-      color: #081126;
-      font-weight: 700;
-      text-decoration: none;
-    }
-    .button.secondary {
-      background: transparent;
-      color: #f4f7fb;
-      border: 1px solid #415071;
-    }
-    ul {
-      display: grid;
-      gap: 10px;
-      padding-left: 20px;
-      color: #dce6f5;
-    }
-    .note {
-      margin-top: 32px;
-      font-size: 14px;
-      color: #94a3b8;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yoink — Desktop Torrent Client for Windows</title>
+<meta name="description" content="Yoink is a fast, modern desktop torrent client for Windows. Searches 16+ sources at once, ranks by swarm health, per-file control, RSS and watch-folder automation, 8 themes. Free and open source.">
+<meta name="theme-color" content="#0a0f0d" id="meta-theme-color">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Yoink — Just yoink it from the swarm">
+<meta property="og:description" content="A desktop torrent client that searches 16+ sources at once and ranks by real swarm health. Free, open source, no telemetry.">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0f0d'/%3E%3Cpath d='M16 7v11m0 0l-4.5-4.5M16 18l4.5-4.5M9 23h14' stroke='%233dd68c' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+
+<style>
+/* ============================================================
+   Theme tokens — mirrored verbatim from src/web/css/tokens.css
+   so this page can wear any of the app's eight themes.
+   ============================================================ */
+:root, [data-theme="swarm"] {
+  --bg-page:#0a0f0d; --bg-surface:#121a17; --bg-surface-2:#17211d; --bg-elev:#1d2823; --bg-sidebar:#070b0a;
+  --border:#1f2a25; --border-strong:#2c3a33;
+  --text:#e6efe9; --text-muted:#8a9b92; --text-strong:#f6fbf8; --text-subtle:#5f6f67;
+  --accent:#3dd68c; --accent-2:#2fbe78; --accent-soft:rgba(61,214,140,.16); --accent-ring:rgba(61,214,140,.42); --accent-on:#06251a;
+  --yellow:#f5b942; --red:#f07178;
+  --shade:0,0,0;
+}
+[data-theme="pirate"] {
+  --bg-page:#0d0d0e; --bg-surface:#161617; --bg-surface-2:#1c1c1e; --bg-elev:#232325; --bg-sidebar:#000;
+  --border:#2a2a2d; --border-strong:#3a3a3d;
+  --text:#ece9d8; --text-muted:#9d9b8c; --text-strong:#f6f4e6; --text-subtle:#6b695e;
+  --accent:#d4a017; --accent-2:#b88810; --accent-soft:rgba(212,160,23,.16); --accent-ring:rgba(212,160,23,.42); --accent-on:#1a1208;
+  --yellow:#f5b942; --red:#d4503a;
+  --shade:0,0,0;
+}
+[data-theme="cobalt"] {
+  --bg-page:#0c1320; --bg-surface:#152033; --bg-surface-2:#1a2840; --bg-elev:#20304d; --bg-sidebar:#080d18;
+  --border:#1f2d44; --border-strong:#2c3c58;
+  --text:#e2e8f0; --text-muted:#94a3b8; --text-strong:#f8fafc; --text-subtle:#64748b;
+  --accent:#3b82f6; --accent-2:#60a5fa; --accent-soft:rgba(59,130,246,.16); --accent-ring:rgba(59,130,246,.42); --accent-on:#fff;
+  --yellow:#f59e0b; --red:#ef4444;
+  --shade:0,0,0;
+}
+[data-theme="sunset"] {
+  --bg-page:#1a1410; --bg-surface:#241c16; --bg-surface-2:#2c221b; --bg-elev:#33271f; --bg-sidebar:#120c08;
+  --border:#3a2c22; --border-strong:#4d3a2c;
+  --text:#f5ebe0; --text-muted:#b8a796; --text-strong:#fdf6ed; --text-subtle:#8a7d6e;
+  --accent:#ff6b4a; --accent-2:#ffb347; --accent-soft:rgba(255,107,74,.16); --accent-ring:rgba(255,107,74,.42); --accent-on:#2a0e07;
+  --yellow:#ffb347; --red:#dc2626;
+  --shade:0,0,0;
+}
+[data-theme="terminal"] {
+  --bg-page:#0a0a0a; --bg-surface:#111; --bg-surface-2:#161616; --bg-elev:#1c1c1c; --bg-sidebar:#000;
+  --border:#222; --border-strong:#333;
+  --text:#e0d6b8; --text-muted:#8a8268; --text-strong:#f4ebc4; --text-subtle:#5a5544;
+  --accent:#ffb000; --accent-2:#ff7700; --accent-soft:rgba(255,176,0,.16); --accent-ring:rgba(255,176,0,.42); --accent-on:#1a1100;
+  --yellow:#ffb000; --red:#ff4d4d;
+  --shade:0,0,0;
+}
+[data-theme="slate"] {
+  --bg-page:#0d1117; --bg-surface:#161b22; --bg-surface-2:#1c232b; --bg-elev:#21272f; --bg-sidebar:#010409;
+  --border:#21262d; --border-strong:#30363d;
+  --text:#c9d1d9; --text-muted:#8b949e; --text-strong:#f0f6fc; --text-subtle:#6e7681;
+  --accent:#22d3ee; --accent-2:#06b6d4; --accent-soft:rgba(34,211,238,.16); --accent-ring:rgba(34,211,238,.42); --accent-on:#04222a;
+  --yellow:#d29922; --red:#f85149;
+  --shade:0,0,0;
+}
+[data-theme="mint"] {
+  --bg-page:#101412; --bg-surface:#1a1f1c; --bg-surface-2:#20251f; --bg-elev:#262b25; --bg-sidebar:#0a0d0c;
+  --border:#28302a; --border-strong:#353d36;
+  --text:#e7e5e4; --text-muted:#a8a29e; --text-strong:#f5f5f4; --text-subtle:#6e6964;
+  --accent:#5eead4; --accent-2:#34d399; --accent-soft:rgba(94,234,212,.16); --accent-ring:rgba(94,234,212,.42); --accent-on:#06241f;
+  --yellow:#fbbf24; --red:#f43f5e;
+  --shade:0,0,0;
+}
+[data-theme="paper"] {
+  --bg-page:#f4f6f5; --bg-surface:#fff; --bg-surface-2:#eef2ef; --bg-elev:#e6ece8; --bg-sidebar:#fff;
+  --border:#e1e7e3; --border-strong:#c5cfc9;
+  --text:#142019; --text-muted:#5b6b63; --text-strong:#081310; --text-subtle:#8a9b92;
+  --accent:#16a34a; --accent-2:#15803d; --accent-soft:rgba(22,163,74,.12); --accent-ring:rgba(22,163,74,.35); --accent-on:#fff;
+  --yellow:#b45309; --red:#dc2626;
+  --shade:15,23,42;
+}
+[data-theme="paper"] { color-scheme: light; }
+:root { color-scheme: dark; }
+
+/* ============================================================
+   Base
+   ============================================================ */
+:root {
+  --maxw: 1180px;
+  --font: "Inter", ui-sans-serif, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --r: 14px; --r-lg: 20px; --r-xl: 28px;
+  --ease: cubic-bezier(.22,1,.36,1);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg-page);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .45s var(--ease), color .45s var(--ease);
+}
+
+/* No film-grain overlay here on purpose. A position:fixed, full-viewport
+   mix-blend-mode layer forces the compositor to re-blend the whole page on
+   every paint, and it fights the dock's backdrop-filter. The texture was
+   invisible at normal viewing sizes and cost real frames, so it's gone —
+   depth comes from the gradient glows and card borders instead. */
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1,h2,h3,h4 { color: var(--text-strong); margin: 0; line-height: 1.08; letter-spacing: -.03em; font-weight: 800; }
+p { margin: 0; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { width: min(var(--maxw), 100%); margin-inline: auto; padding-inline: clamp(20px, 5vw, 44px); position: relative; z-index: 2; }
+
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 200;
+  background: var(--accent); color: var(--accent-on);
+  padding: 12px 18px; font-weight: 700; border-radius: 0 0 10px 0;
+}
+.skip:focus { left: 0; }
+
+/* Mono micro-label — the "power tool" voice */
+.mono {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle);
+}
+.kicker {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--accent);
+  display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+}
+.kicker::before { content: ""; width: 26px; height: 1.5px; background: currentColor; opacity: .55; }
+
+/* ============================================================
+   Navigation — no top bar. A scroll-progress hairline at the very
+   top for global position, and a floating dock that rises out of
+   the way of the hero once you start reading. The dock is also the
+   scroll-spy: a glider slides under whichever section you're in.
+   ============================================================ */
+.prog {
+  position: fixed; top: 0; left: 0; z-index: 90;
+  height: 2.5px; width: 0;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  box-shadow: 0 0 14px var(--accent-ring);
+  transition: width .12s linear;
+}
+
+.brand { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 19px; color: var(--text-strong); letter-spacing: -.04em; }
+.brand:hover { text-decoration: none; }
+.brand svg { width: 28px; height: 28px; display: block; }
+
+.dock {
+  position: fixed; z-index: 80;
+  left: 50%; bottom: 24px;
+  transform: translate(-50%, 150%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-radius: 999px;
+  max-width: calc(100vw - 24px);
+  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 22px 54px -14px rgba(var(--shade), .72), inset 0 1px 0 rgba(255,255,255,.07);
+  opacity: 0; pointer-events: none;
+  transition: transform .55s var(--ease), opacity .4s var(--ease);
+}
+.dock.up { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+
+.dock-brand {
+  display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--bg-elev); flex: none;
+  transition: background-color .2s;
+}
+.dock-brand:hover { background: var(--accent-soft); }
+.dock-brand svg { width: 21px; height: 21px; display: block; }
+
+.dock-links { position: relative; display: flex; gap: 2px; }
+.dock-links a {
+  position: relative; z-index: 1;
+  padding: 10px 16px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 550; color: var(--text-muted);
+  white-space: nowrap; transition: color .25s;
+}
+.dock-links a:hover { color: var(--text-strong); text-decoration: none; }
+.dock-links a.on { color: var(--accent); }
+
+.glider {
+  position: absolute; left: 0; top: 0; height: 100%; width: 0;
+  border-radius: 999px; background: var(--accent-soft);
+  border: 1px solid var(--accent-ring);
+  opacity: 0; pointer-events: none;
+  transition: transform .42s var(--ease), width .42s var(--ease), opacity .3s;
+}
+
+.dock-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: var(--accent-on) !important;
+  padding: 10px 18px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 700; white-space: nowrap;
+  box-shadow: 0 6px 20px -4px var(--accent-ring);
+  transition: background-color .2s;
+}
+.dock-cta:hover { background: var(--accent-2); text-decoration: none; }
+.dock-cta svg { width: 15px; height: 15px; }
+
+@media (max-width: 760px) {
+  .dock-links { display: none; }
+  .dock { bottom: 16px; }
+}
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero { position: relative; overflow: hidden; padding: clamp(52px, 8.5vw, 100px) 0 clamp(26px, 3.6vw, 44px); text-align: center; }
+#swarm {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 0; display: block;
+  mask-image: radial-gradient(115% 88% at 50% 32%, #000 38%, transparent 78%);
+  -webkit-mask-image: radial-gradient(115% 88% at 50% 32%, #000 38%, transparent 78%);
+}
+.hero::before {
+  content: ""; position: absolute; z-index: 0;
+  left: 50%; top: -14%; width: min(1150px, 135vw); aspect-ratio: 1.6;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 68%);
+  pointer-events: none;
+}
+
+.pill {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 7px 8px 7px 14px; border-radius: 999px;
+  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--bg-surface) 75%, transparent);
+  border: 1px solid var(--border-strong);
+  backdrop-filter: blur(8px);
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .13em; text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: clamp(26px, 4vw, 40px);
+}
+.pill b { color: var(--accent); font-weight: 700; }
+.pill .live { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--accent-ring); animation: ping 2.4s ease-out infinite; }
+.pill .div { width: 1px; height: 13px; background: var(--border-strong); }
+.pill .os { background: var(--bg-elev); color: var(--text-muted); padding: 4px 11px; border-radius: 999px; }
+@keyframes ping { 0%{box-shadow:0 0 0 0 var(--accent-ring)} 70%{box-shadow:0 0 0 9px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+
+.hero h1 {
+  font-size: clamp(74px, 17vw, 208px);
+  letter-spacing: -.07em; font-weight: 900; line-height: .82;
+  margin: 0 0 clamp(18px, 3vw, 30px);
+  background: linear-gradient(178deg, var(--text-strong) 24%, var(--accent) 132%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.tagline {
+  font-size: clamp(20px, 3.4vw, 33px); font-weight: 600; letter-spacing: -.025em;
+  color: var(--accent); margin-bottom: 20px;
+}
+.lede {
+  font-size: clamp(16.5px, 1.9vw, 19.5px); color: var(--text-muted);
+  max-width: 60ch; margin: 0 auto clamp(32px, 5vw, 44px); text-wrap: pretty;
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: 13px; justify-content: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 15px 28px; border-radius: 999px;
+  font-weight: 700; font-size: 15.5px; letter-spacing: -.01em;
+  border: 1px solid transparent; cursor: pointer;
+  transition: transform .2s var(--ease), background-color .2s, border-color .2s, box-shadow .2s;
+}
+.btn:hover { text-decoration: none; transform: translateY(-2px); }
+.btn:active { transform: translateY(0); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn-primary {
+  background: var(--accent); color: var(--accent-on);
+  box-shadow: 0 10px 34px -6px var(--accent-ring), inset 0 1px 0 rgba(255,255,255,.22);
+}
+.btn-primary:hover { background: var(--accent-2); box-shadow: 0 16px 44px -8px var(--accent-ring), inset 0 1px 0 rgba(255,255,255,.22); }
+.btn-primary svg { animation: nudge 2.6s var(--ease) infinite; }
+@keyframes nudge { 0%,72%,100%{transform:translateY(0)} 82%{transform:translateY(3px)} }
+.btn-ghost {
+  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--bg-surface) 70%, transparent);
+  color: var(--text-strong); border-color: var(--border-strong); backdrop-filter: blur(8px);
+}
+.btn-ghost:hover { background: var(--bg-surface-2); border-color: var(--text-subtle); }
+
+.dl-meta { margin-top: 20px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--text-subtle); }
+.dl-meta strong { color: var(--text-muted); font-weight: 700; }
+.dl-meta .sep { opacity: .4; margin-inline: 9px; }
+
+/* ============================================================
+   Marquee — source breadth as motion
+   ============================================================ */
+.marquee-band { padding: clamp(20px, 3.2vw, 32px) 0; position: relative; z-index: 2; }
+.marquee-label { text-align: center; margin-bottom: 16px; }
+.marquee {
+  display: flex; gap: 12px; width: max-content;
+  animation: slide 46s linear infinite;
+}
+.marquee.rev { animation-direction: reverse; animation-duration: 58s; margin-top: 12px; }
+.marquee-mask {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.marquee-mask:hover .marquee { animation-play-state: paused; }
+/* Parked while off screen — see parkMarquee() */
+.marquee-band.rest .marquee { animation-play-state: paused; }
+@keyframes slide { to { transform: translateX(-50%); } }
+.tag {
+  flex: none; display: inline-flex; align-items: center; gap: 9px;
+  padding: 10px 18px; border-radius: 999px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  font-size: 14px; font-weight: 500; color: var(--text-muted); white-space: nowrap;
+}
+.tag .d { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: .5; }
+.tag.prime { border-color: var(--accent-ring); color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.tag.prime .d { opacity: 1; }
+
+/* ============================================================
+   App showcase
+   ============================================================ */
+.showcase { padding: clamp(12px, 2vw, 22px) 0 clamp(34px, 4.6vw, 58px); }
+.frame {
+  position: relative; border-radius: var(--r-xl); overflow: hidden;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  box-shadow: 0 50px 110px -30px rgba(var(--shade), .75), 0 0 0 1px rgba(var(--shade), .18);
+}
+.frame::before {
+  content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  border-radius: inherit; padding: 1px;
+  background: linear-gradient(160deg, var(--accent-ring), transparent 42%, transparent 60%, var(--accent-soft));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.titlebar { display: flex; align-items: center; gap: 8px; padding: 13px 18px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); }
+.titlebar i { width: 11px; height: 11px; border-radius: 50%; background: var(--border-strong); display: block; }
+.titlebar .t { margin-left: 12px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-subtle); }
+.titlebar .sp { margin-left: auto; display: flex; gap: 16px; }
+.titlebar .sp span { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); }
+.titlebar .sp b { color: var(--accent); }
+
+.app { display: grid; grid-template-columns: 208px 1fr; min-height: 460px; }
+.app-side { background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 18px 13px; }
+.nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 10px; font-size: 14px; color: var(--text-muted); margin-bottom: 3px; }
+.nav-item.on { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+.nav-item svg { width: 16px; height: 16px; flex: none; }
+.nav-item .ct { margin-left: auto; font-family: var(--mono); font-size: 11px; opacity: .8; }
+.side-h { padding: 20px 12px 8px; }
+.app-main { padding: 20px; min-width: 0; }
+
+.searchbar { display: flex; align-items: center; gap: 11px; background: var(--bg-page); border: 1px solid var(--border-strong); border-radius: 12px; padding: 12px 15px; color: var(--text-subtle); font-size: 14px; }
+.searchbar .caret { width: 1.5px; height: 15px; background: var(--accent); animation: blink 1.15s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.filters { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 18px; }
+.f { font-size: 12px; padding: 6px 12px; border-radius: 999px; background: var(--bg-surface-2); border: 1px solid var(--border); color: var(--text-muted); }
+.f.on { background: var(--accent-soft); border-color: var(--accent-ring); color: var(--accent); font-weight: 650; }
+
+.res { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; padding: 13px 0; border-top: 1px solid var(--border); }
+.res .nm { font-size: 14px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res .meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; font-family: var(--mono); font-size: 11.5px; color: var(--text-subtle); }
+.res .meta .s { color: var(--accent); font-weight: 700; }
+.health { display: flex; gap: 2.5px; align-items: flex-end; height: 15px; }
+.health i { width: 3.5px; border-radius: 1px; background: var(--accent); display: block; }
+.add { font-family: var(--mono); font-size: 11.5px; color: var(--accent); border: 1px solid var(--accent-ring); padding: 6px 12px; border-radius: 8px; white-space: nowrap; }
+.pct { font-family: var(--mono); font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.track { height: 6px; border-radius: 999px; background: var(--bg-elev); overflow: hidden; margin-top: 9px; }
+.track > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent-2), var(--accent)); position: relative; }
+.track > span::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+  animation: sheen 2.1s linear infinite;
+}
+@keyframes sheen { to { transform: translateX(100%); } }
+.frame-cap { text-align: center; font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-subtle); margin-top: 18px; }
+@media (max-width: 860px) { .app { grid-template-columns: 1fr; } .app-side { display: none; } .titlebar .sp { display: none; } }
+
+/* ============================================================
+   Sections
+   ============================================================ */
+section { scroll-margin-top: 28px; } /* no top bar to clear any more */
+.band { padding: clamp(40px, 5.4vw, 68px) 0; position: relative; }
+.band + .band { border-top: 1px solid var(--border); }
+.head { max-width: 60ch; margin-bottom: clamp(22px, 3vw, 34px); }
+.head.mid { margin-inline: auto; text-align: center; }
+.head.mid .kicker { justify-content: center; }
+.head h2 { font-size: clamp(31px, 5.2vw, 52px); letter-spacing: -.04em; margin-bottom: 16px; text-wrap: balance; }
+.head p { color: var(--text-muted); font-size: clamp(16px, 1.8vw, 18.5px); text-wrap: pretty; }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.stat { background: var(--bg-surface); padding: clamp(24px, 3.5vw, 36px); }
+.stat .n { font-size: clamp(38px, 5.5vw, 58px); font-weight: 900; letter-spacing: -.05em; color: var(--text-strong); line-height: 1; }
+.stat .n em { font-style: normal; color: var(--accent); }
+.stat .l { margin-top: 10px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-subtle); }
+
+/* Bento */
+.bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+.cell {
+  grid-column: span 2; position: relative; overflow: hidden;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: clamp(24px, 3vw, 32px);
+  transition: border-color .3s, transform .3s var(--ease);
+}
+.cell::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-ring), transparent);
+  opacity: 0; transition: opacity .3s;
+}
+.cell:hover { border-color: var(--border-strong); transform: translateY(-3px); }
+.cell:hover::before { opacity: 1; }
+.cell.wide { grid-column: span 3; }
+.cell.full { grid-column: span 6; }
+.ico { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 18px; border: 1px solid var(--accent-ring); }
+.ico svg { width: 21px; height: 21px; }
+.cell h3 { font-size: 19px; letter-spacing: -.025em; margin-bottom: 11px; }
+.cell > p { color: var(--text-muted); font-size: 14.5px; margin-bottom: 16px; text-wrap: pretty; }
+.cell ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.cell li { font-size: 14.5px; color: var(--text-muted); display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; }
+.cell li svg { width: 15px; height: 15px; color: var(--accent); margin-top: 4px; }
+.cell li b { color: var(--text); font-weight: 650; }
+code { font-family: var(--mono); font-size: .88em; background: var(--bg-elev); padding: 2px 7px; border-radius: 5px; color: var(--text); }
+@media (max-width: 980px) { .bento { grid-template-columns: repeat(4, 1fr); } .cell.wide, .cell.full { grid-column: span 4; } }
+@media (max-width: 620px) { .bento { grid-template-columns: 1fr; } .cell, .cell.wide, .cell.full { grid-column: span 1; } }
+
+/* Many-sources-into-one diagram. Balances the height of the piece map
+   sitting in the cell beside it. */
+.funnel { display: block; width: 100%; height: auto; margin-top: 18px; }
+
+/* Piece map — the motif every torrent user recognises */
+.pieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(13px, 1fr)); gap: 3px; margin-top: 6px; }
+.pieces i { aspect-ratio: 1; border-radius: 2.5px; background: var(--bg-elev); display: block; animation: fill .9s var(--ease) forwards; }
+@keyframes fill { to { background: var(--accent); } }
+.legend { display: flex; gap: 18px; margin-top: 16px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-subtle); }
+.legend span { display: flex; align-items: center; gap: 7px; }
+.legend b { width: 9px; height: 9px; border-radius: 2px; display: block; }
+
+/* Themes switcher */
+/* ~214px min lands on 4 columns at desktop width, so the eight themes
+   fall into two even rows instead of a ragged 5 + 3. */
+.themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(214px, 1fr)); gap: 14px; }
+.sw {
+  border: 1px solid var(--border); border-radius: var(--r); overflow: hidden;
+  background: var(--bg-surface); cursor: pointer; padding: 0; text-align: left;
+  font: inherit; color: inherit;
+  transition: border-color .25s, transform .25s var(--ease), box-shadow .25s;
+}
+.sw:hover { transform: translateY(-3px); border-color: var(--border-strong); }
+.sw[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 14px 34px -12px var(--accent-ring); }
+.sw .prev { height: 84px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 7px; }
+.sw .prev b { height: 6px; border-radius: 999px; display: block; }
+.sw .m { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.sw .m .mt { min-width: 0; display: block; }
+.sw .m .n { display: block; font-size: 13.5px; font-weight: 650; color: var(--text-strong); }
+.sw .m .g { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-subtle); }
+.sw .tick { margin-left: auto; width: 17px; height: 17px; color: var(--accent); opacity: 0; transition: opacity .2s; flex: none; }
+.sw[aria-pressed="true"] .tick { opacity: 1; }
+.theme-hint { text-align: center; margin-top: 24px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-subtle); }
+
+/* Steps */
+.steps { display: grid; gap: 14px; counter-reset: s; }
+.step { display: grid; grid-template-columns: 46px 1fr; gap: 20px; align-items: start; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; }
+.step .n { counter-increment: s; width: 46px; height: 46px; border-radius: 13px; background: var(--accent-soft); border: 1px solid var(--accent-ring); color: var(--accent); display: grid; place-items: center; font-family: var(--mono); font-weight: 700; font-size: 15px; }
+.step .n::before { content: "0" counter(s); }
+.step h3 { font-size: 17.5px; margin-bottom: 7px; }
+.step p { font-size: 14.5px; color: var(--text-muted); }
+
+.callout { display: grid; grid-template-columns: auto 1fr; gap: 17px; border: 1px solid var(--yellow); background: var(--bg-surface); background: color-mix(in srgb, var(--yellow) 8%, transparent); border-radius: var(--r-lg); padding: 24px; margin-top: 22px; }
+.callout > svg { width: 22px; height: 22px; color: var(--yellow); flex: none; margin-top: 3px; }
+.callout h3 { font-size: 16px; color: var(--yellow); margin-bottom: 8px; }
+.callout p { font-size: 14.5px; color: var(--text-muted); }
+.callout p + p { margin-top: 10px; }
+
+pre { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 22px; overflow-x: auto; margin: 0; }
+pre code { background: none; padding: 0; font-size: 13px; line-height: 1.8; white-space: pre; color: var(--text); }
+.c { color: var(--text-subtle); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 28px; align-items: start; }
+
+/* Final CTA */
+.final { position: relative; text-align: center; padding: clamp(54px, 7.5vw, 92px) 0; border-top: 1px solid var(--border); overflow: hidden; }
+.final::before {
+  content: ""; position: absolute; left: 50%; bottom: -55%;
+  width: min(1000px, 130vw); aspect-ratio: 1; transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, var(--accent-soft), transparent 66%);
+}
+.final h2 { font-size: clamp(36px, 6.5vw, 74px); letter-spacing: -.05em; margin-bottom: 18px; }
+.final p { color: var(--text-muted); font-size: 18px; max-width: 50ch; margin: 0 auto 36px; }
+
+/* Footer */
+/* Extra bottom room so the fixed dock never sits on the legal text. */
+footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); padding: 36px 0 104px; position: relative; z-index: 2; }
+.foot-top { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 24px; }
+.foot-links a { color: var(--text-muted); font-size: 14px; }
+.legal { font-size: 13px; color: var(--text-subtle); max-width: 84ch; }
+.legal + .legal { margin-top: 12px; }
+
+/* ============================================================
+   Scroll reveal
+   ============================================================ */
+.rv { opacity: 0; transform: translateY(14px); transition: opacity .42s var(--ease), transform .42s var(--ease); }
+.rv.in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .rv { opacity: 1; transform: none; }
+  .pieces i { background: var(--accent); }
+}
+</style>
 </head>
 <body>
-  <main>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="prog" id="prog" role="presentation"></div>
+
+<nav class="dock" id="dock" aria-label="Sections">
+  <a class="dock-brand" href="#top" aria-label="Back to top">
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 7v11m0 0l-4.5-4.5M16 18l4.5-4.5M9 23h14" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+  </a>
+  <div class="dock-links">
+    <span class="glider" id="glider" aria-hidden="true"></span>
+    <a href="#features">Features</a>
+    <a href="#themes">Themes</a>
+    <a href="#install">Install</a>
+  </div>
+  <a class="dock-cta" href="#download">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16"/></svg>
+    Download
+  </a>
+</nav>
+
+<main id="main">
+<span id="top"></span>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero" id="download">
+  <canvas id="swarm" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <span class="pill">
+      <span class="live" aria-hidden="true"></span>
+      <b id="pill-ver">v2.0.0</b>
+      <span class="div" aria-hidden="true"></span>
+      Free &amp; open source
+      <span class="os">Windows 10 / 11</span>
+    </span>
+
     <h1>Yoink</h1>
-    <p>Just yoink it from the swarm. Yoink is a Windows desktop torrent client with a PyQt6 shell, web UI, libtorrent engine, search, tray controls, and GitHub Releases based updates.</p>
+    <p class="tagline">Just yoink it from the swarm.</p>
+    <p class="lede">
+      A desktop torrent client that queries up to sixteen sources at once, ranks what
+      comes back by real swarm health, and hands the winner to a proper libtorrent engine.
+      Per-file control, RSS automation, bandwidth scheduling, eight themes — one
+      installer, no account, no telemetry.
+    </p>
+
     <div class="actions">
-      <a class="button" href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest">Download Latest Release</a>
-      <a class="button secondary" href="https://github.com/Hrishikesh-Panigrahi/yoink">View Source On GitHub</a>
+      <a class="btn btn-primary" id="dl-installer"
+         href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16"/></svg>
+        <span id="dl-installer-label">Download for Windows</span>
+      </a>
+      <a class="btn btn-ghost" id="dl-portable"
+         href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink.exe">Portable&nbsp;.exe</a>
+      <a class="btn btn-ghost" href="https://github.com/Hrishikesh-Panigrahi/yoink">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.34-5.47-5.96 0-1.32.47-2.4 1.24-3.24-.13-.31-.54-1.54.12-3.21 0 0 1.01-.32 3.3 1.24a11.5 11.5 0 016 0c2.29-1.56 3.3-1.24 3.3-1.24.66 1.67.25 2.9.12 3.21.77.84 1.24 1.92 1.24 3.24 0 4.63-2.81 5.65-5.49 5.95.43.37.81 1.1.81 2.22v3.29c0 .32.21.7.82.58C20.57 22.29 24 17.79 24 12.5 24 5.87 18.63.5 12 .5z"/></svg>
+        Source
+      </a>
     </div>
-    <ul>
-      <li>Download `Yoink-Setup-*.exe` from the latest release for the normal installer.</li>
-      <li>Use `Yoink.exe` if you want the standalone executable.</li>
-      <li>Check `SHA256SUMS.txt` on the release page to verify downloads.</li>
-      <li>Requires Windows 10 or newer.</li>
-    </ul>
-    <p class="note">Yoink does not host, bundle, or endorse copyrighted content. You are responsible for using torrents and magnet links legally in your region.</p>
-  </main>
+
+    <p class="dl-meta" id="dl-meta">
+      <strong>Windows 10 or newer</strong><span class="sep">·</span>64-bit<span class="sep">·</span>Installs the magnet handler
+    </p>
+  </div>
+</section>
+
+<!-- ==================== SOURCE MARQUEE ==================== -->
+<section class="marquee-band">
+  <p class="mono marquee-label">It knows where to look</p>
+  <div class="marquee-mask" aria-hidden="true">
+    <div class="marquee" id="mq1"></div>
+    <div class="marquee rev" id="mq2"></div>
+  </div>
+</section>
+
+<!-- ==================== APP SHOWCASE ==================== -->
+<section class="showcase">
+  <div class="wrap">
+    <div class="frame rv" role="img"
+         aria-label="Illustration of the Yoink interface: a sidebar with Search, Downloads, Seeding and Settings plus label filters; a search field with quality, category and sort chips; ranked results showing seeder counts and swarm-health bars; and active downloads with progress bars.">
+      <div class="titlebar">
+        <i></i><i></i><i></i>
+        <span class="t">Yoink</span>
+        <span class="sp">
+          <span>↓ <b>12.4 MB/s</b></span>
+          <span>↑ 1.8 MB/s</span>
+          <span>34 peers</span>
+        </span>
+      </div>
+      <div class="app">
+        <aside class="app-side">
+          <div class="nav-item on">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.9-3.9"/></svg>
+            Search
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16"/></svg>
+            Downloads <span class="ct">2</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9m0 0l-4.5 4.5M12 9l4.5 4.5M4 4h16"/></svg>
+            Seeding <span class="ct">7</span>
+          </div>
+          <div class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M3 12h2.4M18.6 12H21M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7"/></svg>
+            Settings
+          </div>
+          <p class="mono side-h">Labels</p>
+          <div class="nav-item">Movies <span class="ct">18</span></div>
+          <div class="nav-item">Series <span class="ct">41</span></div>
+          <div class="nav-item">Archive <span class="ct">6</span></div>
+        </aside>
+
+        <div class="app-main">
+          <div class="searchbar">
+            <svg style="width:16px;height:16px;flex:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.9-3.9"/></svg>
+            <span>Search movies, shows, or paste a magnet link</span>
+            <span class="caret" aria-hidden="true"></span>
+          </div>
+          <div class="filters">
+            <span class="f on">1080p</span>
+            <span class="f">Movies</span>
+            <span class="f">Any region</span>
+            <span class="f on">Most seeds</span>
+            <span class="f">16 sources</span>
+          </div>
+
+          <div class="res">
+            <div>
+              <div class="nm">Sintel.2010.1080p.BluRay.x264-GROUP</div>
+              <div class="meta"><span class="s">1,284 seeds</span><span>1.4 GB</span><span>YTS</span><span>x264</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <span class="health" aria-hidden="true"><i style="height:40%"></i><i style="height:65%"></i><i style="height:85%"></i><i style="height:100%"></i><i style="height:75%"></i></span>
+              <span class="add">Add</span>
+            </div>
+          </div>
+          <div class="res">
+            <div>
+              <div class="nm">Big.Buck.Bunny.2160p.HDR.x265-GROUP</div>
+              <div class="meta"><span class="s">742 seeds</span><span>4.7 GB</span><span>1337x</span><span>HEVC</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <span class="health" aria-hidden="true"><i style="height:35%"></i><i style="height:55%"></i><i style="height:70%"></i><i style="height:60%"></i><i style="height:45%"></i></span>
+              <span class="add">Add</span>
+            </div>
+          </div>
+
+          <p class="mono side-h" style="padding-left:0">Downloading</p>
+          <div class="res">
+            <div>
+              <div class="nm">Tears.of.Steel.1080p.WEB-DL</div>
+              <div class="meta"><span>4.2 MB/s</span><span>12 min left</span><span>28 peers</span><span>ratio 0.4</span></div>
+              <div class="track"><span style="width:68%"></span></div>
+            </div>
+            <span class="pct">68%</span>
+          </div>
+          <div class="res">
+            <div>
+              <div class="nm">Cosmos.Laundromat.720p.WEB-DL</div>
+              <div class="meta"><span>Seeding</span><span>↑ 620 KB/s</span><span>ratio 1.8</span></div>
+              <div class="track"><span style="width:100%"></span></div>
+            </div>
+            <span class="pct">100%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-cap">Interface illustration · Swarm Green, 1 of 8 themes</p>
+  </div>
+</section>
+
+<!-- ==================== STATS ==================== -->
+<section class="band" style="padding-top:0">
+  <div class="wrap">
+    <div class="stats rv">
+      <div class="stat"><div class="n" data-count="16">16</div><div class="l">Torrent sources</div></div>
+      <div class="stat"><div class="n" data-count="8">8</div><div class="l">Built-in themes</div></div>
+      <div class="stat"><div class="n"><em>0</em></div><div class="l">Ads · accounts · telemetry</div></div>
+      <div class="stat"><div class="n" style="font-size:clamp(26px,3.4vw,38px)">libtorrent</div><div class="l">Proven engine</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FEATURES ==================== -->
+<section class="band" id="features">
+  <div class="wrap">
+    <div class="head rv">
+      <p class="kicker">Features</p>
+      <h2>Four things it does well</h2>
+      <p>No feature gates, no premium tier, no sign-up — all of it ships in the installer.</p>
+    </div>
+
+    <div class="bento">
+      <article class="cell wide rv">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.9-3.9"/></svg></div>
+        <h3>One search box, sixteen sites</h3>
+        <p style="margin-bottom:0">Results come back merged into a single list — scored on swarm health, then deduplicated by infohash so the same release never appears twice.</p>
+        <svg class="funnel" viewBox="0 0 320 104" role="img" aria-label="Five separate sources converging into one ranked, deduplicated list">
+          <g fill="none" stroke="var(--border-strong)" stroke-width="1.5">
+            <path d="M78 11c62 0 48 41 110 41"/>
+            <path d="M78 32c46 0 64 20 110 20"/>
+            <path d="M78 52h110"/>
+            <path d="M78 72c46 0 64-20 110-20"/>
+            <path d="M78 93c62 0 48-41 110-41"/>
+          </g>
+          <g fill="var(--bg-elev)" stroke="var(--border-strong)" stroke-width="1">
+            <rect x="1" y="3" width="76" height="17" rx="8.5"/>
+            <rect x="1" y="24" width="76" height="17" rx="8.5"/>
+            <rect x="1" y="44" width="76" height="17" rx="8.5"/>
+            <rect x="1" y="64" width="76" height="17" rx="8.5"/>
+            <rect x="1" y="85" width="76" height="17" rx="8.5"/>
+          </g>
+          <g fill="var(--text-subtle)">
+            <circle cx="14" cy="11.5" r="2.5"/><circle cx="14" cy="32.5" r="2.5"/>
+            <circle cx="14" cy="52.5" r="2.5"/><circle cx="14" cy="72.5" r="2.5"/>
+            <circle cx="14" cy="93.5" r="2.5"/>
+          </g>
+          <rect x="188" y="38" width="131" height="28" rx="14"
+                fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="204" cy="52" r="3.5" fill="var(--accent)"/>
+          <rect x="215" y="47" width="66" height="4" rx="2" fill="var(--accent)" opacity=".85"/>
+          <rect x="215" y="55" width="40" height="3" rx="1.5" fill="var(--accent)" opacity=".4"/>
+          <g fill="var(--accent)">
+            <rect x="290" y="49" width="3" height="7" rx="1.5" opacity=".5"/>
+            <rect x="296" y="46" width="3" height="10" rx="1.5" opacity=".75"/>
+            <rect x="302" y="43" width="3" height="13" rx="1.5"/>
+          </g>
+        </svg>
+      </article>
+
+      <article class="cell wide rv">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></svg></div>
+        <h3>Take only the files you want</h3>
+        <p>Set priorities per file and skip the extras. Quit mid-download and it picks up exactly where it stopped.</p>
+        <div class="pieces" id="pieces" aria-hidden="true"></div>
+        <div class="legend" aria-hidden="true">
+          <span><b style="background:var(--accent)"></b> Have</span>
+          <span><b style="background:var(--bg-elev)"></b> Pending</span>
+        </div>
+      </article>
+
+      <article class="cell wide rv">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 109 9"/><path d="M12 3v5l4 2"/></svg></div>
+        <h3>Adds torrents while you're away</h3>
+        <p style="margin-bottom:0">Point it at a watch folder, subscribe to an RSS feed with a title regex and seeder floor, or just copy a magnet link and let the clipboard watcher catch it.</p>
+      </article>
+
+      <article class="cell wide rv">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2.5"/><path d="M8 21h8"/></svg></div>
+        <h3>Behaves like a real Windows app</h3>
+        <p style="margin-bottom:0">Seeds quietly from the tray, tells you when something lands, opens <code>magnet:</code> links straight out of your browser, and answers to a command palette.</p>
+      </article>
+    </div>
+
+  </div>
+</section>
+
+<!-- ==================== THEMES ==================== -->
+<section class="band" id="themes">
+  <div class="wrap">
+    <div class="head mid rv">
+      <p class="kicker">Appearance</p>
+      <h2>Eight themes. Try them on this page.</h2>
+      <p>Each preset retunes accents, surfaces, and contrast — not just a hue shift. Click one and the whole site changes with it.</p>
+    </div>
+    <div class="themes rv" id="theme-grid" role="group" aria-label="Preview a theme"></div>
+    <p class="theme-hint">↑ These are the real palettes, straight from the app</p>
+  </div>
+</section>
+
+<!-- ==================== INSTALL ==================== -->
+<section class="band" id="install">
+  <div class="wrap">
+    <div class="head rv">
+      <p class="kicker">Install</p>
+      <h2>Download, run, done.</h2>
+      <p>Everything it needs is inside the installer. There is nothing else to set up and nothing to configure first.</p>
+    </div>
+    <div class="steps rv">
+      <div class="step">
+        <div class="n"></div>
+        <div><h3>Download</h3><p>One 64-bit installer, <code>Yoink-Setup.exe</code>, straight from the button above.</p></div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div><h3>Run it</h3><p>Installs just for you, so Windows won't ask for an administrator password. Tick the boxes for a desktop shortcut, <code>magnet:</code> link handling, and <code>.torrent</code> files.</p></div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div><h3>Start yoinking</h3><p>Choose where downloads should go on first launch, and that's it. Prefer nothing installed at all? The <b>portable .exe</b> runs from anywhere, including a USB stick.</p></div>
+      </div>
+    </div>
+
+    <div class="callout rv">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+      <div>
+        <h3>Windows will probably warn you</h3>
+        <p>
+          Yoink isn't code-signed yet — certificates cost real money — so SmartScreen may say
+          <em>"Windows protected your PC"</em>. Choose <b>More info → Run anyway</b> to continue.
+        </p>
+        <p>
+          To verify first, every release ships a
+          <a href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>.
+          Compare it against <code>Get-FileHash .\Yoink-Setup.exe -Algorithm SHA256</code> in PowerShell.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== DEV ==================== -->
+<section class="band">
+  <div class="wrap two">
+    <div class="rv">
+      <p class="kicker">For developers</p>
+      <h2 style="font-size:clamp(28px,4.4vw,42px);margin-bottom:16px">Or run it from source</h2>
+      <p style="color:var(--text-muted);font-size:17px;margin-bottom:18px">
+        A PyQt6 shell hosting a web-tech UI over <code>QWebChannel</code>, with libtorrent
+        doing the swarm work.
+      </p>
+      <p style="color:var(--text-muted);font-size:14.5px">
+        Classes are reserved for what the frameworks require — everything else is a
+        module-level function with enums and frozen dataclass DTOs. Builds come from
+        <code>build.py</code> (PyInstaller + Inno Setup) and ship via a tag-driven GitHub
+        Actions workflow.
+      </p>
+    </div>
+    <div class="rv">
+<pre><code><span class="c"># clone and set up</span>
+git clone https://github.com/Hrishikesh-Panigrahi/yoink
+cd yoink
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-dev.txt
+
+<span class="c"># run it</span>
+$env:PYTHONPATH = "$PWD;$PWD\src"
+python src\main.py
+
+<span class="c"># package Yoink.exe + installer</span>
+python build.py</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FINAL CTA ==================== -->
+<section class="final">
+  <div class="wrap">
+    <h2 class="rv">Ready to yoink?</h2>
+    <p class="rv">One installer. No account, no ads, no telemetry. Uninstalling leaves your downloads exactly where they are.</p>
+    <div class="actions rv">
+      <a class="btn btn-primary" id="dl-installer-2"
+         href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 20h16"/></svg>
+        <span id="dl-installer-2-label">Download for Windows</span>
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/Hrishikesh-Panigrahi/yoink/releases">All releases</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="brand" href="#top">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="var(--bg-surface)" stroke="var(--border-strong)"/>
+          <path d="M16 7v11m0 0l-4.5-4.5M16 18l4.5-4.5M9 23h14" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        Yoink
+      </a>
+      <div class="foot-links">
+        <a href="https://github.com/Hrishikesh-Panigrahi/yoink">Source</a>
+        <a href="https://github.com/Hrishikesh-Panigrahi/yoink/releases">Releases</a>
+        <a href="https://github.com/Hrishikesh-Panigrahi/yoink/issues">Report an issue</a>
+        <a href="https://github.com/Hrishikesh-Panigrahi/yoink/blob/main/LICENSE">License</a>
+      </div>
+    </div>
+    <p class="legal">
+      Yoink is a BitTorrent client. It does not host, index, bundle, or endorse any
+      copyrighted content, and ships with no content of its own. Search results come from
+      third-party public websites that Yoink neither operates nor controls. You are
+      responsible for complying with the laws of your region when using torrents and
+      magnet links.
+    </p>
+    <p class="legal">Not affiliated with any torrent site or tracker. Provided as-is, without warranty.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var REPO  = "Hrishikesh-Panigrahi/yoink";
+  var CALM  = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------------------------------------------------------
+     1. Release resolution — the one piece of real functionality.
+     Buttons ship with a working static href; this only sharpens
+     them with the true asset, version, size, and date.
+     --------------------------------------------------------- */
+  function bytes(n) {
+    if (!n || n < 0) return null;
+    var mb = n / 1048576;
+    return mb >= 1024 ? (mb / 1024).toFixed(2) + " GB" : Math.round(mb) + " MB";
+  }
+
+  function pickInstaller(a) {
+    return a.find(function (x) { return /^Yoink-Setup-.+\.exe$/i.test(x.name); })
+        || a.find(function (x) { return /^Yoink-Setup\.exe$/i.test(x.name); })
+        || a.find(function (x) { return /setup.*\.exe$/i.test(x.name); })
+        || null;
+  }
+
+  function retarget(ids, asset) {
+    if (!asset) return;
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.href = asset.browser_download_url;
+    });
+  }
+
+  fetch("https://api.github.com/repos/" + REPO + "/releases/latest",
+        { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (rel) {
+      var assets    = Array.isArray(rel.assets) ? rel.assets : [];
+      var installer = pickInstaller(assets);
+      var portable  = assets.find(function (x) { return /^Yoink\.exe$/i.test(x.name); });
+
+      retarget(["dl-installer", "dl-installer-2"], installer);
+      retarget(["dl-portable"], portable);
+
+      var ver  = (rel.tag_name || "").replace(/^v/i, "");
+      var size = installer ? bytes(installer.size) : null;
+      var when = rel.published_at ? new Date(rel.published_at) : null;
+
+      if (ver) {
+        var pv = document.getElementById("pill-ver");
+        if (pv) pv.textContent = "v" + ver;
+        ["dl-installer-label", "dl-installer-2-label"].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.textContent = "Download Yoink " + ver;
+        });
+      }
+
+      var bits = [];
+      if (ver)  bits.push("<strong>Version " + ver + "</strong>");
+      if (size) bits.push(size);
+      bits.push("Windows 10+", "64-bit");
+      if (when && !isNaN(when)) {
+        bits.push(when.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }));
+      }
+      var meta = document.getElementById("dl-meta");
+      if (meta) meta.innerHTML = bits.join('<span class="sep">·</span>');
+    })
+    .catch(function () { /* static hrefs and copy stay as served */ });
+
+  /* ---------------------------------------------------------
+     2. Swarm canvas — peers on the edge, pieces flowing to you.
+     The product metaphor, drawn in the active accent colour.
+     --------------------------------------------------------- */
+  (function swarm() {
+    var cv = document.getElementById("swarm");
+    if (!cv) return;
+    var ctx = cv.getContext("2d");
+    if (!ctx) return;
+
+    var W = 0, H = 0, dpr = 1, nodes = [], packets = [], accent = "#3dd68c", raf = null, visible = true;
+
+    function readAccent() {
+      var v = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+      if (v) accent = v;
+    }
+
+    function rgba(hex, a) {
+      var h = hex.replace("#", "");
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      var n = parseInt(h, 16);
+      if (isNaN(n)) return "rgba(61,214,140," + a + ")";
+      return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = cv.clientWidth; H = cv.clientHeight;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      build();
+    }
+
+    function build() {
+      // Peer count scales with area so phones and small panes stay light.
+      var count = Math.max(12, Math.min(30, Math.round((W * H) / 34000)));
+      nodes = [];
+      for (var i = 0; i < count; i++) {
+        var ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+        var rad = 0.30 + Math.random() * 0.34;          // fraction of the shorter axis
+        nodes.push({
+          x: W / 2 + Math.cos(ang) * W * rad * 0.62,
+          y: H / 2 + Math.sin(ang) * H * rad * 1.05,
+          r: 1.1 + Math.random() * 2.0,
+          vx: (Math.random() - 0.5) * 0.16,
+          vy: (Math.random() - 0.5) * 0.16,
+          tw: Math.random() * Math.PI * 2
+        });
+      }
+      packets = [];
+    }
+
+    function spawn() {
+      if (!nodes.length || packets.length > 20) return;
+      var n = nodes[(Math.random() * nodes.length) | 0];
+      var dx = n.x - W / 2, dy = n.y - H * 0.42;
+      var len = Math.hypot(dx, dy) || 1;
+      // Unit vector back toward the source, resolved once instead of per frame.
+      packets.push({
+        sx: n.x, sy: n.y, ux: dx / len, uy: dy / len,
+        t: 0, sp: 0.005 + Math.random() * 0.008
+      });
+    }
+
+    // Reused across frames so the 60fps loop allocates nothing.
+    var segNear = [], segFar = [];
+
+    function drawSegs(buf, alpha) {
+      if (!buf.length) return;
+      ctx.strokeStyle = rgba(accent, alpha);
+      ctx.beginPath();
+      for (var i = 0; i < buf.length; i += 4) {
+        ctx.moveTo(buf[i], buf[i + 1]);
+        ctx.lineTo(buf[i + 2], buf[i + 3]);
+      }
+      ctx.stroke();
+    }
+
+    function frame() {
+      ctx.clearRect(0, 0, W, H);
+      var cx = W / 2, cy = H * 0.42, i, j;
+
+      segNear.length = 0; segFar.length = 0;
+
+      for (i = 0; i < nodes.length; i++) {
+        var a = nodes[i];
+        a.x += a.vx; a.y += a.vy; a.tw += 0.02;
+        if (a.x < 0 || a.x > W) a.vx *= -1;
+        if (a.y < 0 || a.y > H) a.vy *= -1;
+
+        for (j = i + 1; j < nodes.length; j++) {
+          var b = nodes[j], dx = a.x - b.x, dy = a.y - b.y;
+          var d2 = dx * dx + dy * dy;
+          if (d2 >= 27000) continue;
+          (d2 < 12000 ? segNear : segFar).push(a.x, a.y, b.x, b.y);
+        }
+      }
+
+      // Two stroke() calls for the entire field instead of one per pair.
+      // Batching alpha into near/far buckets costs a little fidelity and
+      // saves hundreds of draw calls every single frame.
+      ctx.lineWidth = 1;
+      drawSegs(segNear, 0.085);
+      drawSegs(segFar, 0.032);
+
+      // Peers.
+      for (i = 0; i < nodes.length; i++) {
+        var p = nodes[i];
+        ctx.fillStyle = rgba(accent, 0.20 + Math.sin(p.tw) * 0.10);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Pieces travelling inward. One solid stroke style, faded per packet
+      // with globalAlpha — no gradient object built per frame.
+      ctx.lineWidth = 1.7; ctx.lineCap = "round";
+      ctx.strokeStyle = rgba(accent, 1);
+      for (i = packets.length - 1; i >= 0; i--) {
+        var q = packets[i];
+        q.t += q.sp;
+        if (q.t >= 1) { packets.splice(i, 1); continue; }
+        var e = q.t * q.t * (3 - 2 * q.t);              // smoothstep
+        var x = q.sx + (cx - q.sx) * e;
+        var y = q.sy + (cy - q.sy) * e;
+        var fade = Math.sin(q.t * Math.PI);
+        var tail = 26 * fade;
+        ctx.globalAlpha = 0.85 * fade;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + q.ux * tail, y + q.uy * tail);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+
+      if (Math.random() < 0.09) spawn();
+      raf = requestAnimationFrame(frame);
+    }
+
+    function stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } }
+    function start() { if (!raf && visible && !CALM) frame(); }
+
+    readAccent();
+    resize();
+
+    if (CALM) {
+      // One static frame: the field without the traffic.
+      ctx.clearRect(0, 0, W, H);
+      nodes.forEach(function (p) {
+        ctx.fillStyle = rgba(accent, 0.24);
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      });
+    } else {
+      start();
+    }
+
+    var rt;
+    window.addEventListener("resize", function () {
+      clearTimeout(rt);
+      rt = setTimeout(function () { resize(); if (CALM) return; stop(); start(); }, 180);
+    });
+
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        visible = es[0].isIntersecting;
+        if (visible) start(); else stop();
+      }, { threshold: 0 }).observe(cv);
+    }
+
+    window.__swarmAccent = function () { readAccent(); };
+  })();
+
+  /* ---------------------------------------------------------
+     3. Source marquee + the optional-source list
+     --------------------------------------------------------- */
+  var PRIME = ["YTS", "The Pirate Bay"];
+  var REST  = ["1337x", "TorrentGalaxy", "Nyaa.si", "LimeTorrents", "Torlock",
+               "Bitsearch", "MagnetDL", "KickassTorrents", "GloDLS",
+               "TorrentProject", "TorrentFunk", "YourBittorrent", "Zooqle", "Libgen"];
+
+  function tag(name, prime) {
+    return '<span class="tag' + (prime ? " prime" : "") + '"><span class="d"></span>' + name + "</span>";
+  }
+
+  var all = PRIME.map(function (n) { return tag(n, true); })
+            .concat(REST.map(function (n) { return tag(n, false); }));
+
+  // Two copies so the -50% keyframe loops seamlessly.
+  var half = all.join("");
+  var m1 = document.getElementById("mq1");
+  var m2 = document.getElementById("mq2");
+  if (m1) m1.innerHTML = half + half;
+  if (m2) {
+    var rev = all.slice().reverse().join("");
+    m2.innerHTML = rev + rev;
+  }
+
+  // Two very wide masked rows animating forever is real composite work.
+  // Park them whenever the band is off screen.
+  (function parkMarquee() {
+    var band = document.querySelector(".marquee-band");
+    if (!band || !("IntersectionObserver" in window)) return;
+    new IntersectionObserver(function (es) {
+      band.classList.toggle("rest", !es[0].isIntersecting);
+    }, { threshold: 0 }).observe(band);
+  })();
+
+  /* ---------------------------------------------------------
+     4. Piece map — decorative, fills in a shuffled order
+     --------------------------------------------------------- */
+  (function pieces() {
+    var host = document.getElementById("pieces");
+    if (!host) return;
+    var N = 132, order = [];
+    for (var i = 0; i < N; i++) order.push(i);
+    for (var j = order.length - 1; j > 0; j--) {        // Fisher-Yates
+      var k = (Math.random() * (j + 1)) | 0;
+      var t = order[j]; order[j] = order[k]; order[k] = t;
+    }
+    var frag = document.createDocumentFragment();
+    var cells = [];
+    for (var c = 0; c < N; c++) {
+      var el = document.createElement("i");
+      el.style.animationPlayState = "paused";
+      cells.push(el);
+      frag.appendChild(el);
+    }
+    // Leave a realistic tail unfilled — a download in progress, not a finished one.
+    var filled = Math.round(N * 0.68);
+    order.slice(0, filled).forEach(function (idx, n) {
+      cells[idx].style.animationDelay = (n * 0.014).toFixed(3) + "s";
+    });
+    order.slice(filled).forEach(function (idx) { cells[idx].style.animation = "none"; });
+    host.appendChild(frag);
+
+    function run() { cells.forEach(function (el) { el.style.animationPlayState = "running"; }); }
+    if (CALM || !("IntersectionObserver" in window)) { run(); return; }
+    new IntersectionObserver(function (es, ob) {
+      if (es[0].isIntersecting) { run(); ob.disconnect(); }
+    }, { threshold: 0.25 }).observe(host);
+  })();
+
+  /* ---------------------------------------------------------
+     5. Live theme switcher — demos the feature by doing it
+     --------------------------------------------------------- */
+  var THEMES = [
+    { id: "swarm",    name: "Swarm Green", tag: "Default",     bg: "#0a0f0d", ac: "#3dd68c" },
+    { id: "pirate",   name: "Pirate",      tag: "Black & gold", bg: "#0d0d0e", ac: "#d4a017" },
+    { id: "cobalt",   name: "Cobalt",      tag: "Classic blue", bg: "#0c1320", ac: "#3b82f6" },
+    { id: "sunset",   name: "Sunset",      tag: "Warm coral",   bg: "#1a1410", ac: "#ff6b4a" },
+    { id: "terminal", name: "Terminal",    tag: "CRT amber",    bg: "#0a0a0a", ac: "#ffb000" },
+    { id: "slate",    name: "Slate",       tag: "Cool cyan",    bg: "#0d1117", ac: "#22d3ee" },
+    { id: "mint",     name: "Mint",        tag: "Soft teal",    bg: "#101412", ac: "#5eead4" },
+    { id: "paper",    name: "Paper",       tag: "Light",        bg: "#f4f6f5", ac: "#16a34a" }
+  ];
+
+  var grid = document.getElementById("theme-grid");
+  if (grid) {
+    grid.innerHTML = THEMES.map(function (t) {
+      return '' +
+        // aria-label is explicit because the visible label is split across
+        // nested spans, and a button must only contain phrasing content —
+        // divs in here would be invalid and break name computation.
+        '<button class="sw" type="button" data-theme-id="' + t.id + '"' +
+          ' aria-label="Preview the ' + t.name + ' theme"' +
+          ' aria-pressed="' + (t.id === "swarm") + '">' +
+          '<span class="prev" style="background:' + t.bg + '">' +
+            '<b style="background:' + t.ac + ';width:62%"></b>' +
+            '<b style="background:' + t.ac + ';width:38%;opacity:.34"></b>' +
+          '</span>' +
+          '<span class="m">' +
+            '<span class="mt"><span class="n">' + t.name + '</span><span class="g">' + t.tag + '</span></span>' +
+            '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>' +
+          '</span>' +
+        '</button>';
+    }).join("");
+
+    grid.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest(".sw") : null;
+      if (!btn) return;
+      var id = btn.getAttribute("data-theme-id");
+      document.documentElement.setAttribute("data-theme", id);
+
+      grid.querySelectorAll(".sw").forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b === btn));
+      });
+
+      var t = THEMES.filter(function (x) { return x.id === id; })[0];
+      var mc = document.getElementById("meta-theme-color");
+      if (t && mc) mc.setAttribute("content", t.bg);
+
+      // Repaint the swarm in the new accent.
+      if (window.__swarmAccent) window.__swarmAccent();
+    });
+  }
+
+  /* ---------------------------------------------------------
+     6. The dock — rises past the hero, and doubles as the
+     scroll-spy. A glider slides under the current section so
+     "where am I" is answered without reading anything.
+     --------------------------------------------------------- */
+  (function dockNav() {
+    var dock   = document.getElementById("dock");
+    var glider = document.getElementById("glider");
+    var prog   = document.getElementById("prog");
+    var hero   = document.querySelector(".hero");
+    if (!dock || !prog) return;
+
+    var links   = Array.prototype.slice.call(dock.querySelectorAll(".dock-links a"));
+    var targets = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+    var current = null;
+
+    function place(link) {
+      if (!glider) return;
+      if (!link) { glider.style.opacity = "0"; return; }
+      glider.style.opacity = "1";
+      glider.style.width = link.offsetWidth + "px";
+      glider.style.transform = "translateX(" + link.offsetLeft + "px)";
+    }
+
+    function update() {
+      var y = window.scrollY || window.pageYOffset || 0;
+
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      prog.style.width = (max > 0 ? Math.min(y / max, 1) * 100 : 0) + "%";
+
+      // The hero carries its own large download button, so the dock
+      // stays hidden until it would actually be useful.
+      dock.classList.toggle("up", y > (hero ? hero.offsetHeight * 0.62 : 380));
+
+      // Current section = the last one whose top has crossed the
+      // upper third of the viewport.
+      var probe = y + window.innerHeight * 0.34, active = null;
+      for (var i = 0; i < targets.length; i++) {
+        if (targets[i] && targets[i].getBoundingClientRect().top + y <= probe) active = links[i];
+      }
+      if (active !== current) {
+        current = active;
+        links.forEach(function (a) { a.classList.toggle("on", a === active); });
+        place(active);
+      }
+    }
+
+    var queued = false;
+    window.addEventListener("scroll", function () {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(function () { queued = false; update(); });
+    }, { passive: true });
+
+    window.addEventListener("resize", function () { current = null; update(); });
+    update();
+  })();
+
+  /* ---------------------------------------------------------
+     7. Scroll reveal + count-up
+     --------------------------------------------------------- */
+  var revealables = document.querySelectorAll(".rv");
+  if (CALM || !("IntersectionObserver" in window)) {
+    revealables.forEach(function (el) { el.classList.add("in"); });
+  } else {
+    var io = new IntersectionObserver(function (entries, ob) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.classList.add("in");
+        ob.unobserve(en.target);
+      });
+      // Positive bottom margin pre-triggers just below the fold, so a fast
+      // scroll never lands on a block that is still faded out.
+    }, { threshold: 0.01, rootMargin: "0px 0px 14% 0px" });
+    revealables.forEach(function (el) { io.observe(el); });
+  }
+
+  document.querySelectorAll("[data-count]").forEach(function (el) {
+    var target = parseInt(el.getAttribute("data-count"), 10);
+    if (isNaN(target)) return;
+    if (CALM || !("IntersectionObserver" in window)) { el.textContent = String(target); return; }
+    new IntersectionObserver(function (es, ob) {
+      if (!es[0].isIntersecting) return;
+      ob.disconnect();
+      var t0 = null, DUR = 900;
+      function tick(ts) {
+        if (t0 === null) t0 = ts;
+        var p = Math.min((ts - t0) / DUR, 1);
+        el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }, { threshold: 0.5 }).observe(el);
+  });
+})();
+</script>
+
 </body>
 </html>

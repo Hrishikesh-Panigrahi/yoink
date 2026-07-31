@@ -42,14 +42,54 @@ notes.
 
 ## Download and hosting
 
-Public Windows builds are intended to be hosted on
+Public Windows builds are hosted on
 [GitHub Releases](https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest).
-The tag-based release workflow publishes `Yoink.exe`, `Yoink-Setup-<version>.exe`,
-and `SHA256SUMS.txt`.
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which publishes four
+assets:
 
-The static download page lives in [`docs/index.html`](docs/index.html). Enable
-GitHub Pages from the `docs/` folder on the default branch, then use that page as
-the public landing/download site.
+| Asset | Purpose |
+| --- | --- |
+| `Yoink-Setup.exe` | Stable filename. What the landing page links to. |
+| `Yoink-Setup-<version>.exe` | Same installer, version-stamped for archiving. |
+| `Yoink.exe` | Portable single-file build, no installer. |
+| `SHA256SUMS.txt` | Checksums for all three binaries. |
+
+`Yoink-Setup.exe` is a copy of the versioned installer that exists purely so the
+filename never changes. That is what makes GitHub's permanent redirect usable as
+a one-click download:
+
+```
+https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe
+https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink.exe
+```
+
+These always resolve to the newest release, and GitHub serves them with
+`Content-Disposition: attachment`, so a click downloads the binary instead of
+navigating to a web page. Do not hardcode the version-stamped name anywhere
+public — it breaks on every release.
+
+### Landing page
+
+The public site is a single self-contained file,
+[`docs/index.html`](docs/index.html) — no build step, no dependencies. To host it:
+
+1. Repo **Settings → Pages**, set source to **Deploy from a branch**.
+2. Branch `main`, folder `/docs`. Save.
+3. The site goes live at `https://hrishikesh-panigrahi.github.io/yoink/`.
+
+The download buttons carry the static URLs above, so they work with JavaScript
+disabled. On load, a small script queries the GitHub Releases API to fill in the
+real version number, installer size, and release date, and retargets the buttons
+at the exact assets on the latest release. If that request fails or is
+rate-limited, the static links still work.
+
+Because the buttons are wired to the stable filename, **the landing page needs
+one tagged release to exist before the download works.** Bump `src/version.py`,
+then push a tag:
+
+```bash
+git tag v2.0.1 && git push origin v2.0.1
+```
 
 ## Legal note
 

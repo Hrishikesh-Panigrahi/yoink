@@ -55,10 +55,21 @@ jobs:
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" installer\yoink.iss
 
+      # The download page links to a filename that must not change between
+      # releases, so `releases/latest/download/Yoink-Setup.exe` always resolves.
+      # The versioned copy stays for people archiving a specific build.
+      - name: Add stable-named installer alias
+        shell: pwsh
+        run: |
+          $versioned = Get-ChildItem dist\Yoink-Setup-*.exe | Select-Object -First 1
+          if (-not $versioned) { throw "no versioned installer found in dist/" }
+          Copy-Item $versioned.FullName dist\Yoink-Setup.exe -Force
+          Write-Host "aliased $($versioned.Name) -> Yoink-Setup.exe"
+
       - name: Generate checksums
         shell: pwsh
         run: |
-          Get-FileHash dist\Yoink.exe, dist\Yoink-Setup-*.exe -Algorithm SHA256 |
+          Get-FileHash dist\Yoink.exe, dist\Yoink-Setup-*.exe, dist\Yoink-Setup.exe -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
             Set-Content dist\SHA256SUMS.txt
 
@@ -68,6 +79,7 @@ jobs:
           name: Yoink-${{ steps.version.outputs.version }}-windows
           path: |
             dist/Yoink.exe
+            dist/Yoink-Setup.exe
             dist/Yoink-Setup-*.exe
             dist/SHA256SUMS.txt
 
@@ -77,6 +89,7 @@ jobs:
         with:
           files: |
             dist/Yoink.exe
+            dist/Yoink-Setup.exe
             dist/Yoink-Setup-*.exe
             dist/SHA256SUMS.txt
           generate_release_notes: true
