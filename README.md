@@ -2,11 +2,75 @@
 
 > Just yoink it from the swarm.
 
-Yoink is a modern desktop torrent client. The shell is PyQt6, the UI is a web
-view (HTML/CSS/JS) wired to Python through `QWebChannel`, and the torrent engine
-is libtorrent. Search hits YTS and The Pirate Bay by default, with optional
-multi-site scraping via a vendored copy of
+Yoink is a desktop torrent client for Windows. The shell is PyQt6, the UI is
+HTML/CSS/JS in a web view wired to Python over `QWebChannel`, and the torrent
+engine is libtorrent. Search hits YTS and The Pirate Bay directly by default,
+with optional multi-site scraping through a vendored copy of
 [Torrent-Api-py](https://github.com/Ryuk-me/Torrent-Api-py).
+
+Public site and downloads: <https://hrishikesh-panigrahi.github.io/yoink/>
+
+## Features
+
+Everything below is implemented and reachable from the UI.
+
+### Search
+
+- **Two provider modes.** `stable` queries the YTS and Pirate Bay APIs directly
+  and is the default. `multi` fans out across the vendored scrapers.
+- **Filters.** Region (Bollywood, Hollywood, South Indian, Korean, anime),
+  category (movies, TV, anime, music, games, apps, books), quality, and sort by
+  relevance, seeds, size or newest.
+- **Health ranking.** Results are scored on seeders, quality and source weight,
+  then deduplicated by infohash so one release doesn't appear five times.
+- **Provider health checks.** Every source can be pinged with a small test
+  search and graded into three bands, so you can see what's reachable and turn
+  off what isn't. Sources can be enabled individually.
+- **Safety flags.** Results are scanned for common red flags: an `.exe` inside
+  something claiming to be a film, a file far too small for its stated quality,
+  password-protected archives.
+- **TMDB metadata.** With a free API key, results gain posters, backdrops,
+  ratings, runtime, genres, plot and a trailer link. Responses are cached.
+- **Search history**, recalled as you type.
+
+### Transfers
+
+- Add by magnet link, `.torrent` file, or drag and drop.
+- Per-file priorities, so you can skip the extras inside a torrent.
+- Pause and resume individually or across the whole queue.
+- Move a torrent to a different folder after it has started.
+- Remove with or without deleting the data.
+- Labels for grouping a library.
+- Fast-resume data is written per torrent, so progress survives a restart.
+- Open the finished file or reveal it in Explorer.
+
+### Automation
+
+- **Watch folder.** Drop a `.torrent` into a directory and it gets added.
+- **RSS feeds.** Subscribe with an optional title regex and a minimum-seeder
+  floor. Seen items are tracked so nothing is added twice.
+- **Clipboard watcher.** Copy a magnet link anywhere and Yoink offers to take it.
+- **Scheduled bandwidth.** Apply quieter caps during a chosen window.
+- **File associations.** The installer can register `magnet:` links and
+  `.torrent` files. A single-instance guard hands the path to the running
+  window instead of opening a second one.
+
+### Limits
+
+Global download and upload caps, a limit on how many torrents download and seed
+at once, and a seed ratio limit that pauses a torrent once it is reached.
+
+### Application
+
+- Eight themes. Minimise to tray and keep seeding.
+- Native notifications when a download finishes.
+- Optional launch at login.
+- Command palette and keyboard shortcuts.
+- Export and import settings.
+- Proxy support (`http`, `https`, `socks5`) with a custom user agent.
+- Update check against GitHub Releases.
+- Settings live in a SQLite file under `%LOCALAPPDATA%\Yoink\`. No account, no
+  telemetry.
 
 ## Run from source
 
@@ -18,7 +82,20 @@ $env:PYTHONPATH = "$PWD;$PWD\src"
 python src\main.py
 ```
 
-On macOS/Linux replace the venv activation and use `PYTHONPATH=$PWD:$PWD/src`.
+On macOS/Linux, activate the venv the usual way and use
+`PYTHONPATH=$PWD:$PWD/src`.
+
+`src/web/index.html` is generated from `src/web/index.template.html` and the
+files in `src/web/partials/`. If you edit a partial, regenerate it:
+
+```powershell
+python build.py --compose-html
+```
+
+## Make targets
+
+There is a `Makefile` if you prefer it. `make help` lists everything; the useful
+ones are `install`, `run`, `compose-html`, `test`, `build` and `clean`.
 
 ## Run the tests
 
@@ -29,16 +106,22 @@ On macOS/Linux replace the venv activation and use `PYTHONPATH=$PWD:$PWD/src`.
 `tests/conftest.py` puts `src/` on `sys.path`, so tests use the same flat
 imports as the app (`from torrents import ...`, `from search import search`).
 
+`.github/workflows/ci.yml` runs the same suite on Windows with Python 3.11 on
+every push. The release workflow runs it too, so a failing test blocks a
+release.
+
 ## Package for Windows
 
 ```powershell
 python build.py
 ```
 
-This wraps PyInstaller and produces `dist/Yoink.exe`. The build script bundles
-`src/web/`, `src/resources/`, and `src/vendor/` alongside the executable. See
-[`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for installer
-notes.
+That composes the HTML, runs PyInstaller with `--onefile` to produce
+`dist/Yoink.exe`, then builds `dist/Yoink-Setup-<version>.exe` with Inno Setup
+if `ISCC` is on PATH. It bundles `src/web/`, `src/resources/` and `src/vendor/`.
+Pass `--exe-only` to skip the installer step. See
+[`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for the runtime
+data layout, signing notes and the release checklist.
 
 ## Download and hosting
 
@@ -99,42 +182,60 @@ region.
 
 ```
 src/
-  main.py              # entrypoint
-  main_window.py       # QMainWindow + system tray + web view host
-  bridge.py            # Bridge(QObject) — JS<->Python RPC surface
-  workers.py           # SearchWorker, DownloadsPollWorker, NetworkSpeedWorker
-  db.py                # SQLite helpers (init_db, get/set_setting, ...)
-  models.py            # SQLAlchemy ORM (Setting, SavedTorrent)
+  main.py                entrypoint
+  main_window.py         QMainWindow, system tray, web view host
+  workers.py             QThread workers behind the bridge's async signals
+  db.py                  SQLite helpers (init_db, get/set_setting, ...)
+  models.py              SQLAlchemy ORM (Setting, SavedTorrent)
+  version.py             __version__, app name, repo and release API URLs
 
-  torrents/            # libtorrent layer (function-based, one tiny Session class)
-    session.py         #   create_session / stop_session / set_save_path
-    actions.py         #   add_magnet / add_torrent_file / pause / resume / remove
-    state.py           #   list_torrents → TorrentSnapshot DTOs
-    persistence.py     #   load_saved (restore torrents on startup)
-    dto.py             #   TorrentSnapshot, NetworkStats
+  bridge/                JS <-> Python RPC surface, split by area
+    core.py              Bridge(QObject), signals, worker wiring
+    search_slots.py      search, provider health, history
+    torrents_slots.py    add/pause/resume/remove, per-file priorities, labels
+    settings_slots.py    settings, proxy, schedule, import/export
+    system_slots.py      folders, notifications, updates, command palette
+    feeds_slots.py       RSS subscriptions
 
-  search/              # search orchestrator (function `search()`)
-    enums.py           #   ProviderMode, Region, Category
-    dto.py             #   SearchResult, SearchOptions, SearchPage
-    ranking.py         #   query expansion + scoring + dedupe
+  torrents/              libtorrent layer (functions, one small Session class)
+    session.py           create_session / stop_session / set_save_path
+    actions.py           add_magnet / add_torrent_file / pause / resume / remove
+    state.py             list_torrents -> TorrentSnapshot DTOs
+    persistence.py       restore torrents on startup
+    resume.py            fast-resume file read/write
+    watch.py             watch-folder discovery
+    dto.py               TorrentSnapshot, NetworkStats
 
-  providers/           # one module per source, all functions
-    yts.py             #   search_yts
-    pirate_bay.py      #   search_pirate_bay
-    torrent_api_py.py  #   vendored multi-site adapter
+  search/                search orchestrator (function `search()`)
+    enums.py             ProviderMode, Region, Category, Quality, SortBy
+    dto.py               SearchResult, SearchOptions, SearchPage
+    ranking.py           query expansion, health score, dedupe
+    safety.py            heuristic risk flags for results
 
-  utils/               # shared stateless helpers
-    format.py          #   format_size / format_speed / format_eta
-    paths.py           #   normalize_path / user-writable app data paths
-    magnets.py         #   build_magnet
-    logger.py          #   setup_logger
+  providers/             one module per source, all functions
+    yts.py               search_yts
+    pirate_bay.py        search_pirate_bay
+    torrent_api_py.py    vendored multi-site adapter
+    health.py            ping_all, graded into three bands
+    tmdb.py              poster/rating/plot enrichment, cached
 
-  web/                 # HTML/CSS/JS for the embedded UI
-  resources/           # app icon + icon generator
-  vendor/torrent_api_py/  # upstream scrapers (untouched)
+  feeds/                 RSS configs, seen-item tracking, fetching
+
+  utils/                 shared stateless helpers
+    format.py            format_size / format_speed / format_eta
+    paths.py             normalize_path, user-writable app data dirs
+    magnets.py           build_magnet
+    logger.py            setup_logger
+    autostart.py         launch at login
+    single_instance.py   single-instance guard and CLI handoff
+    updater.py           GitHub Releases update check
+
+  web/                   HTML/CSS/JS for the embedded UI, built from partials/
+  resources/             app icon and its generator
+  vendor/torrent_api_py/ upstream scrapers, untouched
 ```
 
 Classes are reserved for things Python's frameworks require (PyQt subclasses,
 SQLAlchemy ORM, the one libtorrent `Session` dataclass). Everything else is a
-module-level function with enums for fixed value sets and frozen dataclass DTOs
+module-level function, with enums for fixed value sets and frozen dataclass DTOs
 for structured data.

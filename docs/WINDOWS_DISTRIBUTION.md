@@ -1,78 +1,98 @@
-# Windows Distribution Plan
+# Windows distribution
 
-## Goal
+How Yoink gets from source to something a person can double-click. This
+describes the pipeline as it stands, not a plan.
 
-Ship Yoink as a Windows desktop application that users can install or run without setting up Python manually.
+## The pipeline
 
-## Recommended Path
+`build.py` does three things in order:
 
-Use PyInstaller first, then wrap the output in an installer once the app is stable.
-
-1. Build a clean Python 3.11 virtual environment.
-2. Install dependencies from `requirements.txt`.
-3. Package with PyInstaller, including PyQt6, libtorrent, and `src/resources`.
-4. Move runtime data to user-writable folders.
-5. Smoke test the packaged app on a clean Windows profile.
-6. Create an installer with Inno Setup or WiX.
-7. Code sign the installer/exe if distributing publicly.
-
-## Runtime Data Locations
-
-Do not store mutable app data next to the executable.
-
-- Database: `%LOCALAPPDATA%/Yoink/yoink.db`
-- Logs: `%LOCALAPPDATA%/Yoink/logs/`
-- Settings: `%LOCALAPPDATA%/Yoink/yoink.db`
-- Downloads: user-selected folder, defaulting to `Downloads`
-
-## Build Command During Development
-
-The current repo has `build.py`, so a development build should start with:
+1. **Compose the HTML.** `src/web/index.html` is rebuilt from
+   `src/web/index.template.html` and the partials in `src/web/partials/`.
+2. **Build the exe.** PyInstaller runs with `--onefile` and produces
+   `dist/Yoink.exe`, bundling `src/web/`, `src/resources/` and `src/vendor/`.
+3. **Build the installer.** If `ISCC` (Inno Setup) is on PATH, it compiles
+   `installer/yoink.iss` into `dist/Yoink-Setup-<version>.exe`. If it isn't,
+   the step is skipped with a message and the exe is still usable.
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = "$PWD;$PWD\src"
-python .\build.py
+python build.py             # everything
+python build.py --exe-only  # skip the installer
+python build.py --compose-html  # just regenerate src/web/index.html
 ```
 
-Expect to refine `build.py` or create a checked-in `.spec` file as the UI/resources mature.
+The version comes from `src/version.py`, which is the single source of truth
+for `build.py`, `setup.py`, the About panel and the updater.
 
-## Release Checklist
+## What the installer does
 
-- App launches from `dist` without the source checkout.
-- Qt platform plugins are included.
-- App icon appears in the window, taskbar, and installer.
-- `libtorrent` imports successfully on a clean machine.
-- Database and logs are created in user-writable app data folders.
-- Search, add, pause, resume, remove, and open-folder flows work.
-- Windows Defender/SmartScreen behavior is understood.
-- Installer uninstall removes app files but does not delete user downloads.
+`installer/yoink.iss` is a per-user install: `PrivilegesRequired=lowest`, so
+Windows does not prompt for an administrator password. It is x64 only.
 
-## Distribution Options
+Optional tasks the user can tick:
 
-- Portable zip: fastest for testing, lowest polish.
-- Installer: best for normal users; use Inno Setup or WiX.
-- GitHub Releases: source of truth for downloadable `Yoink.exe`, installer, and checksums.
-- GitHub Pages: public download page that links to the latest release.
-- Microsoft Store: possible later, but packaging, signing, and policy review are more involved.
+- a desktop shortcut,
+- register `magnet:` links to open in Yoink,
+- register `.torrent` files to open in Yoink.
 
-## GitHub Hosting
+Both associations are written under `HKCU\Software\Classes` and removed on
+uninstall. Uninstalling removes the program files. It does not touch downloads
+or the app data folder.
 
-1. Bump `src/version.py`.
-2. Push a tag such as `v2.0.0`.
-3. Let `.github/workflows/release.yml` build and publish release assets.
-4. Enable GitHub Pages from the `docs/` folder on the default branch.
-5. Point users to the Pages site for installation instructions and the latest release link.
+## Runtime data locations
 
-## Important Caveat
+Nothing mutable is written next to the executable.
 
-Unsigned torrent software may trigger extra trust prompts. For public distribution, code signing and a clear website/release page matter.
+| What | Where |
+| --- | --- |
+| Database and settings | `%LOCALAPPDATA%\Yoink\yoink.db` |
+| Logs | `%LOCALAPPDATA%\Yoink\logs\yoink.log` |
+| Fast-resume data | `%LOCALAPPDATA%\Yoink\resume\<infohash>.fastresume` |
+| Downloads | user-chosen folder, defaults to `Downloads` |
 
-## Code Signing Notes
+`src/utils/paths.py` resolves these, falling back to `%APPDATA%` and then
+`~/AppData/Local` if `%LOCALAPPDATA%` is missing.
 
-- Sign `dist/Yoink.exe` and `dist/Yoink-Setup-*.exe` before uploading public release assets.
-- Sign before the workflow's "Add stable-named installer alias" step, or `Yoink-Setup.exe`
-  ends up being a copy of the unsigned build.
-- Store signing credentials as GitHub Actions secrets; do not commit certificate files or passwords.
-- Re-generate `SHA256SUMS.txt` after signing so hashes match the published binaries.
-- If signing is not available yet, call that out on the download page and release notes so users know why Windows may show SmartScreen warnings.
+## Releasing
+
+1. Bump `__version__` in `src/version.py`.
+2. Commit, then push a tag: `git tag v2.0.1 && git push origin v2.0.1`.
+3. `.github/workflows/release.yml` runs the tests, builds the exe, installs
+   Inno Setup, builds the installer, copies it to the stable filename
+   `Yoink-Setup.exe`, writes `SHA256SUMS.txt` and publishes the release.
+
+The workflow also runs on `workflow_dispatch`, but only tag pushes publish a
+release. See the README for what each asset is for and why the stable filename
+exists.
+
+## Release checklist
+
+- The app launches from `dist` on a machine with no source checkout.
+- Qt platform plugins are present and the window actually appears.
+- `libtorrent` imports on a clean machine.
+- The app icon shows in the window, taskbar and installer.
+- Database and logs are created under `%LOCALAPPDATA%`.
+- Search, add, pause, resume, remove and open-folder all work.
+- A `magnet:` link opens the running instance rather than a second copy.
+- Uninstall leaves downloads alone.
+
+## Code signing
+
+Not done yet. Until it is, SmartScreen will warn on first run, which the
+download page explains rather than hides.
+
+When a certificate is available:
+
+- Sign `dist/Yoink.exe` and `dist/Yoink-Setup-*.exe` before uploading.
+- Sign *before* the workflow's "Add stable-named installer alias" step, or
+  `Yoink-Setup.exe` ends up being a copy of the unsigned build.
+- Regenerate `SHA256SUMS.txt` after signing, or the published hashes won't
+  match the published binaries.
+- Keep credentials in GitHub Actions secrets. Don't commit certificates.
+
+## Other distribution options
+
+- **Portable exe.** Already shipped as `Yoink.exe`. Runs from anywhere,
+  including a USB stick.
+- **Microsoft Store.** Possible later. Packaging, signing and policy review
+  are all more involved than the current setup.
