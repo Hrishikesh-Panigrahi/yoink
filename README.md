@@ -54,38 +54,36 @@ assets:
 | `Yoink.exe` | Portable single-file build, no installer. |
 | `SHA256SUMS.txt` | Checksums for all three binaries. |
 
-`Yoink-Setup.exe` is a copy of the versioned installer that exists purely so the
-filename never changes. That is what makes GitHub's permanent redirect usable as
-a one-click download:
+`Yoink-Setup.exe` is just a copy of the versioned installer. It exists so there
+is one filename that never changes, which lets these URLs work forever:
 
 ```
 https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe
 https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink.exe
 ```
 
-These always resolve to the newest release, and GitHub serves them with
-`Content-Disposition: attachment`, so a click downloads the binary instead of
-navigating to a web page. Do not hardcode the version-stamped name anywhere
-public — it breaks on every release.
+They redirect to the newest release, and GitHub sends them with
+`Content-Disposition: attachment`, so clicking one downloads the file rather
+than opening a page. Don't put the version-stamped name in any public link. It
+breaks the next time you tag.
 
 ### Landing page
 
-The public site is a single self-contained file,
-[`docs/index.html`](docs/index.html) — no build step, no dependencies. To host it:
+The site is one file, [`docs/index.html`](docs/index.html). No build step, no
+dependencies. To host it:
 
-1. Repo **Settings → Pages**, set source to **Deploy from a branch**.
+1. **Settings → Pages**, source **Deploy from a branch**.
 2. Branch `main`, folder `/docs`. Save.
-3. The site goes live at `https://hrishikesh-panigrahi.github.io/yoink/`.
+3. It goes live at `https://hrishikesh-panigrahi.github.io/yoink/`.
 
-The download buttons carry the static URLs above, so they work with JavaScript
-disabled. On load, a small script queries the GitHub Releases API to fill in the
-real version number, installer size, and release date, and retargets the buttons
-at the exact assets on the latest release. If that request fails or is
-rate-limited, the static links still work.
+The download buttons use the static URLs above, so they work without
+JavaScript. On load a script hits the Releases API to fill in the version,
+file size and date, and repoints the buttons at the exact assets. If that call
+fails or gets rate-limited nothing breaks; the static links still work.
 
-Because the buttons are wired to the stable filename, **the landing page needs
-one tagged release to exist before the download works.** Bump `src/version.py`,
-then push a tag:
+Note that **the download only works once you have a tagged release**, since
+`Yoink-Setup.exe` doesn't exist until the workflow builds it. Bump
+`src/version.py` and push a tag:
 
 ```bash
 git tag v2.0.1 && git push origin v2.0.1

@@ -13,9 +13,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0f0d'/%3E%3Cpath d='M16 7v11m0 0l-4.5-4.5M16 18l4.5-4.5M9 23h14' stroke='%233dd68c' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
 
 <style>
-/* ============================================================
-   Theme tokens — mirrored from src/web/css/tokens.css
-   ============================================================ */
+/* Theme tokens. Copied from src/web/css/tokens.css; keep in sync. */
 :root, [data-theme="swarm"] {
   --bg-page:#0a0f0d; --bg-surface:#121a17; --bg-surface-2:#17211d; --bg-elev:#1d2823; --bg-sidebar:#070b0a;
   --border:#1f2a25; --border-strong:#2c3a33;
@@ -56,7 +54,7 @@ body {
   line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased;
   transition: background-color .45s var(--ease), color .45s var(--ease);
 }
-/* Faint schematic grid — the page reads as an instrument, not a brochure */
+/* Faint grid behind everything. */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
   background-image:
@@ -90,10 +88,7 @@ code { font-family: var(--mono); font-size: .87em; background: var(--bg-elev); p
    ============================================================ */
 #field { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
 
-/* ============================================================
-   Bitfield rail — this page's scrollbar is a piece map. Reading
-   the page downloads it.
-   ============================================================ */
+/* Bitfield rail. Stands in for the scroll indicator. */
 .rail {
   position: fixed; top: 50%; right: 14px; transform: translateY(-50%);
   z-index: 60; width: var(--rail-w);
@@ -106,8 +101,7 @@ code { font-family: var(--mono); font-size: .87em; background: var(--bg-elev); p
   transition: border-color .2s;
 }
 .rail-cell:hover { border-color: var(--accent); }
-/* Axis lives in CSS so the same --got works vertically on wide screens
-   and horizontally when the rail docks to the bottom. */
+/* Fill axis is set in CSS so one --got value works both orientations. */
 .rail-cell .fill {
   position: absolute; inset: 0; transform-origin: bottom;
   background: var(--accent); transform: scaleY(var(--got, 0));
@@ -131,9 +125,8 @@ code { font-family: var(--mono); font-size: .87em; background: var(--bg-elev); p
 /* the flip */
 .rail.seeding .rail-cell { border-color: var(--accent-ring); }
 .rail.seeding .rail-hud { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-/* Narrow screens: the rail lies down and becomes a piece bar across the
-   bottom, the way a real client shows one. Hiding it would take the whole
-   idea away from anyone not on a wide monitor. */
+/* Under 1080 the rail turns into a bar along the bottom. Hiding it would
+   drop the mechanic for anyone on a laptop-width window. */
 @media (max-width: 1080px) {
   .rail {
     top: auto; bottom: 0; right: 0; left: 0; transform: none; width: auto;
@@ -152,10 +145,8 @@ code { font-family: var(--mono); font-size: .87em; background: var(--bg-elev); p
   body { padding-bottom: 46px; }
 }
 
-/* ============================================================
-   Piece assembly. Blocks don't fade in — they finish downloading.
-   The overlay burns away; the content underneath was always there.
-   ============================================================ */
+/* Reveal overlay. Sits on top of a block and clears out of order.
+   The content underneath is never hidden, so this is decoration only. */
 .blk { position: relative; }
 .assemble {
   position: absolute; inset: -6px; z-index: 4; pointer-events: none;
@@ -381,8 +372,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     <h1>Yoink</h1>
     <p class="tagline">Just yoink it from the swarm.</p>
     <p class="lead">
-      A desktop torrent client that finds the healthiest copy of what you're after and
-      hands it to a proper libtorrent engine.
+      A torrent client for Windows. It looks for the healthiest copy of whatever you're
+      after and hands it to libtorrent to do the actual work.
     </p>
     <div class="actions">
       <a class="btn btn-primary" id="dl-1" href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe">
@@ -396,7 +387,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
       </a>
     </div>
     <p class="meta" id="meta"><strong>Windows 10 or newer</strong><span class="sep">·</span>64-bit<span class="sep">·</span>Installs the magnet handler</p>
-    <p class="youare" id="youare"><span class="dot" aria-hidden="true"></span><span>You are a peer in this swarm &mdash; move your cursor</span></p>
+    <p class="youare" id="youare"><span class="dot" aria-hidden="true"></span><span>Move your cursor. You're a peer in this swarm.</span></p>
   </div>
 </header>
 
@@ -408,7 +399,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     <div class="head">
       <span class="mono on">The client</span>
       <h2>Don't take a screenshot's word for it</h2>
-      <p class="lead">This is the real interface, running here. Pick something and watch it work.</p>
+      <p class="lead">This is the actual interface, running in the page. Pick a film and see what it does.</p>
     </div>
 
     <div class="win">
@@ -429,7 +420,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
             <button type="submit">Search</button>
           </form>
           <div class="chips" id="s-chips"></div>
-          <p class="mono hint">Every title here is a Blender open movie &mdash; free to share, legally</p>
+          <p class="mono hint">All three are Blender open movies, so they're legal to share</p>
         </div>
         <div id="s-scan" class="scan hidden">
           <p class="mono" id="s-scan-txt" role="status">Searching&hellip;</p>
@@ -457,12 +448,12 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
               </p>
             </div>
             <div class="files">
-              <p class="mono files-h">Files &mdash; untick to skip</p>
+              <p class="mono files-h">Files (untick to skip)</p>
               <div id="x-files"></div>
             </div>
           </div>
           <div class="done hidden" id="x-done">
-            <p><b>Done.</b> Eight seconds, because it's a simulation. The real one uses your actual bandwidth.</p>
+            <p><b>Done.</b> Eight seconds flat, because it's fake. Yours will depend on your connection and how healthy the swarm is.</p>
             <a class="btn btn-primary" id="dl-3" href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe">Get Yoink</a>
           </div>
         </div>
@@ -478,7 +469,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     <div class="head">
       <span class="mono on">Settings</span>
       <h2>The feature list, as the actual settings panel</h2>
-      <p class="lead">Every row is a real setting in the app, and the controls here work. Flip them, nudge them. Nothing is saved.</p>
+      <p class="lead">Every row is a real setting in the app. The controls on this page work too, though nothing you change here is saved.</p>
     </div>
     <div id="p-rows"></div>
   </div>
@@ -490,7 +481,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     <div class="head">
       <span class="mono on">Appearance</span>
       <h2>Eight themes, and this page wears them too</h2>
-      <p class="lead">Each preset retunes accents, surfaces, and contrast &mdash; not just a hue shift.</p>
+      <p class="lead">Each preset changes the surfaces and contrast as well as the accent colour. Click one and this page changes with it.</p>
     </div>
     <div class="themes" id="theme-grid" role="group" aria-label="Preview a theme"></div>
   </div>
@@ -513,8 +504,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L2.4 18a2 2 0 001.7 3h15.8a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
       <div>
         <h3>Windows will probably warn you</h3>
-        <p class="body">Yoink isn't code-signed yet &mdash; certificates cost real money &mdash; so SmartScreen may say <em>"Windows protected your PC"</em>. Choose <b>More info &rarr; Run anyway</b>.</p>
-        <p class="body">To check first, every release ships a <a href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>. Compare it against <code>Get-FileHash .\Yoink-Setup.exe -Algorithm SHA256</code>.</p>
+        <p class="body">Yoink isn't code-signed yet, because certificates cost money. SmartScreen may say <em>"Windows protected your PC"</em>. Click <b>More info</b>, then <b>Run anyway</b>.</p>
+        <p class="body">If you'd rather check the file first, every release ships a <a href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>. Compare it against <code>Get-FileHash .\Yoink-Setup.exe -Algorithm SHA256</code>.</p>
       </div>
     </div>
   </div>
@@ -526,9 +517,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     <span class="flip" id="flip"><span class="ar" aria-hidden="true">&darr;</span> <span id="flip-txt">Leeching</span></span>
     <h2 id="seed-h">You've got the whole page.</h2>
     <p class="lead" id="seed-p">
-      Every block you scrolled past arrived in pieces, and the rail on the right filled
-      up as it did. That's the entire idea, and it's the last time you'll have to think
-      about it &mdash; the app does this bit for you.
+      Each block you passed arrived in pieces, and the bar tracked it. That's all a
+      torrent is. The app handles this part so you don't have to watch it.
     </p>
     <div class="actions">
       <a class="btn btn-primary" id="dl-4" href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe">
@@ -582,9 +572,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     });
   }
 
-  /* =========================================================
-     1. Release resolution
-     ========================================================= */
+  /* 1. Point the download buttons at the newest release. They already
+     carry a working href, so this only refines it. */
   (function release() {
     var IDS = ["dl-1", "dl-3", "dl-4"];
     function mb(n) {
@@ -620,14 +609,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
       .catch(function () {});
   })();
 
-  /* =========================================================
-     2. The swarm you're standing in.
-
-     Fixed behind the whole page. Your cursor is a peer: nodes
-     within reach link to it and send pieces toward it. Nobody
-     else can do this joke, because nobody else is a torrent
-     client.
-     ========================================================= */
+  /* 2. Swarm canvas. Fixed behind the page. The cursor is treated as
+     another node: anything in range links to it and sends pieces. */
   var repaint = function () {};
   (function field() {
     var cv = $("field"); if (!cv) return;
@@ -756,13 +739,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     if (!FINE) { var y = $("youare"); if (y) y.remove(); }
   })();
 
-  /* =========================================================
-     3. Piece assembly.
-
-     Blocks don't fade in, they finish downloading. The content
-     is in the DOM and readable the whole time — an accent grid
-     sits on top and burns away out of order.
-     ========================================================= */
+  /* 3. Section reveal. Builds a grid over each block and clears the
+     cells in shuffled order. Skipped entirely under reduced motion. */
   (function assemble() {
     var blocks = [].slice.call(document.querySelectorAll(".blk"));
     if (CALM || !("IntersectionObserver" in window)) return;
@@ -815,15 +793,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     blocks.forEach(function (b) { io.observe(b); });
   })();
 
-  /* =========================================================
-     4. The bitfield rail.
-
-     The page's scrollbar is a piece map: one cell per section,
-     each filling as you read through it. Reach the bottom and
-     you flip from leeching to seeding — which is the whole
-     point of the protocol, and the only landing page that gets
-     to make that joke.
-     ========================================================= */
+  /* 4. Bitfield rail. One cell per section, filling as you scroll
+     through it. Hitting 100% switches the page to a seeding state. */
   (function bitfield() {
     var rail = $("rail"); if (!rail) return;
     var secs = [].slice.call(document.querySelectorAll("[data-label]"));
@@ -850,9 +821,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     function update() {
       var vh = window.innerHeight;
       var doc = document.documentElement;
-      // Once you're at the bottom you have, by definition, the lot.
-      // Without this the last section can never fill: the footer keeps it
-      // from ever clearing the probe line, so the flip would never fire.
+      // Needed: the footer stops the last section from ever clearing the
+      // probe line, so without this it never reaches 100%.
       var atEnd = (window.scrollY + vh) >= (doc.scrollHeight - 6);
       var total = 0;
       secs.forEach(function (s, i) {
@@ -865,10 +835,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
       var pct = Math.round((total / secs.length) * 100);
       pctEl.textContent = pct + "%";
 
-      // Flip the flag before rendering any copy that depends on it. The last
-      // update lands at the bottom of the page, so a frame of stale text here
-      // never gets corrected — you'd sit on "Seeding" and "keep reading to
-      // seed" at the same time.
+      // Work out `full` before rendering anything that reads it. The final
+      // update happens at the bottom, so stale text here never corrects.
       var full = pct >= 99;
       if (ratio) {
         ratio.innerHTML = full
@@ -888,8 +856,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
         if (h) h.textContent = seeding ? "You're seeding it now." : "You've got the whole page.";
         if (p) {
           p.textContent = seeding
-            ? "Every block arrived in pieces and the rail filled up as it did. You went from leeching to seeding without being asked — which is exactly what the app does, except with films, and faster."
-            : "Every block you scrolled past arrived in pieces, and the rail on the right filled up as it did. That's the entire idea, and it's the last time you'll have to think about it — the app does this bit for you.";
+            ? "You have the whole thing, so now you're giving it back. Nobody asked you to. That's the part of BitTorrent people forget, and it's why swarms stay alive."
+            : "Each block you passed arrived in pieces, and the bar tracked it. That's all a torrent is. The app handles this part so you don't have to watch it.";
         }
       }
     }
@@ -905,9 +873,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     update();
   })();
 
-  /* =========================================================
-     5. Settings rows — the feature list, as working controls
-     ========================================================= */
+  /* 5. Settings rows. The feature list, built as real controls. */
   (function settings() {
     var host = $("p-rows"); if (!host) return;
     var T = "t", S = "s", P = "p", N = "n";
@@ -981,9 +947,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     });
   })();
 
-  /* =========================================================
-     6. Themes
-     ========================================================= */
+  /* 6. Theme switcher. Retints the page, not just the swatches. */
   (function themes() {
     var grid = $("theme-grid"); if (!grid) return;
     var LIST = [
@@ -1021,10 +985,8 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
     });
   })();
 
-  /* =========================================================
-     7. The playable client. A black box on purpose: it finds
-     you the healthiest copy, and how is its business.
-     ========================================================= */
+  /* 7. The demo client. Deliberately says nothing about where results
+     come from. Catalogue is three Blender open movies. */
   (function player() {
     var pane = $("client"); if (!pane) return;
 
@@ -1109,7 +1071,7 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
       if (!film) {
         txt.textContent = "";
         host.innerHTML = '<p class="body" style="padding:8px 0 14px">Nothing in the demo catalogue matches “' +
-          esc(query) + '”. It only knows three films — the real app searches for real.</p><div class="chips">' +
+          esc(query) + '”. This demo only knows three films. The real one actually searches.</p><div class="chips">' +
           FILMS.map(function (f, i) { return '<button class="chip" type="button" data-film="' + i + '">' + esc(f.title) + "</button>"; }).join("") +
           "</div>";
         return;

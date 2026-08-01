@@ -55,9 +55,8 @@ jobs:
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" installer\yoink.iss
 
-      # The download page links to a filename that must not change between
-      # releases, so `releases/latest/download/Yoink-Setup.exe` always resolves.
-      # The versioned copy stays for people archiving a specific build.
+      # The download page needs a filename that stays the same across
+      # releases. Keep the versioned copy too, for archiving.
       - name: Add stable-named installer alias
         shell: pwsh
         run: |
