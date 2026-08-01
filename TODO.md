@@ -11,20 +11,16 @@ Known work, roughly in the order it matters. Nothing here is in progress.
       The stable `Yoink-Setup.exe` alias does now exist: `v2.0.1` was tagged
       after the workflow step that creates it, so the download button's no-JS
       fallback resolves.
-- [ ] **Tag `v2.0.2` to break the update loop.** `v2.0.1` was tagged without
-      bumping `src/version.py`, so the workflow built and published
-      `Yoink-Setup-2.0.0.exe` under a `v2.0.1` release. The updater compares the
-      newest tag against `__version__`, so an installed copy reports 2.0.0,
-      is told 2.0.1 is available, installs it, still reports 2.0.0, and is told
-      again. Every user sits in that loop forever.
+- [x] **Broke the update loop.** `v2.0.1` was tagged without bumping
+      `src/version.py`, so the workflow built `Yoink-Setup-2.0.0.exe` and
+      published it as the `v2.0.1` release. The updater compares the newest tag
+      against `__version__`, so an installed copy reported 2.0.0, was offered
+      2.0.1, installed it, still reported 2.0.0, and was offered it again.
+      Fixed by bumping to `2.0.2` and tagging that.
 
-      `src/version.py` is now bumped to `2.0.2`. Nothing is published until a
-      tag is pushed, so the fix is one command:
-      `git tag v2.0.2 && git push origin v2.0.2`. Until then the app reports a
-      version higher than the newest release, which offers no update at all.
-      That is wrong but harmless, unlike the loop.
-
-      Re-tagging `v2.0.1` would be worse, since it is already published.
+      Worth remembering: **bump `src/version.py` in the same commit you tag.**
+      Tagging without it publishes a release whose binary disagrees with the
+      tag, and the updater has no way to tell.
 
 ## Distribution
 
