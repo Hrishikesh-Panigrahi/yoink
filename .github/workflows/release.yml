@@ -68,7 +68,14 @@ jobs:
       - name: Generate checksums
         shell: pwsh
         run: |
-          Get-FileHash dist\Yoink.exe, dist\Yoink-Setup-*.exe, dist\Yoink-Setup.exe -Algorithm SHA256 |
+          # The APK is built elsewhere. If one has been dropped into dist/ it
+          # gets hashed with everything else; if not, this still works.
+          $files = @()
+          $files += (Get-ChildItem dist\Yoink.exe, dist\Yoink-Setup.exe | ForEach-Object FullName)
+          $files += (Get-ChildItem dist\Yoink-Setup-*.exe | ForEach-Object FullName)
+          $apk = Get-ChildItem dist -Filter *.apk
+          if ($apk) { $files += ($apk | ForEach-Object FullName) }
+          Get-FileHash $files -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
             Set-Content dist\SHA256SUMS.txt
 
@@ -80,6 +87,7 @@ jobs:
             dist/Yoink.exe
             dist/Yoink-Setup.exe
             dist/Yoink-Setup-*.exe
+            dist/*.apk
             dist/SHA256SUMS.txt
 
       - name: Publish GitHub Release
@@ -90,5 +98,6 @@ jobs:
             dist/Yoink.exe
             dist/Yoink-Setup.exe
             dist/Yoink-Setup-*.exe
+            dist/*.apk
             dist/SHA256SUMS.txt
           generate_release_notes: true

@@ -135,7 +135,17 @@ assets:
 | `Yoink-Setup.exe` | Stable filename. What the landing page links to. |
 | `Yoink-Setup-<version>.exe` | Same installer, version-stamped for archiving. |
 | `Yoink.exe` | Portable single-file build, no installer. |
-| `SHA256SUMS.txt` | Checksums for all three binaries. |
+| `SHA256SUMS.txt` | Checksums for every binary in the release. |
+
+An Android APK can ride along too. Nothing in this repo builds one, so it has
+to come from elsewhere: either drop it into `dist/` before the release job
+reaches its checksum step, or attach it to the published release by hand. Either
+way it gets picked up, and if it's in `dist/` it lands in `SHA256SUMS.txt` with
+the rest.
+
+The landing page keeps its Android button hidden and only shows it when the
+newest release actually contains a `.apk`, so a Windows-only release doesn't
+leave a dead button on the site. Nothing to edit on the page when you add one.
 
 `Yoink-Setup.exe` is just a copy of the versioned installer. It exists so there
 is one filename that never changes, which lets these URLs work forever:

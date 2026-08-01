@@ -55,7 +55,9 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 p { margin: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.hidden { display: none !important; }
+/* [hidden] needs the !important or class rules like .btn's display:inline-flex
+   outrank the UA stylesheet and the element shows up anyway. */
+.hidden, [hidden] { display: none !important; }
 h1,h2,h3 { margin: 0; color: var(--text-strong); font-weight: 800; line-height: 1.08; letter-spacing: -.035em; }
 h1 { font-size: var(--t-hero); font-weight: 900; letter-spacing: -.06em; line-height: .88; }
 h2 { font-size: var(--t-sec); }
@@ -265,6 +267,12 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
           <span id="dl-1-label">Download for Windows</span>
         </a>
         <a class="btn btn-ghost" id="dl-portable" href="https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink.exe">Portable&nbsp;.exe</a>
+        <!-- Revealed by script only when the newest release actually carries an
+             APK, so a Windows-only release can never leave a dead button here. -->
+        <a class="btn btn-ghost" id="dl-apk" href="#" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.4"/><path d="M11 18.6h2"/></svg>
+          <span id="dl-apk-label">Android APK</span>
+        </a>
       </div>
       <p class="meta" id="meta"><strong>Windows 10 or newer</strong><span class="sep">·</span>64-bit<span class="sep">·</span>Installs the magnet handler</p>
     </div>
@@ -472,8 +480,19 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
         var setup = a.filter(function (x) { return /^Yoink-Setup-.+\.exe$/i.test(x.name); })[0]
                  || a.filter(function (x) { return /^Yoink-Setup\.exe$/i.test(x.name); })[0];
         var port = a.filter(function (x) { return /^Yoink\.exe$/i.test(x.name); })[0];
+        var apk  = a.filter(function (x) { return /\.apk$/i.test(x.name); })[0];
         if (setup) IDS.forEach(function (id) { var el = $(id); if (el) el.href = setup.browser_download_url; });
         if (port) { var p = $("dl-portable"); if (p) p.href = port.browser_download_url; }
+
+        // No APK on this release means the button stays hidden rather than 404ing.
+        var apkBtn = $("dl-apk");
+        if (apk && apkBtn) {
+          apkBtn.href = apk.browser_download_url;
+          var apkSize = mb(apk.size);
+          var apkLbl = $("dl-apk-label");
+          if (apkLbl) apkLbl.textContent = "Android APK" + (apkSize ? " · " + apkSize : "");
+          apkBtn.hidden = false;
+        }
         var v = (rel.tag_name || "").replace(/^v/i, "");
         if (v) {
           $("ver").textContent = "v" + v;
@@ -587,7 +606,14 @@ footer { border-top: 1px solid var(--border); background: var(--bg-sidebar); pad
       var el = elapsed = ts - t0;
       ctx.clearRect(0, 0, W, H);
 
-      if (!drag) { rotY += spin + vY; vY *= 0.94; }
+      // Swing rather than spin. A full turn takes the arrow edge-on, where the
+      // model is a thin strip and stops reading as the logo. Dragging past the
+      // limit is allowed; it just drifts back.
+      if (!drag) {
+        rotY += spin + vY;
+        vY *= 0.94;
+        if ((rotY > 0.6 && spin > 0) || (rotY < -0.6 && spin < 0)) spin = -spin;
+      }
 
       var order = [], i, p;
       placed = 0;
