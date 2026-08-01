@@ -47,6 +47,32 @@ Known work, roughly in the order it matters. Nothing here is in progress.
       interface, labelled as a mock. Actual screenshots of the running app
       would be more convincing and more honest.
 
+## Features
+
+- [ ] **Play video in the app.** Nothing plays media today. `openPath` hands
+      the file to the OS default handler and that is the whole story.
+
+      Playing a *finished* file in-app is barely worth the code, since
+      double-clicking already does it. The version that earns its keep is
+      playing *while it downloads*, which needs three things, none of them
+      started:
+
+      - sequential piece ordering and `set_piece_deadline`, so the front of the
+        file lands first. libtorrent supports both and neither is used
+        anywhere in `src/torrents/`.
+      - a player that copes with a file growing underneath it.
+      - somewhere to put a "play now" control, appearing once enough of the
+        head is in.
+
+      Codecs are the hard part, not the plumbing. QtMultimedia goes through
+      Media Foundation on Windows, which is patchy on the MKV, HEVC and AC3
+      combinations torrents actually ship, and HEVC wants a paid codec from the
+      Store. HTML5 `<video>` in the web view is worse, because Qt's Chromium
+      normally ships without proprietary codecs. Embedding libVLC through
+      `python-vlc` plays essentially everything, but bolts a large native
+      dependency onto a build that is currently one self-contained exe. That
+      tradeoff is the actual decision here.
+
 ## Search back end
 
 Public torrent sites change domains, markup and bot protection constantly,
