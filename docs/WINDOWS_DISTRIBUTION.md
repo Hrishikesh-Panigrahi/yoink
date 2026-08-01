@@ -61,6 +61,12 @@ Nothing mutable is written next to the executable.
    Inno Setup, builds the installer, copies it to the stable filename
    `Yoink-Setup.exe`, writes `SHA256SUMS.txt` and publishes the release.
 
+If a `.apk` is sitting in `dist/` when the checksum step runs, it is hashed and
+published with everything else. Nothing here builds one; see `TODO.md`. You can
+also just attach an APK to the finished release by hand, in which case it skips
+the checksum file. Either way the landing page notices it and shows an Android
+download button.
+
 The workflow also runs on `workflow_dispatch`, but only tag pushes publish a
 release. See the README for what each asset is for and why the stable filename
 exists.
@@ -94,5 +100,8 @@ When a certificate is available:
 
 - **Portable exe.** Already shipped as `Yoink.exe`. Runs from anywhere,
   including a USB stick.
+- **Android.** Not built. It would be a separate codebase rather than another
+  target for this one, and APK signing is its own thing (`apksigner`, not
+  Authenticode). See `TODO.md`.
 - **Microsoft Store.** Possible later. Packaging, signing and policy review
   are all more involved than the current setup.

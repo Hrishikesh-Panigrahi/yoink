@@ -9,6 +9,7 @@ with optional multi-site scraping through a vendored copy of
 [Torrent-Api-py](https://github.com/Ryuk-me/Torrent-Api-py).
 
 Public site and downloads: <https://hrishikesh-panigrahi.github.io/yoink/>
+Known outstanding work: [`TODO.md`](TODO.md)
 
 ## Features
 
