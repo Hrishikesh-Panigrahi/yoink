@@ -25,6 +25,19 @@ def _extract_payload(argv: list[str]) -> str:
     return ""
 
 
+def _apply_dns_setting() -> None:
+    """Switch name resolution to DoH unless the user turned it off."""
+    try:
+        import db
+        from utils import resolver
+
+        db.init_db()
+        resolver.apply_from_settings()
+    except Exception as exc:
+        # Never block startup over this - the system resolver still works.
+        logger.warning(f"Could not apply the DNS setting: {exc}")
+
+
 def main() -> None:
     logger.info("Starting Yoink")
 
@@ -32,6 +45,10 @@ def main() -> None:
     if payload and send_to_existing(payload):
         logger.info("Handed CLI payload off to existing Yoink instance; exiting")
         return
+
+    # Before the window, because MainWindow builds the Bridge, which starts
+    # workers that reach the network immediately.
+    _apply_dns_setting()
 
     app = QApplication(sys.argv)
     app.setApplicationName("Yoink")

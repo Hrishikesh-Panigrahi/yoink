@@ -13,12 +13,21 @@ STABLE_PROVIDERS: tuple[tuple[str, str], ...] = (
     ("piratebay_stable", "The Pirate Bay"),
 )
 
+#: Stable APIs on by default. YTS is deliberately absent: yts.mx no longer
+#: publishes an A record at all - not blocked, simply gone - so leaving it on
+#: cost every search two 10-second connect timeouts before any results showed.
+DEFAULT_STABLE_PROVIDERS: tuple[str, ...] = ("piratebay_stable",)
+
 #: Vendored multi-site providers we recommend enabling by default.
+#:
+#: These must match the keys `site_configs()` actually returns. They previously
+#: read "nyaaSi" and "magnet_dl", which match nothing, so Nyaa was never on by
+#: default despite the intent - and Nyaa is one of the two sources that answer
+#: reliably. MagnetDL is left out: magnetdl.com is the slowest probe by far.
 DEFAULT_VENDOR_PROVIDERS: tuple[str, ...] = (
     "1337x",
     "tgx",
-    "nyaaSi",
-    "magnet_dl",
+    "nyaasi",
 )
 
 
@@ -30,7 +39,7 @@ def all_provider_choices() -> list[dict]:
             "key": key,
             "label": label,
             "kind": "stable",
-            "defaultOn": True,
+            "defaultOn": key in DEFAULT_STABLE_PROVIDERS,
         })
     for key, cfg in site_configs().items():
         choices.append({
@@ -46,6 +55,7 @@ __all__ = [
     "available_sites",
     "site_configs",
     "STABLE_PROVIDERS",
+    "DEFAULT_STABLE_PROVIDERS",
     "DEFAULT_VENDOR_PROVIDERS",
     "all_provider_choices",
 ]

@@ -143,8 +143,8 @@
           <label class="filter-control filter-control-wide">
             <span>Sources</span>
             <select id="sourceFilter" aria-label="Sources filter">
-              <option value="stable">Stable (YTS + Pirate Bay)</option>
-              <option value="multi-default">All my enabled sites</option>
+              <option value="multi-default" selected>All my enabled sites</option>
+              <option value="stable">Stable APIs only (fastest)</option>
               <option value="torrent-api-py-all">Torrent-Api-py all sites</option>
               <option value="movies-core">Torrent-Api-py movies core</option>
               <option value="1337x">1337x only</option>
@@ -478,6 +478,22 @@
               </div>
               <label class="toggle">
                 <input type="checkbox" id="settingClipboardWatcher" aria-label="Clipboard magnet watcher" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Resolve sources over DNS-over-HTTPS</span>
+                  <span class="setting-desc">Look up source hostnames via Cloudflare and Google instead of your network's DNS. Some networks answer with a wrong address, which makes sources look permanently offline. Turn this off to use your system resolver.</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingDnsOverHttps" aria-label="Resolve sources over DNS-over-HTTPS" />
                 <span class="toggle-thumb"></span>
               </label>
             </div>

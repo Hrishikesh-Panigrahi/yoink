@@ -96,11 +96,61 @@ Known work, roughly in the order it matters. Nothing here is in progress.
       Still unverified: HEVC and AC3 specifically, and anything about how it
       behaves on a real swarm rather than a file being appended to on disk.
 
+- [x] **Play straight from a search result.** The download-row Play button
+      needed a torrent already in the session; a search result is only a magnet.
+      `StreamPrepareWorker` closes the gap by waiting on the three things that
+      have to happen first — the file list arriving over DHT, the switch to
+      sequential order, and the head actually reaching disk, since libtorrent
+      only creates the file when it first writes — then opening the window
+      itself. It reports which of the three it is on, so the control says
+      "Buffering 40%" rather than spinning.
+
+      It does not wait for the tail as well. That would stall on a slow swarm,
+      and the tail keeps arriving on its own deadline.
+
 ## Search back end
 
 Public torrent sites change domains, markup and bot protection constantly,
 which is why the long-tail providers behind `ProviderMode.MULTI` are flaky and
-why the health check exists at all. Two ways out, neither started:
+why the health check exists at all.
+
+- [x] **DNS-over-HTTPS.** Some networks answer DNS for torrent indexes with a
+      sinkhole rather than the real address. Measured on one connection,
+      `yts.mx`, `1337x.to`, `torrentgalaxy.to`, `thepiratebay.org` and
+      `magnetdl.com` all resolved to the same unrelated IP, so every probe timed
+      out. `src/utils/resolver.py` resolves through Cloudflare and Google over
+      HTTPS instead, and reachable providers went from **2 to 11**.
+
+      It patches `socket.getaddrinfo`, not the HTTP layer. Rewriting URLs to raw
+      IPs is the obvious first idea and it is wrong: it breaks SNI, the Host
+      header and certificate validation all at once. Replacing only the
+      name-to-address step leaves all three intact and covers `requests`,
+      `urllib` and `aiohttp` without any of them knowing. On by default,
+      toggleable in Settings.
+
+- [x] **Dropped YTS from the defaults.** `yts.mx` publishes no A record at all
+      any more — not blocked, gone — and left on it cost every search two
+      10-second connect timeouts before any results appeared.
+
+- [x] **Fixed the default vendor provider keys.** They read `"nyaaSi"` and
+      `"magnet_dl"`, which match nothing `site_configs()` returns, so Nyaa was
+      never enabled by default despite the intent. Now `nyaasi`, and it is on.
+
+- [ ] **The vendored scrapers return nothing.** This is the real remaining gap
+      and DNS does not touch it. With DoH on, all four sampled sites connect and
+      all four return zero rows:
+
+      - `1337x.to` resets the connection mid-handshake. DNS is correct by then,
+        so this is blocking on the TLS SNI, which nothing inside the process can
+        route around. The proxy setting in Settings, or a VPN, is the answer.
+      - `nyaa.si` answers HTTP 200 from `ddos-guard` — an interstitial, not
+        results, so there is nothing to parse.
+
+      `cloudscraper` is already a dependency but only `src/vendor/`'s
+      `magnet_dl` uses it. Wiring it into the other adapters is the cheap
+      experiment; fixing it properly is the Torznab item below.
+
+Two durable ways out, neither started:
 
 - [ ] **Torznab.** [Jackett](https://github.com/Jackett/Jackett) and
       [Prowlarr](https://github.com/Prowlarr/Prowlarr) expose one standard

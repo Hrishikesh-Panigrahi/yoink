@@ -111,9 +111,41 @@ imports as the app (`from torrents import ...`, `from search import search`).
 every push. The release workflow runs it too, so a failing test blocks a
 release.
 
+## Sources and DNS
+
+Search runs against the stable APIs (The Pirate Bay) plus whichever vendored
+sites are enabled in Settings → Sources. Defaults are The Pirate Bay, 1337x,
+TorrentGalaxy and Nyaa.
+
+YTS is **off** by default: `yts.mx` no longer publishes an A record, and leaving
+it on cost every search two 10-second connect timeouts before any results
+appeared.
+
+Some networks answer DNS for torrent indexes with a sinkhole address instead of
+the real one, which makes every source look permanently offline. Yoink resolves
+source hostnames over DNS-over-HTTPS (Cloudflare, then Google) rather than
+trusting the local resolver — on one such connection that took reachable
+providers from 2 to 11. Turn it off in Settings → Advanced to use your system
+resolver.
+
+It works by replacing `socket.getaddrinfo` (see
+[`src/utils/resolver.py`](src/utils/resolver.py)), not by rewriting URLs to raw
+IPs — the latter breaks SNI, the `Host` header and certificate validation.
+
+DNS is not a cure-all. A site blocked at the TLS layer resets the connection
+even once the address is right, and one behind DDoS-Guard or Cloudflare returns
+an interstitial rather than results. For those, use the proxy setting in
+Settings, or see the Torznab note in [TODO.md](TODO.md).
+
 ## Playing a file while it downloads
 
-A **Play** button appears on any download whose torrent contains a video. It
+A **Play** button appears on any search result with a magnet, and on any
+download whose torrent contains a video. From a search result Yoink adds the
+magnet, waits for the file list, switches to sequential pieces and buffers the
+head before opening the player — the button reports which of those it is on.
+
+The download-row button behaves the same way once the torrent is already added.
+It
 switches libtorrent to sequential order, deadlines the head *and* the tail of
 the file, and opens the file in an in-app window — you do not have to wait for
 the download to finish.

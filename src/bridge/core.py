@@ -235,6 +235,7 @@ class Bridge(
             "tmdbConfigured": bool(db.get_setting("tmdb_api_key")),
             "clipboardWatcher": _bool_setting("clipboard_watcher_enabled", "0"),
             "watchFolder": db.get_setting("watch_folder") or "",
+            "dnsOverHttps": _bool_setting("dns_over_https_enabled"),
         }
 
     def _int_setting(self, key: str, default: int = 0) -> int:

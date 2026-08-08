@@ -175,6 +175,7 @@ const App = (() => {
 
     els.viewToggleBtns = $$(".view-toggle-btn");
     els.settingClipboardWatcher = $("#settingClipboardWatcher");
+    els.settingDnsOverHttps = $("#settingDnsOverHttps");
     els.exportSettingsBtn = $("#exportSettingsBtn");
     els.importSettingsBtn = $("#importSettingsBtn");
     els.shortcutsBackdrop = $("#shortcutsBackdrop");
@@ -2168,6 +2169,7 @@ const App = (() => {
     els.settingNotifications.checked = !!s.notifications;
     els.settingMinimizeTray.checked = !!s.minimizeToTray;
     if (els.settingClipboardWatcher) els.settingClipboardWatcher.checked = !!s.clipboardWatcher;
+    if (els.settingDnsOverHttps) els.settingDnsOverHttps.checked = !!s.dnsOverHttps;
     if (els.watchFolderPath) {
       els.watchFolderPath.textContent = s.watchFolder || "Not set";
       if (s.watchFolder) localStorage.setItem("yoink.watchFolderCached", s.watchFolder);
@@ -2317,7 +2319,7 @@ const App = (() => {
       els.categoryFilter.value = "movies";
       els.qualityFilter.value = "any";
       els.sortFilter.value = "relevance";
-      els.sourceFilter.value = "stable";
+      els.sourceFilter.value = "multi-default";
       saveFilters();
       if (state.query && !state.searching) doSearch(state.query, 1);
     });
@@ -2516,6 +2518,14 @@ const App = (() => {
       els.settingClipboardWatcher.addEventListener("change", (e) =>
         bridge.setBoolSetting("clipboard_watcher_enabled", e.target.checked)
       );
+    }
+    if (els.settingDnsOverHttps) {
+      els.settingDnsOverHttps.addEventListener("change", (e) => {
+        bridge.setBoolSetting("dns_over_https_enabled", e.target.checked);
+        toast("info", e.target.checked
+          ? "Sources will be resolved over DNS-over-HTTPS."
+          : "Back to your system's DNS resolver.");
+      });
     }
     if (els.exportSettingsBtn) {
       els.exportSettingsBtn.addEventListener("click", () => bridge.exportSettings(() => {}));

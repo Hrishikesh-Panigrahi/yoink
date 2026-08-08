@@ -10,7 +10,7 @@ from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtWidgets import QFileDialog
 
 import db
-from utils import autostart
+from utils import autostart, resolver
 from utils.logger import setup_logger
 from version import __version__
 
@@ -29,6 +29,11 @@ class SettingsMixin:
     def setBoolSetting(self, key: str, value: bool) -> None:
         """Persist a boolean setting and notify listeners."""
         db.set_setting(key, "1" if value else "0")
+        if key == "dns_over_https_enabled":
+            # Takes effect immediately; no restart, and cached answers are
+            # dropped so the next lookup reflects the change.
+            resolver.clear_cache()
+            resolver.apply_from_settings()
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
 
     @pyqtSlot(str, int)
