@@ -19,7 +19,7 @@ from PyQt6.QtCore import QObject
 import db
 import feeds
 import torrents
-from bridge import Bridge, search_slots, settings_slots, system_slots
+from bridge import Bridge, player_slots, search_slots, settings_slots, system_slots
 from conftest import FakeTorrentHandle
 
 SIGNAL_NAMES = (
@@ -132,6 +132,7 @@ def bridge(lt_session, monkeypatch, tmp_path):
     obj._health_worker = None
     obj._update_worker = None
     obj._completion_announced = set()
+    obj._player_window = None
     obj.downloads_worker = FakeWorker(running=True)
     obj.network_worker = FakeWorker(running=True)
     obj.watch_worker = FakeWorker()
@@ -513,6 +514,129 @@ def test_stop_streaming_reports_whether_it_was_on(bridge):
     assert bridge.stopStreaming("abc") is True
     assert handle.is_sequential is False
     assert bridge.stopStreaming("abc") is False
+
+
+# ----- Player -------------------------------------------------------------
+
+
+class FakePlayerModule:
+    """Stands in for the `player` package inside the bridge's player slots."""
+
+    def __init__(self, available: bool, reason: str = "") -> None:
+        self._available = available
+        self._reason = reason
+
+    def is_available(self) -> bool:
+        return self._available
+
+    def describe(self) -> dict:
+        return {"available": self._available, "reason": self._reason, "version": "3.0.20"}
+
+
+def test_player_status_is_reported_verbatim(bridge, monkeypatch):
+    monkeypatch.setattr(player_slots, "player", FakePlayerModule(False, "VLC was not found."))
+
+    status = json.loads(bridge.getPlayerStatus())
+
+    assert status["available"] is False
+    assert status["reason"] == "VLC was not found."
+
+
+def test_playable_file_reports_the_index(bridge):
+    bridge.session.handles["abc"] = FakeTorrentHandle(
+        [("readme.txt", 1024), ("Movie.mkv", 500 * 1024 * 1024)]
+    )
+
+    assert bridge.getPlayableFile("abc") == 1
+
+
+def test_playable_file_is_minus_one_when_there_is_no_video(bridge):
+    bridge.session.handles["abc"] = FakeTorrentHandle([("readme.txt", 1024)])
+
+    assert bridge.getPlayableFile("abc") == -1
+    assert bridge.getPlayableFile("unknown") == -1
+
+
+def test_playable_file_does_not_start_streaming(bridge):
+    handle = FakeTorrentHandle([("Movie.mkv", 500 * 1024 * 1024)])
+    bridge.session.handles["abc"] = handle
+
+    bridge.getPlayableFile("abc")
+
+    assert handle.is_sequential is False
+    assert handle.deadlines == []
+    assert bridge.session.streams == {}
+
+
+def test_play_in_app_explains_a_missing_player(bridge, recorder, monkeypatch):
+    monkeypatch.setattr(player_slots, "player", FakePlayerModule(False, "VLC was not found."))
+    bridge.session.handles["abc"] = FakeTorrentHandle([("Movie.mkv", 500 * 1024 * 1024)])
+
+    assert bridge.playInApp("abc", -1) == "{}"
+    assert recorder.last("toast")[2] == "VLC was not found."
+    # Nothing was reordered, since nothing could have played it.
+    assert bridge.session.streams == {}
+
+
+def test_play_in_app_starts_the_stream_and_opens_a_window(bridge, monkeypatch):
+    monkeypatch.setattr(player_slots, "player", FakePlayerModule(True))
+    opened = []
+    monkeypatch.setattr(bridge, "_open_player_window", opened.append)
+    handle = FakeTorrentHandle([("Movie.mkv", 500 * 1024 * 1024)])
+    bridge.session.handles["abc"] = handle
+
+    payload = json.loads(bridge.playInApp("abc", -1))
+
+    assert payload["fileIndex"] == 0
+    assert handle.is_sequential is True
+    assert len(opened) == 1
+    assert opened[0].absolute_path.endswith("Movie.mkv")
+
+
+def test_play_in_app_reports_a_torrent_with_nothing_to_play(bridge, recorder, monkeypatch):
+    monkeypatch.setattr(player_slots, "player", FakePlayerModule(True))
+    bridge.session.handles["abc"] = FakeTorrentHandle([("readme.txt", 1024)])
+
+    assert bridge.playInApp("abc", -1) == "{}"
+    assert recorder.last("toast")[1] == "error"
+
+
+def test_play_in_app_survives_a_window_that_will_not_open(bridge, recorder, monkeypatch):
+    monkeypatch.setattr(player_slots, "player", FakePlayerModule(True))
+
+    def explode(_status):
+        raise RuntimeError("no display")
+
+    monkeypatch.setattr(bridge, "_open_player_window", explode)
+    bridge.session.handles["abc"] = FakeTorrentHandle([("Movie.mkv", 500 * 1024 * 1024)])
+
+    assert bridge.playInApp("abc", -1) == "{}"
+    assert recorder.last("toast")[1] == "error"
+
+
+def test_close_player_is_a_no_op_without_a_window(bridge):
+    bridge.closePlayer()  # must not raise
+
+    assert bridge._player_window is None
+
+
+def test_close_player_closes_an_open_window(bridge):
+    closed = []
+    bridge._player_window = type("W", (), {"close": lambda self: closed.append(True)})()
+
+    bridge.closePlayer()
+
+    assert closed == [True]
+
+
+def test_shutdown_closes_the_player(bridge, monkeypatch):
+    monkeypatch.setattr(torrents, "stop_session", lambda session: None)
+    closed = []
+    bridge._player_window = type("W", (), {"close": lambda self: closed.append(True)})()
+
+    bridge.shutdown()
+
+    assert closed == [True]
 
 
 # ----- Downloads snapshot -------------------------------------------------

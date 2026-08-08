@@ -42,6 +42,7 @@ const App = (() => {
     networkDown: 0,
     networkUp: 0,
     hadInitialDownloadsSnapshot: false,
+    playerAvailable: false,
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -1210,6 +1211,19 @@ const App = (() => {
         });
       });
     }
+    const playBtn = node.querySelector(".dl-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        playBtn.disabled = true;
+        bridge.playInApp(hash, -1, (raw) => {
+          playBtn.disabled = false;
+          let status = {};
+          try { status = JSON.parse(raw || "{}"); } catch (e) {}
+          // An empty payload means the bridge already explained itself in a toast.
+          if (status.ready === false) toast("info", "Buffering the start of the file...");
+        });
+      });
+    }
 
     const kebabBtn = node.querySelector(".dl-kebab");
     const menu = node.querySelector(".dl-menu");
@@ -1332,6 +1346,45 @@ const App = (() => {
     node.querySelector(".dl-resume").hidden = !isPaused;
     const openFileBtn = node.querySelector(".dl-open-file");
     if (openFileBtn) openFileBtn.hidden = !completed;
+    const playBtn = node.querySelector(".dl-play");
+    if (playBtn) updatePlayButton(playBtn, node, t);
+  }
+
+  // The play control needs two answers: is there a player at all (asked once at
+  // startup) and does this torrent hold a video (needs metadata, which lands
+  // after the row does — so it is asked once per row and cached on the node).
+  function updatePlayButton(btn, node, t) {
+    if (!state.playerAvailable) {
+      btn.hidden = true;
+      return;
+    }
+    const cached = node.dataset.playable;
+    if (cached === "1" || cached === "0") {
+      btn.hidden = cached !== "1";
+      return;
+    }
+    btn.hidden = true;
+    const metadataReady = !/metadata/i.test(t.status || "") && Boolean(t.name);
+    if (!metadataReady || node.dataset.playablePending === "1") return;
+    node.dataset.playablePending = "1";
+    bridge.getPlayableFile(t.hash, (index) => {
+      node.dataset.playablePending = "";
+      node.dataset.playable = index >= 0 ? "1" : "0";
+      btn.hidden = index < 0;
+    });
+  }
+
+  function loadPlayerStatus() {
+    if (!bridge || !bridge.getPlayerStatus) return;
+    bridge.getPlayerStatus((raw) => {
+      try {
+        const info = JSON.parse(raw || "{}");
+        state.playerAvailable = Boolean(info.available);
+        if (!info.available && info.reason) {
+          console.info(`In-app player unavailable: ${info.reason}`);
+        }
+      } catch (e) {}
+    });
   }
 
   // ----- File-selection modal -----
@@ -1979,6 +2032,7 @@ const App = (() => {
     loadSearchHistory();
     loadProviderChoices();
     loadAboutInfo();
+    loadPlayerStatus();
     loadPaletteCommands();
     loadWatchFolder();
     loadFeeds();

@@ -160,6 +160,22 @@ def start_stream(
     return _status(handle, info_hash.lower(), index, files, plan)
 
 
+def playable_file(session: Session, info_hash: str) -> Optional[int]:
+    """Index of the file a play control would target, without changing anything.
+
+    The UI asks this to decide whether to show the control at all, so it must not
+    set flags, deadlines or priorities.
+    """
+    handle = _live_handle(session, info_hash)
+    if handle is None:
+        return None
+    layout = _layout(handle)
+    if layout is None:
+        return None
+    files = layout[0]
+    return pick_video_file([(path, size) for path, size, _ in files])
+
+
 def stream_status(session: Session, info_hash: str) -> Optional[StreamStatus]:
     """Report progress on the file `start_stream` selected, or None if idle."""
     key = info_hash.lower()

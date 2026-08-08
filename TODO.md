@@ -45,37 +45,38 @@ Known work, roughly in the order it matters. Nothing here is in progress.
 
 ## Features
 
-- [ ] **Play video in the app.** Nothing plays media today. `openPath` hands
-      the file to the OS default handler and that is the whole story.
+- [x] **Play video in the app.** A **Play** button on any download whose
+      torrent holds a video opens it in an in-app window while it is still
+      downloading. All three pieces are in:
 
-      Playing a *finished* file in-app is barely worth the code, since
-      double-clicking already does it. The version that earns its keep is
-      playing *while it downloads*, which needs three things:
+      - **Piece ordering.** `src/torrents/streaming.py` sets libtorrent's
+        `sequential_download` flag and deadlines the head *and* the tail. The
+        tail matters because MP4 keeps `moov` at the end unless written for
+        streaming and Matroska keeps its cues there, so a player that cannot
+        see the tail reports an unknown duration and refuses to seek.
+      - **The player.** libVLC through `python-vlc`, in `src/player/`.
+      - **The control.** `.dl-play` on the download row, shown only when a
+        runtime exists and `getPlayableFile` finds a video.
 
-      - ~~sequential piece ordering and `set_piece_deadline`, so the front of
-        the file lands first~~ — done. `src/torrents/streaming.py` sets the
-        `sequential_download` flag and deadlines the head *and* the tail, since
-        MP4 keeps `moov` at the end unless written for streaming and Matroska
-        keeps its cues there, so a player that cannot see the tail reports an
-        unknown duration and refuses to seek. `startStreaming`,
-        `getStreamStatus` and `stopStreaming` expose it on the bridge, and
-        `stream_status` reports a buffer percentage plus a `ready` flag.
-        Verified against real libtorrent, not just the test fakes.
-      - a player that copes with a file growing underneath it. **Not started —
-        blocked on the codec decision below.**
-      - somewhere to put a "play now" control, appearing once enough of the
-        head is in. **Not started.** The backend signal it needs already
-        exists: poll `getStreamStatus` and show the control when `ready` flips.
-        Where the control lives depends on which player wins.
+      **The codec decision was libVLC**, and the cost was accepted knowingly:
+      roughly 40-50 MB of plugin tree in the installer, and the build is no
+      longer one self-contained exe in the strict sense. QtMultimedia was
+      rejected because Media Foundation is patchy on exactly the MKV, HEVC and
+      AC3 mix torrents ship — a player that fails on half the library is worse
+      than no player.
 
-      Codecs are the hard part, not the plumbing. QtMultimedia goes through
-      Media Foundation on Windows, which is patchy on the MKV, HEVC and AC3
-      combinations torrents actually ship, and HEVC wants a paid codec from the
-      Store. HTML5 `<video>` in the web view is worse, because Qt's Chromium
-      normally ships without proprietary codecs. Embedding libVLC through
-      `python-vlc` plays essentially everything, but bolts a large native
-      dependency onto a build that is currently one self-contained exe. That
-      tradeoff is the actual decision here.
+      `python-vlc` is only a ctypes binding, and `import vlc` *raises* when no
+      runtime is present, so it is never imported at module scope. Everything
+      goes through `player.runtime.load_vlc()`, which returns a reason instead.
+      Discovery order: `YOINK_VLC_DIR`, the copy bundled beside a frozen build,
+      then an installed VLC via registry and Program Files. With none of them
+      the app runs normally and the button stays hidden. `build.py` fails
+      rather than shipping a dead button; `--no-player` opts out.
+
+      **Not verified: actual decoding and rendering.** No libvlc runtime was
+      available on the machine this was written on, so the discovery, fallback,
+      bridge and packaging paths are tested but no frame has been drawn. Worth
+      one manual run before tagging a release.
 
 ## Search back end
 

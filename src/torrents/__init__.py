@@ -32,6 +32,7 @@ from torrents.state import list_files, list_torrents
 from torrents.streaming import (
     pick_video_file,
     plan_stream,
+    playable_file,
     start_stream,
     stop_stream,
     stream_status,
@@ -60,6 +61,7 @@ __all__ = [
     "start_stream",
     "stop_stream",
     "stream_status",
+    "playable_file",
     "plan_stream",
     "pick_video_file",
     "TorrentSnapshot",

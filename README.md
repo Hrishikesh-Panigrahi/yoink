@@ -111,6 +111,38 @@ imports as the app (`from torrents import ...`, `from search import search`).
 every push. The release workflow runs it too, so a failing test blocks a
 release.
 
+## Playing a file while it downloads
+
+A **Play** button appears on any download whose torrent contains a video. It
+switches libtorrent to sequential order, deadlines the head *and* the tail of
+the file, and opens the file in an in-app window — you do not have to wait for
+the download to finish.
+
+The tail is prioritised alongside the head on purpose: MP4 keeps its `moov`
+index at the end unless the file was written for streaming, and Matroska keeps
+its cues there, so a player that cannot see the tail reports an unknown duration
+and refuses to seek.
+
+Playback is libVLC via [`python-vlc`](https://pypi.org/project/python-vlc/).
+That package is only a ctypes binding — it needs an actual VLC runtime, which
+released builds carry inside the exe. Running from source, Yoink looks for one
+in this order:
+
+1. `YOINK_VLC_DIR`, if you point it at a folder holding `libvlc.dll` and
+   `plugins/`.
+2. The copy bundled beside a frozen build.
+3. An installed VLC, via the registry then `C:\Program Files\VideoLAN\VLC`.
+
+With none of those, everything else works and the Play button simply stays
+hidden; `getPlayerStatus` reports why. `build.py` refuses to build without a
+runtime to bundle rather than shipping a dead button — pass `--no-player` if
+that is what you actually want.
+
+QtMultimedia was the alternative and was rejected: on Windows it goes through
+Media Foundation, which is patchy on exactly the MKV, HEVC and AC3 combinations
+torrents ship. The cost of libVLC is roughly 40-50 MB of plugins in the
+installer.
+
 ## Lint
 
 ```powershell
@@ -131,8 +163,8 @@ python build.py
 
 That composes the HTML, runs PyInstaller with `--onefile` to produce
 `dist/Yoink.exe`, then builds `dist/Yoink-Setup-<version>.exe` with Inno Setup
-if `ISCC` is on PATH. It bundles `src/web/`, `src/resources/` and `src/vendor/`.
-Pass `--exe-only` to skip the installer step. See
+if `ISCC` is on PATH. It bundles `src/web/`, `src/resources/`, `src/vendor/` and
+the VLC runtime. Pass `--exe-only` to skip the installer step. See
 [`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for the runtime
 data layout, signing notes and the release checklist.
 

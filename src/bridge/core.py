@@ -16,6 +16,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 import db
 import torrents
 from bridge.feeds_slots import FeedsMixin
+from bridge.player_slots import PlayerMixin
 from bridge.search_slots import SearchMixin
 from bridge.settings_slots import SettingsMixin
 from bridge.system_slots import SystemMixin
@@ -46,6 +47,7 @@ class Bridge(
     FeedsMixin,
     SearchMixin,
     TorrentsMixin,
+    PlayerMixin,
     QObject,
 ):
     """The single QObject registered as `bridge` on the JS side."""
@@ -78,6 +80,7 @@ class Bridge(
         self._health_worker: Optional[ProviderHealthWorker] = None
         self._update_worker: Optional[UpdateCheckWorker] = None
         self._completion_announced: set[str] = set()
+        self._player_window = None
 
         self.downloads_worker = DownloadsPollWorker(self.session)
         self.downloads_worker.snapshot.connect(self._on_downloads_snapshot)
@@ -258,6 +261,10 @@ class Bridge(
     def shutdown(self) -> None:
         """Stop workers and the libtorrent session before quitting."""
         logger.info("Bridge shutting down")
+        try:
+            self.closePlayer()
+        except Exception as exc:
+            logger.error(f"Player shutdown error: {exc}")
         for worker_name in (
             "downloads_worker",
             "network_worker",
