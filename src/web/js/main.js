@@ -43,6 +43,9 @@ const App = (() => {
     networkUp: 0,
     hadInitialDownloadsSnapshot: false,
     playerAvailable: false,
+    streamingKey: null,
+    streamingHash: null,
+    streamingPhase: "",
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -509,6 +512,16 @@ const App = (() => {
         infoBtn.addEventListener("click", () => openDetailsModal(r));
       }
 
+      // Streaming needs both a player and something to stream from. The file
+      // list is not known until the torrent is added, so this only checks that
+      // there is a magnet; the bridge reports back if it holds no video.
+      const playBtn = node.querySelector(".result-play");
+      if (playBtn && state.playerAvailable && r.magnet) {
+        playBtn.hidden = false;
+        playBtn.setAttribute("aria-label", `Play ${r.title}`);
+        playBtn.addEventListener("click", () => startStreamFromResult(r, playBtn));
+      }
+
       const key = r.magnet || r.infoHash || r.title;
       state.rowsByKey.set(key, { node, result: r });
       const cached = state.metadataByKey.get(key);
@@ -517,6 +530,45 @@ const App = (() => {
       frag.appendChild(node);
     });
     els.resultsList.appendChild(frag);
+  }
+
+  // ----- Streaming straight from a search result -----
+  function startStreamFromResult(r, btn) {
+    if (state.streamingKey) {
+      toast("info", "Already preparing a stream - one at a time.");
+      return;
+    }
+    state.streamingKey = r.magnet;
+    state.streamingPhase = "";
+    btn.disabled = true;
+    btn.classList.add("is-busy");
+    btn.title = "Starting...";
+    toast("info", "Preparing stream - this needs a few seconds of the file first.");
+    bridge.playFromMagnet(r.magnet, (raw) => {
+      let payload = {};
+      try { payload = JSON.parse(raw || "{}"); } catch (e) {}
+      if (!payload.hash) {
+        // The bridge already explained itself in a toast.
+        resetStreamButton(btn);
+        return;
+      }
+      state.streamingHash = payload.hash;
+    });
+  }
+
+  function resetStreamButton(btn) {
+    state.streamingKey = null;
+    state.streamingHash = null;
+    state.streamingPhase = "";
+    btn.disabled = false;
+    btn.classList.remove("is-busy");
+    btn.title = "Stream now, without waiting for the download";
+  }
+
+  function currentStreamButton() {
+    if (!state.streamingKey) return null;
+    const entry = state.rowsByKey.get(state.streamingKey);
+    return entry ? entry.node.querySelector(".result-play") : null;
   }
 
   // ----- TMDB metadata enrichment -----
@@ -1911,6 +1963,30 @@ const App = (() => {
         console.error(e);
       }
     });
+
+    if (bridge.streamProgress) {
+      bridge.streamProgress.connect((payloadStr) => {
+        let info = {};
+        try { info = JSON.parse(payloadStr || "{}"); } catch (e) { return; }
+        const btn = currentStreamButton();
+        if (info.phase === "failed") {
+          if (btn) resetStreamButton(btn);
+          return;
+        }
+        // Progress lives in the tooltip so the row never changes width. A
+        // toast only fires when the phase changes, not on every poll.
+        if (btn && info.message) btn.title = info.message;
+        if (info.phase && info.phase !== state.streamingPhase) {
+          state.streamingPhase = info.phase;
+          if (info.phase === "buffering") toast("info", "Got the file list - buffering the start.");
+        }
+        // The window opens by itself once the head is in; the button goes back
+        // to normal so the same result can be replayed later.
+        if (info.phase === "buffering" && (info.bufferProgress || 0) >= 100 && btn) {
+          resetStreamButton(btn);
+        }
+      });
+    }
 
     if (bridge.updateAvailable) {
       bridge.updateAvailable.connect((payloadStr) => {

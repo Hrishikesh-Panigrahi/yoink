@@ -8,6 +8,8 @@ from inside the signal handler — one iteration, then the loop unwinds.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import feeds
@@ -551,3 +553,125 @@ def test_schedule_worker_stays_idle_while_disabled(monkeypatch):
     worker.run()
 
     assert applied == []
+
+
+# ----- StreamPrepareWorker ------------------------------------------------
+#
+# The search-result Play path. A magnet carries no file list, so this worker
+# waits for metadata, switches to sequential order, and waits for the head to
+# reach disk before anything tries to open it.
+
+
+class MetadataHandle(FakeSnapshot):
+    """A handle whose metadata arrives after a set number of polls."""
+
+    def __init__(self, ready_after=0, valid=True):
+        self.polls = 0
+        self.ready_after = ready_after
+        self._valid = valid
+
+    def is_valid(self):
+        return self._valid
+
+    def has_metadata(self):
+        self.polls += 1
+        return self.polls > self.ready_after
+
+
+def stream_worker(monkeypatch, handles, **kwargs):
+    session = type("S", (), {"handles": handles, "streams": {}})()
+    return workers.StreamPrepareWorker(session, "abc", poll_ms=1, **kwargs)
+
+
+def test_stream_prepare_reports_a_missing_torrent(monkeypatch):
+    worker = stream_worker(monkeypatch, {})
+    failures = collect(worker.failed)
+
+    worker.run()
+
+    assert "no longer in the session" in failures[0][1]
+
+
+def test_stream_prepare_gives_up_waiting_for_metadata(monkeypatch):
+    worker = stream_worker(
+        monkeypatch, {"abc": MetadataHandle(ready_after=10_000)}, metadata_timeout_s=0.05
+    )
+    failures = collect(worker.failed)
+    phases = collect(worker.progress)
+
+    worker.run()
+
+    assert "file list" in failures[0][1]
+    assert json.loads(phases[0])["phase"] == "metadata"
+
+
+def test_stream_prepare_reports_a_torrent_with_no_video(monkeypatch):
+    monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: None)
+    worker = stream_worker(monkeypatch, {"abc": MetadataHandle()})
+    failures = collect(worker.failed)
+
+    worker.run()
+
+    assert "Nothing playable" in failures[0][1]
+
+
+def _status(head_have, head_total, path):
+    from torrents.dto import StreamStatus
+
+    return StreamStatus(
+        info_hash="abc", file_index=2, path="Movie.mkv", absolute_path=path,
+        size=100, first_piece=0, last_piece=9, head_have=head_have,
+        head_total=head_total, tail_have=0, tail_total=2, sequential=True,
+    )
+
+
+def test_stream_prepare_waits_for_the_head_then_reports_ready(monkeypatch, tmp_path):
+    target = tmp_path / "Movie.mkv"
+    target.write_bytes(b"x")
+    monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: _status(0, 4, str(target)))
+    states = iter([_status(1, 4, str(target)), _status(2, 4, str(target)),
+                   _status(4, 4, str(target))])
+    monkeypatch.setattr(torrents, "stream_status", lambda *a: next(states))
+
+    worker = stream_worker(monkeypatch, {"abc": MetadataHandle()})
+    ready = collect(worker.ready)
+    updates = collect(worker.progress)
+
+    worker.run()
+
+    assert ready == [("abc", 2)]
+    # It reported buffering progress rather than sitting silent.
+    assert any(json.loads(u)["phase"] == "buffering" for u in updates)
+
+
+def test_stream_prepare_will_not_open_a_file_that_is_not_on_disk_yet(monkeypatch, tmp_path):
+    # libtorrent creates the file only when it first writes. Opening before
+    # that hands VLC a path that does not exist.
+    missing = str(tmp_path / "not-written-yet.mkv")
+    monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: _status(4, 4, missing))
+    monkeypatch.setattr(torrents, "stream_status", lambda *a: _status(4, 4, missing))
+
+    worker = stream_worker(monkeypatch, {"abc": MetadataHandle()}, buffer_timeout_s=0.05)
+    ready = collect(worker.ready)
+    failures = collect(worker.failed)
+
+    worker.run()
+
+    assert ready == []
+    assert "Gave up waiting" in failures[0][1]
+
+
+def test_stream_prepare_stops_when_asked(monkeypatch, tmp_path):
+    target = tmp_path / "Movie.mkv"
+    target.write_bytes(b"x")
+    monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: _status(0, 4, str(target)))
+    worker = stream_worker(monkeypatch, {"abc": MetadataHandle()})
+    monkeypatch.setattr(
+        torrents, "stream_status", lambda *a: (worker.stop(), _status(0, 4, str(target)))[1]
+    )
+    ready = collect(worker.ready)
+    failures = collect(worker.failed)
+
+    worker.run()
+
+    assert ready == [] and failures == []

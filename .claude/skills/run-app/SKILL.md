@@ -137,6 +137,26 @@ Three things that will trip you up:
   `#downloadRowTpl`, not `#downloadTpl` (that is the *variable* name in
   `main.js`). Check `src/web/partials/templates.html` before guessing.
 
+## Check the layout after touching CSS or adding a control
+
+`scripts/audit_layout.js` walks the rendered page and reports anything whose
+content overflows its box, or that sticks out past its parent. Run it once per
+view and once with each modal open - it only sees what is currently rendered.
+
+```bash
+python -c "import json,pathlib; json.dump([pathlib.Path('.claude/skills/run-app/scripts/audit_layout.js').read_text()], open('a.json','w'))"
+python .claude/skills/run-app/scripts/cdp.py a.json --timeout-ms 8000
+```
+
+The recurring cause in this codebase is a grid or flex item that cannot shrink:
+both default to `min-width: auto`, so a long release title pushes the column
+wider than its track instead of wrapping. `minmax(0, 1fr)` on the track and
+`min-width: 0` on the item is the fix, and it is why the details modal used to
+clip its own Download button.
+
+Also worth knowing: `.modal` sets `width: 520px`, so a wider modal needs
+`width`, not just `max-width`, or it silently stays 520.
+
 ## Searches take ~20 seconds, and that is the network
 
 Stable mode queries YTS and The Pirate Bay. On a connection that blocks torrent

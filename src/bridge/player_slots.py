@@ -14,6 +14,7 @@ from PyQt6.QtCore import pyqtSlot
 import player
 import torrents
 from utils.logger import setup_logger
+from workers import StreamPrepareWorker
 
 logger = setup_logger("bridge.player")
 
@@ -77,6 +78,45 @@ class PlayerMixin:
 
         return json.dumps(status.to_dict())
 
+    @pyqtSlot(str, result=str)
+    def playFromMagnet(self, magnet: str) -> str:
+        """Add a magnet and play it as soon as enough of the file has arrived.
+
+        This is the search-result path. Unlike `playInApp`, nothing is known
+        about the torrent yet: the magnet has to be added, the file list waited
+        for, and the head buffered before a player can open anything. All three
+        happen on `StreamPrepareWorker`; progress arrives on `streamProgress`
+        and the window opens by itself when the head is in.
+        """
+        if not player.is_available():
+            reason = player.describe().get("reason") or "VLC is not available"
+            self.toast.emit("error", reason)
+            return "{}"
+
+        magnet = (magnet or "").strip()
+        if not magnet:
+            self.toast.emit("error", "No magnet link on this result")
+            return "{}"
+
+        try:
+            torrents.set_save_path(self.session, self.save_folder)
+            info_hash, was_existing = torrents.add_magnet_verbose(self.session, magnet)
+        except Exception as exc:
+            logger.exception("playFromMagnet could not add the magnet")
+            self.toast.emit("error", f"Could not add torrent: {exc}")
+            return "{}"
+
+        self._start_stream_prepare(info_hash)
+        return json.dumps({"hash": info_hash, "wasExisting": was_existing})
+
+    @pyqtSlot()
+    def cancelStreamPrepare(self) -> None:
+        """Stop waiting for a stream that the user no longer wants."""
+        worker = getattr(self, "_stream_worker", None)
+        if worker is not None and worker.isRunning():
+            worker.stop()
+            worker.requestInterruption()
+
     @pyqtSlot()
     def closePlayer(self) -> None:
         window = getattr(self, "_player_window", None)
@@ -84,6 +124,37 @@ class PlayerMixin:
             window.close()
 
     # ----- Internals ------------------------------------------------------
+
+    def _start_stream_prepare(self, info_hash: str) -> None:
+        """Wait for metadata and the head, then open the player."""
+        self.cancelStreamPrepare()
+
+        worker = StreamPrepareWorker(self.session, info_hash)
+        worker.progress.connect(self.streamProgress)
+        worker.ready.connect(self._on_stream_ready)
+        worker.failed.connect(self._on_stream_failed)
+        worker.start()
+        # Held on the bridge: dropping the last reference to a running QThread
+        # lets it be collected mid-run.
+        self._stream_worker = worker
+
+    def _on_stream_ready(self, info_hash: str, file_index: int) -> None:
+        status = torrents.stream_status(self.session, info_hash)
+        if status is None:
+            self.toast.emit("error", "The stream disappeared before it could play")
+            return
+        try:
+            self._open_player_window(status)
+        except Exception as exc:
+            logger.exception("Could not open the player for a prepared stream")
+            self.toast.emit("error", f"Could not open the player: {exc}")
+
+    def _on_stream_failed(self, info_hash: str, reason: str) -> None:
+        logger.warning(f"Stream preparation failed for {info_hash}: {reason}")
+        self.toast.emit("error", reason)
+        self.streamProgress.emit(
+            json.dumps({"hash": info_hash, "phase": "failed", "message": reason})
+        )
 
     def _open_player_window(self, status) -> None:
         from player.backend import VlcPlayer

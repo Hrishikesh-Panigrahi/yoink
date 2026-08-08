@@ -26,9 +26,17 @@ using System.Runtime.InteropServices;
 public class YoinkCapture {
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
   public struct RECT { public int Left, Top, Right, Bottom; }
 }
 "@
+
+# Without this, PowerShell is DPI-unaware: on a scaled display Windows hands
+# back virtualised (logical) coordinates, so GetWindowRect under-reports the
+# window and PrintWindow renders a clipped image. At 125% scaling that cropped
+# ~20% off the right edge and made a correctly-laid-out modal look like it
+# overflowed. -4 is DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2.
+try { [YoinkCapture]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch {}
 
 $proc = Get-Process |
     Where-Object { $_.MainWindowTitle -like $TitleLike } |

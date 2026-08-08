@@ -14,6 +14,10 @@
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
+  /* The close button is `position: absolute`. Without a positioned ancestor
+   * here it anchored to the full-screen .modal-backdrop instead, which put the
+   * X in the top-right corner of the window rather than on the modal. */
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);

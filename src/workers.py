@@ -226,6 +226,133 @@ class RssPollWorker(QThread):
         self._running = False
 
 
+class StreamPrepareWorker(QThread):
+    """Get a freshly added magnet to the point where a player can open it.
+
+    Playing straight from a search result needs three waits that the download
+    list never has to do, which is why the Play control there could not simply
+    be reused:
+
+    1. A magnet carries no file list. Until the DHT or a tracker answers there
+       is nothing to know which file is the video, so the stream cannot even be
+       aimed yet.
+    2. Once metadata lands, piece order has to be switched to sequential before
+       any useful bytes arrive - otherwise the pieces already in hand are
+       scattered across the file and worthless for playback.
+    3. libtorrent only creates the file on disk when it first writes to it, and
+       the head has to actually be there. Opening earlier hands VLC a path that
+       does not exist yet.
+
+    Progress is emitted throughout so the UI can say which of the three it is
+    waiting on rather than showing an unexplained spinner.
+    """
+
+    progress = pyqtSignal(str)          # JSON: phase, message, buffer percentage
+    ready = pyqtSignal(str, int)        # info hash, file index
+    failed = pyqtSignal(str, str)       # info hash, reason
+
+    def __init__(
+        self,
+        session: Session,
+        info_hash: str,
+        metadata_timeout_s: float = 120.0,
+        buffer_timeout_s: float = 600.0,
+        poll_ms: int = 500,
+    ):
+        super().__init__()
+        self.session = session
+        self.info_hash = (info_hash or "").lower()
+        self.metadata_timeout_s = metadata_timeout_s
+        self.buffer_timeout_s = buffer_timeout_s
+        self.poll_ms = poll_ms
+        self._running = True
+
+    def stop(self) -> None:
+        self._running = False
+
+    def run(self) -> None:
+        import os
+        import time
+
+        try:
+            if not self._await_metadata():
+                return
+
+            status = torrents.start_stream(self.session, self.info_hash)
+            if status is None:
+                self.failed.emit(self.info_hash, "Nothing playable in this torrent")
+                return
+
+            self._emit("buffering", "Buffering the start of the file...", 0.0)
+            deadline = time.monotonic() + self.buffer_timeout_s
+            while self._running and time.monotonic() < deadline:
+                if self.isInterruptionRequested():
+                    return
+                live = torrents.stream_status(self.session, self.info_hash)
+                if live is None:
+                    self.failed.emit(self.info_hash, "Torrent went away while buffering")
+                    return
+                payload = live.to_dict()
+                # The tail is wanted too, but waiting for it before starting
+                # would stall on a slow swarm. The head plus a file on disk is
+                # enough to open; the tail keeps arriving on its deadline.
+                head_in = live.head_total and live.head_have >= live.head_total
+                if head_in and os.path.exists(live.absolute_path):
+                    self.ready.emit(self.info_hash, live.file_index)
+                    return
+                self._emit(
+                    "buffering",
+                    f"Buffering {payload['bufferProgress']:.0f}%",
+                    payload["bufferProgress"],
+                )
+                self.msleep(self.poll_ms)
+
+            if self._running:
+                self.failed.emit(self.info_hash, "Gave up waiting for the file to buffer")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.exception("Stream preparation failed")
+            self.failed.emit(self.info_hash, str(exc))
+
+    def _await_metadata(self) -> bool:
+        import time
+
+        self._emit("metadata", "Fetching torrent details...", 0.0)
+        deadline = time.monotonic() + self.metadata_timeout_s
+        while self._running and time.monotonic() < deadline:
+            if self.isInterruptionRequested():
+                return False
+            handle = self.session.handles.get(self.info_hash)
+            if handle is None or not handle.is_valid():
+                self.failed.emit(self.info_hash, "Torrent is no longer in the session")
+                return False
+            try:
+                if handle.has_metadata():
+                    return True
+            except Exception as exc:
+                logger.debug(f"has_metadata failed: {exc}")
+            self.msleep(self.poll_ms)
+
+        if self._running:
+            self.failed.emit(
+                self.info_hash, "No peers answered with the file list - try a torrent with seeds"
+            )
+        return False
+
+    def _emit(self, phase: str, message: str, percent: float) -> None:
+        import json
+
+        self.progress.emit(
+            json.dumps(
+                {
+                    "hash": self.info_hash,
+                    "phase": phase,
+                    "message": message,
+                    "bufferProgress": percent,
+                }
+            )
+        )
+
+
 class ScheduledBandwidthWorker(QThread):
     """Apply different bandwidth caps at user-defined time ranges (5.2)."""
 
