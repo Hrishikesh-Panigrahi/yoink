@@ -109,15 +109,49 @@ document.querySelector('#downloadRowTpl').content                 // row templat
   .querySelector('.dl-play') !== null
 ```
 
-Two things that will trip you up:
+Three things that will trip you up:
 
+- **Never construct a second `QWebChannel`.** It looks like the obvious way to
+  reach the bridge, and it quietly breaks the running app: the extra channel
+  takes over the shared `qt.webChannelTransport`, so signals stop arriving at
+  the handlers `main.js` registered. The visible symptom is a search that spins
+  forever, because `searchCompleted` never lands - and it survives until the
+  page is reloaded, so everything you test afterwards is wrong too. This cost a
+  long debugging detour into a bug that did not exist.
+
+  Drive the UI through the DOM instead - click the real controls and read the
+  rendered result:
+
+  ```js
+  document.querySelector('#searchInput').value = 'ubuntu';
+  document.querySelector('#searchForm').dispatchEvent(
+    new Event('submit', {bubbles: true, cancelable: true}));
+  ```
+
+  If you truly need a bridge method with no UI path to it, restart the app
+  afterwards rather than trusting the session.
 - **`bridge` is not global.** `main.js` is one big IIFE, so `bridge`, `state`
-  and `els` are all closed over and unreachable from the console. Query the
-  DOM instead, or open your own channel:
-  `new QWebChannel(qt.webChannelTransport, ch => window.__b = ch.objects.bridge)`.
+  and `els` are closed over and unreachable from the console. That is the
+  reason the extra-channel trick is tempting. Resist it; query the DOM.
 - **Template ids do not match their class names.** The download row lives in
   `#downloadRowTpl`, not `#downloadTpl` (that is the *variable* name in
   `main.js`). Check `src/web/partials/templates.html` before guessing.
+
+## Searches take ~20 seconds, and that is the network
+
+Stable mode queries YTS and The Pirate Bay. On a connection that blocks torrent
+hosts - common with Indian ISPs - `yts.mx` is unreachable and burns two 10s
+connect timeouts before the Pirate Bay results (via `apibay.org`, usually not
+blocked) come back. So a search looks hung for ~20s and then works.
+
+Check reachability before assuming the app is broken:
+
+```bash
+python -c "import socket; socket.create_connection(('yts.mx',443),timeout=8)"
+```
+
+`apibay.org` reachable while `yts.mx`, `thepiratebay.org` and `1337x.to` all
+time out is the signature of ISP blocking, not an outage.
 
 ## The in-app player
 
