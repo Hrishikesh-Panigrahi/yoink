@@ -41,7 +41,10 @@ def ping_all(timeout_seconds: float = 12.0, *, force: bool = False) -> Dict[str,
 
     probes = _probe_specs()
     with ThreadPoolExecutor(max_workers=min(10, len(probes) or 1)) as pool:
-        futures = {pool.submit(_probe, name, fn, timeout_seconds): key for key, (name, fn) in probes.items()}
+        futures = {
+            pool.submit(_probe, name, fn, timeout_seconds): key
+            for key, (name, fn) in probes.items()
+        }
         out: Dict[str, dict] = {}
         for future, key in futures.items():
             try:

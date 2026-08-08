@@ -1,0 +1,46 @@
+# Ruff config. Run `make lint` locally; CI runs the same check.
+#
+# The rule set is deliberately small: the things a reviewer should never have to
+# spend attention on. Style modernisation (UP) and refactor hints (SIM) are left
+# off so the linter stays a gate rather than a source of churn.
+
+target-version = "py311"
+line-length = 100
+
+# `src/vendor/` is a checked-in third-party tree; it is not ours to reformat.
+exclude = [
+    ".venv",
+    "build",
+    "dist",
+    "src/vendor",
+]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes — undefined names, unused imports
+    "I",   # isort — import order
+    "B",   # flake8-bugbear — likely bugs
+    "C4",  # flake8-comprehensions
+]
+
+[lint.per-file-ignores]
+# Tests reach into private helpers and shadow names freely.
+"tests/*" = ["E501"]
+
+[lint.isort]
+# `src/` is on sys.path at runtime, so these are first-party despite the layout.
+known-first-party = [
+    "bridge",
+    "db",
+    "feeds",
+    "main_window",
+    "models",
+    "providers",
+    "search",
+    "torrents",
+    "utils",
+    "version",
+    "workers",
+]

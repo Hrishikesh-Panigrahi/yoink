@@ -89,8 +89,17 @@ Older notes on both live in `todo.txt`, which this file supersedes.
 
 ## Housekeeping
 
-- [ ] **No linter.** CI runs `pytest` and nothing else. Ruff would catch the
-      obvious things cheaply.
+- [x] **Added a linter.** `ruff.toml` selects pycodestyle, pyflakes, import
+      order, bugbear and comprehension rules at 100 columns, with `src/vendor/`
+      excluded because that tree is vendored. CI runs it as its own Linux job —
+      ruff is pure Python, so it does not need a Windows runner or the PyQt6 and
+      libtorrent wheels — which keeps lint and test failures as separate signals.
+      `make lint` runs the same check locally.
+
+      Style modernisation (`UP`) and refactor hints (`SIM`) are deliberately
+      off. Turning them on adds ~150 findings, nearly all mechanical rewrites of
+      `Optional[X]` and `List[X]`; that is a rename pass, not a lint gate, and
+      it should be its own commit if anyone wants it.
 - [ ] **Test coverage is uneven.** Eight test modules cover search, ranking,
       safety, paths, the torrent manager and the updater. The bridge slots and
       the workers have none, which is where most of the recent code went.

@@ -8,7 +8,9 @@ import sys
 from logging.handlers import RotatingFileHandler
 
 
-def setup_logger(name: str, log_file: str | None = None, level: int = logging.INFO) -> logging.Logger:
+def setup_logger(
+    name: str, log_file: str | None = None, level: int = logging.INFO
+) -> logging.Logger:
     """Return a logger configured once per name with console + optional file output."""
     logger = logging.getLogger(name)
     if logger.hasHandlers():

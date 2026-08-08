@@ -46,4 +46,4 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Topic :: Internet :: File Transfer Protocol (FTP)",
     ],
-) 
+)

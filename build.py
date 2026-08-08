@@ -170,8 +170,16 @@ def build_installer() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exe-only", action="store_true", help="Skip the Inno Setup installer step")
-    parser.add_argument("--compose-html", action="store_true", help="Only re-assemble src/web/index.html from partials and exit")
+    parser.add_argument(
+        "--exe-only",
+        action="store_true",
+        help="Skip the Inno Setup installer step",
+    )
+    parser.add_argument(
+        "--compose-html",
+        action="store_true",
+        help="Only re-assemble src/web/index.html from partials and exit",
+    )
     args = parser.parse_args()
 
     if args.compose_html:

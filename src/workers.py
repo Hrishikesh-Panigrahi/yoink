@@ -190,6 +190,7 @@ class RssPollWorker(QThread):
 
     def run(self) -> None:
         import re
+
         import feeds
 
         while self._running:
@@ -258,6 +259,7 @@ class ScheduledBandwidthWorker(QThread):
     @staticmethod
     def _current_window() -> str:
         import time
+
         import db
 
         try:

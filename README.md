@@ -96,7 +96,7 @@ python build.py --compose-html
 ## Make targets
 
 There is a `Makefile` if you prefer it. `make help` lists everything; the useful
-ones are `install`, `run`, `compose-html`, `test`, `build` and `clean`.
+ones are `install`, `run`, `compose-html`, `test`, `lint`, `build` and `clean`.
 
 ## Run the tests
 
@@ -110,6 +110,18 @@ imports as the app (`from torrents import ...`, `from search import search`).
 `.github/workflows/ci.yml` runs the same suite on Windows with Python 3.11 on
 every push. The release workflow runs it too, so a failing test blocks a
 release.
+
+## Lint
+
+```powershell
+.venv\Scripts\python.exe -m ruff check .
+```
+
+`ruff.toml` holds the config: pycodestyle, pyflakes, import order, bugbear and
+comprehension rules at a 100-column limit, with `src/vendor/` excluded because
+that tree is vendored third-party code. `ruff check . --fix` applies the
+mechanical fixes. CI runs the same check as its own job, so lint and test
+failures show up as separate signals.
 
 ## Package for Windows
 

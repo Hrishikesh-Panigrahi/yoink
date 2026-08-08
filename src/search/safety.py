@@ -69,7 +69,12 @@ def evaluate(result_dict: dict) -> dict:
         reasons.append(f"Very low seeders ({seeds})")
         score -= 10
 
-    if size_bytes and size_bytes < 50 * 1024 * 1024 and "music" not in title and "ebook" not in title:
+    if (
+        size_bytes
+        and size_bytes < 50 * 1024 * 1024
+        and "music" not in title
+        and "ebook" not in title
+    ):
         reasons.append("Unusually small file (under 50 MB)")
         score -= 25
 

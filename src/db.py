@@ -104,7 +104,9 @@ def set_setting(key: str, value: str) -> None:
         logger.error(f"set_setting({key}={value}) failed: {exc}")
 
 
-def save_torrent(info_hash: str, name: str, magnet_link: str, save_path: str, size: int = 0) -> None:
+def save_torrent(
+    info_hash: str, name: str, magnet_link: str, save_path: str, size: int = 0
+) -> None:
     """Insert or refresh a torrent record so it can be reloaded next launch."""
     try:
         with _session() as session:

@@ -33,7 +33,15 @@ _QUALITY_TOKENS = (
     "amzn", "nf", "hulu",
 )
 
-_RELEASE_GROUP_RE = re.compile(r"[-.](?:rarbg|yts|ettv|eztv|fgt|psa|ion10|sparks|fum|mzabi|qxr|nogrp|tigole|geckos|cmrg|joy|edge2020|silence|fitgirl|kaos|fitgr1)\w*$", re.I)
+_RELEASE_GROUPS = (
+    "rarbg", "yts", "ettv", "eztv", "fgt", "psa", "ion10", "sparks", "fum",
+    "mzabi", "qxr", "nogrp", "tigole", "geckos", "cmrg", "joy", "edge2020",
+    "silence", "fitgirl", "kaos", "fitgr1",
+)
+
+_RELEASE_GROUP_RE = re.compile(
+    r"[-.](?:" + "|".join(map(re.escape, _RELEASE_GROUPS)) + r")\w*$", re.I
+)
 _TRAIL_NOISE_RE = re.compile(r"[\[\(\{][^\[\(\{]*[\]\)\}]")
 _NON_WORD_RE = re.compile(r"[^a-z0-9]+")
 _YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")

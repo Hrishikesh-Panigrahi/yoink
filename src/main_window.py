@@ -14,7 +14,6 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
 
 import db
-
 from bridge import Bridge
 from utils.logger import setup_logger
 from utils.single_instance import listen as listen_for_handoff
@@ -143,7 +142,12 @@ class MainWindow(QMainWindow):
             items = json.loads(payload_json or "[]")
         except Exception:
             return
-        active = [t for t in items if (t.get("progress") or 0) < 100 and "error" not in (t.get("status") or "").lower()]
+        active = [
+            t
+            for t in items
+            if (t.get("progress") or 0) < 100
+            and "error" not in (t.get("status") or "").lower()
+        ]
         if not active:
             self.tray.setToolTip("Yoink — idle")
             return
