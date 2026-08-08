@@ -67,6 +67,8 @@ class Session:
     lt_session: lt.session
     save_path: str
     handles: Dict[str, lt.torrent_handle] = field(default_factory=dict)
+    #: info hash -> index of the file currently being streamed, if any.
+    streams: Dict[str, int] = field(default_factory=dict)
     _stop: threading.Event = field(default_factory=threading.Event)
     _pump: threading.Thread | None = None
 

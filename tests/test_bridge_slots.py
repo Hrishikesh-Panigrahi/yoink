@@ -20,6 +20,7 @@ import db
 import feeds
 import torrents
 from bridge import Bridge, search_slots, settings_slots, system_slots
+from conftest import FakeTorrentHandle
 
 SIGNAL_NAMES = (
     "downloadsUpdated",
@@ -139,6 +140,9 @@ def bridge(lt_session, monkeypatch, tmp_path):
 
     yield obj
 
+    # The session is shared across the module, so leave no handles behind.
+    lt_session.handles.clear()
+    lt_session.streams.clear()
     db.dispose_engine()
 
 
@@ -456,6 +460,59 @@ def test_get_all_labels_returns_the_union(bridge):
     bridge.setLabels("bbb", json.dumps(["hd", "docs"]))
 
     assert json.loads(bridge.getAllLabels()) == ["anime", "docs", "hd"]
+
+
+# ----- Streaming ----------------------------------------------------------
+
+
+def test_start_streaming_returns_the_buffer_status(bridge):
+    handle = FakeTorrentHandle([("readme.txt", 1024), ("Movie.mkv", 500 * 1024 * 1024)])
+    bridge.session.handles["abc"] = handle
+
+    payload = json.loads(bridge.startStreaming("abc", -1))
+
+    assert payload["fileIndex"] == 1
+    assert payload["ready"] is False
+    assert payload["sequential"] is True
+    assert payload["headTotal"] > 0
+
+
+def test_start_streaming_passes_an_explicit_file_index_through(bridge):
+    handle = FakeTorrentHandle([("Extra.mkv", 10 * 1024 * 1024), ("Movie.mkv", 500 * 1024 * 1024)])
+    bridge.session.handles["abc"] = handle
+
+    assert json.loads(bridge.startStreaming("abc", 0))["fileIndex"] == 0
+
+
+def test_start_streaming_reports_an_unplayable_torrent(bridge, recorder):
+    bridge.session.handles["abc"] = FakeTorrentHandle([("readme.txt", 1024)])
+
+    assert bridge.startStreaming("abc", -1) == "{}"
+    assert recorder.last("toast")[1] == "error"
+
+
+def test_start_streaming_degrades_for_an_unknown_hash(bridge, recorder):
+    assert bridge.startStreaming("deadbeef", -1) == "{}"
+    assert recorder.last("toast")[1] == "error"
+
+
+def test_stream_status_is_empty_until_streaming_starts(bridge):
+    bridge.session.handles["abc"] = FakeTorrentHandle([("Movie.mkv", 500 * 1024 * 1024)])
+
+    assert bridge.getStreamStatus("abc") == "{}"
+
+    bridge.startStreaming("abc", -1)
+    assert json.loads(bridge.getStreamStatus("abc"))["fileIndex"] == 0
+
+
+def test_stop_streaming_reports_whether_it_was_on(bridge):
+    handle = FakeTorrentHandle([("Movie.mkv", 500 * 1024 * 1024)])
+    bridge.session.handles["abc"] = handle
+    bridge.startStreaming("abc", -1)
+
+    assert bridge.stopStreaming("abc") is True
+    assert handle.is_sequential is False
+    assert bridge.stopStreaming("abc") is False
 
 
 # ----- Downloads snapshot -------------------------------------------------

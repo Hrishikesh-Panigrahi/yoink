@@ -202,6 +202,7 @@ def remove(session: Session, info_hash: str, delete_files: bool = False) -> bool
     db.remove_torrent(info_hash)
     remove_resume_data(info_hash)
     session.handles.pop(key, None)
+    session.streams.pop(key, None)
 
     if delete_files:
         for path in files_to_delete:

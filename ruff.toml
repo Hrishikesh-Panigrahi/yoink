@@ -33,6 +33,7 @@ select = [
 # `src/` is on sys.path at runtime, so these are first-party despite the layout.
 known-first-party = [
     "bridge",
+    "conftest",  # tests/ import shared fakes from it
     "db",
     "feeds",
     "main_window",
