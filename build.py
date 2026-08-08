@@ -102,11 +102,19 @@ def compose_html() -> Path:
 
 
 def _read_version() -> str:
-    """Read version from `src/version.py` without importing it."""
+    """Read version from `src/version.py` without importing it.
+
+    Anchored to the start of the line on purpose. The module docstring also
+    mentions ``__version__``, and a looser match picks that line up too - which
+    is exactly how the v2.1.0 installer shipped as `Yoink-Setup-__version__.exe`
+    with `__version__` registered as its version in Add/Remove Programs. Callers
+    that need this from a shell should use `--print-version` rather than
+    re-implementing it.
+    """
     text = (SRC / "version.py").read_text(encoding="utf-8")
     for line in text.splitlines():
         if line.startswith("__version__"):
-            return line.split("=")[1].strip().strip('"').strip("'")
+            return line.split("=", 1)[1].strip().strip('"').strip("'")
     return "0.0.0"
 
 
@@ -246,7 +254,16 @@ def main() -> None:
         action="store_true",
         help="Build without bundling VLC. The in-app player will not work.",
     )
+    parser.add_argument(
+        "--print-version",
+        action="store_true",
+        help="Print the version from src/version.py and exit (for CI).",
+    )
     args = parser.parse_args()
+
+    if args.print_version:
+        print(VERSION)
+        return
 
     if args.compose_html:
         compose_html()

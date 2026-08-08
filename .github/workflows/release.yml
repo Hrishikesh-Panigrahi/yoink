@@ -41,13 +41,20 @@ jobs:
         run: |
           pytest tests/ -q
 
+      # Ask build.py rather than re-parsing version.py here. The previous
+      # Select-String matched the module docstring as well as the assignment,
+      # so v2.1.0 shipped as Yoink-Setup-__version__.exe with __version__ as
+      # its registered version. One parser, one place.
       - name: Read version
         id: version
         shell: pwsh
         run: |
-          $line = Select-String -Path src/version.py -Pattern "__version__"
-          $value = ($line.Line -split "=")[1].Trim().Trim('"').Trim("'")
+          $value = (python build.py --print-version).Trim()
+          if (-not ($value -match '^\d+\.\d+\.\d+')) {
+            throw "build.py --print-version returned '$value', which is not a version"
+          }
           "version=$value" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "building version $value"
 
       - name: Build EXE
         run: python build.py --exe-only

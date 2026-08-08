@@ -21,6 +21,21 @@ Known work, roughly in the order it matters. Nothing here is in progress.
       Worth remembering: **bump `src/version.py` in the same commit you tag.**
       Tagging without it publishes a release whose binary disagrees with the
       tag, and the updater has no way to tell.
+- [x] **Fixed the release version parsing.** `v2.1.0` published as
+      `Yoink-Setup-__version__.exe`, with `__version__` registered as the
+      installer's version in Add/Remove Programs. The workflow's
+      `Select-String -Pattern "__version__"` matched the module docstring as
+      well as the assignment — `src/version.py` mentions the name in its own
+      docs — so splitting on `=` across both matches picked the *name* out of
+      the second line instead of the value.
+
+      `build.py --print-version` is now the only parser, CI calls it, and it
+      fails the build if the answer is not a version. Covered by
+      `tests/test_build_version.py`, including the exact docstring shape that
+      broke it. `v2.1.1` is the corrected release.
+
+      The lesson generalises: anything CI parses out of a source file wants a
+      test, because the failure only shows up in a published artifact.
 
 ## Distribution
 
