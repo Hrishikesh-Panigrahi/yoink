@@ -100,6 +100,17 @@ Older notes on both live in `todo.txt`, which this file supersedes.
       off. Turning them on adds ~150 findings, nearly all mechanical rewrites of
       `Optional[X]` and `List[X]`; that is a rename pass, not a lint gate, and
       it should be its own commit if anyone wants it.
-- [ ] **Test coverage is uneven.** Eight test modules cover search, ranking,
-      safety, paths, the torrent manager and the updater. The bridge slots and
-      the workers have none, which is where most of the recent code went.
+- [x] **Covered the bridge slots and the workers.** `tests/test_bridge_slots.py`
+      and `tests/test_workers.py` add 89 tests, taking the suite from 60 to 149.
+
+      Both avoid Qt machinery rather than mocking it. The bridge tests build the
+      object with `__new__` plus a hand-run `QObject.__init__`, so no libtorrent
+      session or worker threads start, then attach one shared real session and
+      fake workers — every slot under test is the real implementation, and
+      signals still deliver because PyQt does direct connections without a
+      running `QApplication`. The worker tests call `run()` on the test thread
+      instead of `start()`, so emissions arrive synchronously; the polling
+      workers are stopped from inside their own signal handler to bound the
+      loop to one pass.
+
+      Still uncovered: `main.py`, `main_window.py`, and the `src/web/` JS.
