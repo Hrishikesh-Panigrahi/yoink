@@ -675,3 +675,85 @@ def test_stream_prepare_stops_when_asked(monkeypatch, tmp_path):
     worker.run()
 
     assert ready == [] and failures == []
+
+
+# ----- StreamPrepareWorker: dead-swarm reporting ---------------------------
+#
+# "Buffering 0%" forever was indistinguishable from a slow swarm, and the only
+# thing a user could conclude was that the player was broken. It waited ten
+# minutes before saying anything.
+
+
+class SwarmHandle(MetadataHandle):
+    """A handle reporting a fixed swarm state."""
+
+    def __init__(self, peers=0, seeds=0, rate=0.0):
+        super().__init__()
+        self._peers, self._seeds, self._rate = peers, seeds, rate
+
+    def status(self):
+        return type(
+            "S", (), {"num_peers": self._peers, "num_seeds": self._seeds,
+                      "download_rate": self._rate}
+        )()
+
+
+@pytest.mark.parametrize(
+    "percent, peers, seeds, rate, expected",
+    [
+        (0.0, 0, 0, 0.0, "Looking for peers..."),
+        (0.0, 2, 1, 0.0, "Buffering 0% - connected to 2, waiting for data"),
+        (40.0, 3, 2, 250.0, "Buffering 40% at 250 KB/s"),
+    ],
+)
+def test_buffer_message_explains_the_hold_up(percent, peers, seeds, rate, expected):
+    assert workers.StreamPrepareWorker._buffer_message(percent, peers, seeds, rate) == expected
+
+
+def test_stream_prepare_gives_up_when_no_data_arrives(monkeypatch, tmp_path):
+    target = tmp_path / "Movie.mkv"
+    target.write_bytes(b"x")
+    stuck = _status(0, 8, str(target))          # head never fills
+    monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: stuck)
+    monkeypatch.setattr(torrents, "stream_status", lambda *a: stuck)
+
+    worker = stream_worker(
+        monkeypatch, {"abc": SwarmHandle(peers=1, seeds=1)},
+        no_data_timeout_s=0.05, buffer_timeout_s=30,
+    )
+    failures = collect(worker.failed)
+    ready = collect(worker.ready)
+
+    worker.run()
+
+    assert ready == []
+    assert "No data arriving" in failures[0][1]
+    assert "1 seed(s), 1 peer(s)" in failures[0][1]
+
+
+def test_stream_prepare_keeps_waiting_while_the_head_is_filling(monkeypatch, tmp_path):
+    # Progress resets the no-data clock, so a slow swarm is not mistaken for
+    # a dead one.
+    target = tmp_path / "Movie.mkv"
+    target.write_bytes(b"x")
+    states = iter([_status(n, 4, str(target)) for n in (0, 1, 2, 3, 4)])
+    monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: _status(0, 4, str(target)))
+    monkeypatch.setattr(torrents, "stream_status", lambda *a: next(states))
+
+    worker = stream_worker(
+        monkeypatch, {"abc": SwarmHandle(peers=2, seeds=1, rate=120.0)},
+        no_data_timeout_s=5.0,
+    )
+    ready = collect(worker.ready)
+    failures = collect(worker.failed)
+
+    worker.run()
+
+    assert ready == [("abc", 2)]
+    assert failures == []
+
+
+def test_swarm_reads_zeroes_for_a_missing_handle(monkeypatch):
+    worker = stream_worker(monkeypatch, {})
+
+    assert worker._swarm() == (0, 0, 0.0)

@@ -93,8 +93,18 @@ Known work, roughly in the order it matters. Nothing here is in progress.
         never exports, so `vlc.MediaOpenCb(fn)` raises "cannot be converted to
         pointer". `player/source.py` declares the prototypes itself and casts.
 
-      Still unverified: HEVC and AC3 specifically, and anything about how it
-      behaves on a real swarm rather than a file being appended to on disk.
+      Since verified end to end against a real two-peer swarm on localhost: a
+      torrent added, the head buffered, the window opened by itself, and libvlc
+      reported `Playing` at 105/5065 ms with a real rendered frame. Still
+      unverified: HEVC and AC3 specifically.
+
+      One thing that verification changed. "Buffering 0%" with no further
+      explanation was indistinguishable from a dead swarm, and the worker waited
+      ten minutes before saying anything — which reads exactly like a broken
+      player, and was reported as one. It now names the hold-up ("Looking for
+      peers...", "connected to 2, waiting for data", "Buffering 40% at 250
+      KB/s") and gives up after 45 seconds without progress with the seed and
+      peer counts in the message.
 
 - [x] **Play straight from a search result.** The download-row Play button
       needed a torrent already in the session; a search result is only a magnet.
@@ -163,6 +173,79 @@ Two durable ways out, neither started:
       all. Same daemon problem.
 
 Older notes on both live in `todo.txt`, which this file supersedes.
+
+## Known bugs, found but not fixed
+
+These were all reproduced during the player work and left alone deliberately,
+either because the fix was out of scope for that change or because it needs a
+decision. Ordered by how much damage each can do.
+
+- [ ] **Two overlapping searches can kill the process.** `SearchMixin.search`
+      overwrites `self._search_worker` while the previous one is still running.
+      That drops the last Python reference to a live `QThread`, and when the
+      collector gets to it Qt tears down a running thread. Reproduced: one
+      search returns results in 22s, two fired in the same tick produce no
+      output at all and the interpreter exits.
+
+      Two halves to the fix. Keep superseded workers referenced until their
+      thread actually ends — a list pruned on `isRunning()` is enough, and note
+      that `QThread.finished` is *shadowed* here by a custom `finished` signal
+      so it cannot be used for cleanup. And make `SearchWorker.run` check
+      `isInterruptionRequested()` before emitting, because `requestInterruption`
+      is already called and currently does nothing at all.
+
+      `_kick_metadata_enrich` has the identical shape and the same bug.
+
+- [ ] **`pytest` without `TORRENT_DB_PATH` writes to the real library.** Most
+      test modules set it themselves, but nothing enforces it, so one module
+      that forgets will read and delete rows from
+      `%LOCALAPPDATA%\Yoink\yoink.db`. Force a temp path from a session-scoped
+      `conftest.py` fixture instead of trusting each module. Cheap, and it
+      removes a whole category of accident.
+
+- [ ] **Remove is one stray click from destroying a torrent.** The kebab's
+      *Remove* fires immediately, and *Cancel* arms on the first click and
+      deletes on the second within 3 seconds — easy to trigger by accident and
+      there is no undo. A real torrent was lost this way during development. It
+      was recoverable only because SQLite leaves deleted rows in the file's free
+      pages (`.claude/skills/run-app/scripts/recover_torrents.py`).
+
+      Cheapest real fix: keep removed torrents in a `removed` table for a few
+      days and offer "undo" in the toast.
+
+- [ ] **The CSS module split is half-done.** `styles.css` `@import`s seven files
+      from `css/`, but `settings.css` is 40 KB and holds rules for the modals,
+      the details view and a second, unscoped `.text-input` — which is what put
+      the search icon on top of the first character, since it is imported last
+      and won on order alone. Move the non-settings rules into the file they
+      belong to. `scripts/audit_layout.js` in the run-app skill will catch the
+      regressions.
+
+- [ ] **Seeking past the buffered region stalls for 30s, then stops.**
+      `GrowingFile` waits `STALL_TIMEOUT_SECONDS` for bytes that sequential
+      order will not fetch until it gets there, then reports end-of-stream.
+      Correct given the design, but a poor experience. Re-issuing
+      `set_piece_deadline` around the seek target would make it work properly.
+
+## Worth doing next
+
+- [ ] **Wire `cloudscraper` into the remaining adapters.** It is already a
+      dependency and only `src/vendor/`'s `magnet_dl` uses it. `nyaa.si` answers
+      with a DDoS-Guard interstitial that a plain `requests` call cannot get
+      past, so most of the vendored providers return zero rows even when the
+      network is fine. Cheapest experiment with the largest possible payoff.
+
+- [ ] **Say when every provider failed.** A search where all providers error
+      looks identical to one that genuinely has no matches. The health data is
+      already collected; surface it on the empty state.
+
+- [ ] **Player polish.** No fullscreen, no keyboard shortcuts, and the volume
+      resets to 80 every time. The window is deliberately minimal, but those
+      three are what makes it feel unfinished.
+
+- [ ] **Verify HEVC and AC3.** They are the reason libVLC was chosen over
+      QtMultimedia and neither has actually been played. H.264 with MP3 audio is
+      confirmed working end to end against a real local swarm.
 
 ## Housekeeping
 

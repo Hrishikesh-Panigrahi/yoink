@@ -257,6 +257,7 @@ class StreamPrepareWorker(QThread):
         info_hash: str,
         metadata_timeout_s: float = 120.0,
         buffer_timeout_s: float = 600.0,
+        no_data_timeout_s: float = 45.0,
         poll_ms: int = 500,
     ):
         super().__init__()
@@ -264,6 +265,7 @@ class StreamPrepareWorker(QThread):
         self.info_hash = (info_hash or "").lower()
         self.metadata_timeout_s = metadata_timeout_s
         self.buffer_timeout_s = buffer_timeout_s
+        self.no_data_timeout_s = no_data_timeout_s
         self.poll_ms = poll_ms
         self._running = True
 
@@ -285,6 +287,8 @@ class StreamPrepareWorker(QThread):
 
             self._emit("buffering", "Buffering the start of the file...", 0.0)
             deadline = time.monotonic() + self.buffer_timeout_s
+            best_have = -1
+            last_progress_at = time.monotonic()
             while self._running and time.monotonic() < deadline:
                 if self.isInterruptionRequested():
                     return
@@ -300,9 +304,27 @@ class StreamPrepareWorker(QThread):
                 if head_in and os.path.exists(live.absolute_path):
                     self.ready.emit(self.info_hash, live.file_index)
                     return
+
+                now = time.monotonic()
+                if live.head_have > best_have:
+                    best_have = live.head_have
+                    last_progress_at = now
+
+                peers, seeds, rate_kb_s = self._swarm()
+                # A dead swarm is the single most likely reason a stream never
+                # starts, and "Buffering 0%" forever gives no way to tell it
+                # apart from a slow one. Give up early and say which it was.
+                if now - last_progress_at >= self.no_data_timeout_s:
+                    self.failed.emit(
+                        self.info_hash,
+                        f"No data arriving - {seeds} seed(s), {peers} peer(s) connected. "
+                        "This torrent looks dead; try one with more seeders.",
+                    )
+                    return
+
                 self._emit(
                     "buffering",
-                    f"Buffering {payload['bufferProgress']:.0f}%",
+                    self._buffer_message(payload["bufferProgress"], peers, seeds, rate_kb_s),
                     payload["bufferProgress"],
                 )
                 self.msleep(self.poll_ms)
@@ -337,6 +359,31 @@ class StreamPrepareWorker(QThread):
                 self.info_hash, "No peers answered with the file list - try a torrent with seeds"
             )
         return False
+
+    def _swarm(self) -> tuple[int, int, float]:
+        """Connected peers, seeds and download rate in KB/s. Zeroes if unknown."""
+        handle = self.session.handles.get(self.info_hash)
+        if handle is None:
+            return 0, 0, 0.0
+        try:
+            status = handle.status()
+            return (
+                int(status.num_peers or 0),
+                int(status.num_seeds or 0),
+                float(status.download_rate or 0) / 1024.0,
+            )
+        except Exception as exc:
+            logger.debug(f"swarm status unavailable: {exc}")
+            return 0, 0, 0.0
+
+    @staticmethod
+    def _buffer_message(percent: float, peers: int, seeds: int, rate_kb_s: float) -> str:
+        """Say why nothing is happening, not just that nothing is happening."""
+        if peers <= 0 and seeds <= 0:
+            return "Looking for peers..."
+        if rate_kb_s < 1:
+            return f"Buffering {percent:.0f}% - connected to {peers}, waiting for data"
+        return f"Buffering {percent:.0f}% at {rate_kb_s:.0f} KB/s"
 
     def _emit(self, phase: str, message: str, percent: float) -> None:
         import json
