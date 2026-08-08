@@ -123,6 +123,14 @@ index at the end unless the file was written for streaming, and Matroska keeps
 its cues there, so a player that cannot see the tail reports an unknown duration
 and refuses to seek.
 
+Playing a file that is still downloading needs more than sequential pieces.
+VLC's ordinary file access reports end-of-stream at the last byte on disk, so
+opening a torrent at 25% plays exactly 25% and stops — measured, not assumed.
+Yoink therefore feeds VLC through `libvlc_media_new_callbacks`
+(`src/player/source.py`), whose read callback blocks at the current end of the
+file and waits for the missing bytes. The torrent's final size is handed to VLC
+as the real stream length, so duration and seeking behave from the start.
+
 Playback is libVLC via [`python-vlc`](https://pypi.org/project/python-vlc/).
 That package is only a ctypes binding — it needs an actual VLC runtime, which
 released builds carry inside the exe. Running from source, Yoink looks for one
@@ -131,7 +139,11 @@ in this order:
 1. `YOINK_VLC_DIR`, if you point it at a folder holding `libvlc.dll` and
    `plugins/`.
 2. The copy bundled beside a frozen build.
-3. An installed VLC, via the registry then `C:\Program Files\VideoLAN\VLC`.
+3. A portable copy under `%LOCALAPPDATA%\Yoink\vlc` — installing VLC properly
+   needs administrator rights, and unzipping VLC's official
+   [portable build](https://www.videolan.org/vlc/download-windows.html) here
+   does not.
+4. An installed VLC, via the registry then `C:\Program Files\VideoLAN\VLC`.
 
 With none of those, everything else works and the Play button simply stays
 hidden; `getPlayerStatus` reports why. `build.py` refuses to build without a

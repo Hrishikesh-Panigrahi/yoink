@@ -132,8 +132,13 @@ class PlayerWindow(QMainWindow):
 
     # ----- Lifecycle ------------------------------------------------------
 
-    def open(self, path: str, title: str = "") -> None:
-        """Show the window and start playing `path`."""
+    def open(self, path: str, title: str = "", expected_size: int = 0) -> None:
+        """Show the window and start playing `path`.
+
+        `expected_size` is the file's final length; passing it lets the backend
+        wait for bytes that have not downloaded yet instead of stopping at the
+        current end of the file.
+        """
         self.setWindowTitle(f"Yoink Player — {title or os.path.basename(path)}")
         self.show()
         self.raise_()
@@ -141,7 +146,7 @@ class PlayerWindow(QMainWindow):
         # The surface has to exist natively before libvlc can draw into it.
         self._player.attach(int(self.surface.winId()))
         self._player.set_volume(80)
-        self._player.play(path)
+        self._player.play(path, expected_size)
         self._timer.start()
         self._tick()
 

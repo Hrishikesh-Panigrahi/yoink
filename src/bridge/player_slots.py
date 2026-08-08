@@ -106,5 +106,7 @@ class PlayerMixin:
                 logger.error(f"Could not leave sequential mode for {info_hash}: {exc}")
 
         window = PlayerWindow(VlcPlayer(), buffer_probe=probe, on_close=on_close)
-        window.open(status.absolute_path, title=status.path)
+        # The final size comes from the torrent, so the player can wait for
+        # bytes that have not arrived rather than stopping at the current EOF.
+        window.open(status.absolute_path, title=status.path, expected_size=status.size)
         self._player_window = window

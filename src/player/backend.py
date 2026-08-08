@@ -14,10 +14,12 @@ than something this layer can paper over.
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Optional
 
 from player.runtime import load_vlc
+from player.source import GrowingFile, build_media, is_incomplete
 from utils.logger import setup_logger
 
 logger = setup_logger("player.backend")
@@ -54,6 +56,7 @@ class VlcPlayer:
         self._player = self._instance.media_player_new()
         self._media = None
         self._path = ""
+        self._source: Optional[GrowingFile] = None
 
     # ----- Surface --------------------------------------------------------
 
@@ -69,22 +72,49 @@ class VlcPlayer:
 
     # ----- Transport ------------------------------------------------------
 
-    def play(self, path: str = "") -> bool:
-        """Start (or resume) playback. Passing a path loads it first."""
+    def play(self, path: str = "", expected_size: int = 0) -> bool:
+        """Start (or resume) playback. Passing a path loads it first.
+
+        `expected_size` is the file's final length. When it is larger than what
+        is on disk, the media is fed through `GrowingFile` instead of a plain
+        path, so playback waits for missing bytes rather than treating the
+        current end of the file as the end of the stream.
+        """
         if path and path != self._path:
-            self._media = self._instance.media_new_path(path)
-            self._player.set_media(self._media)
-            self._path = path
+            self._load(path, expected_size)
         return self._player.play() == 0
+
+    def _load(self, path: str, expected_size: int) -> None:
+        self._release_source()
+        if is_incomplete(path, expected_size):
+            logger.info(
+                f"Streaming {path} through growing-file callbacks "
+                f"({os.path.getsize(path)} of {expected_size} bytes present)"
+            )
+            self._source = GrowingFile(path, expected_size)
+            self._media = build_media(self._vlc, self._instance, self._source)
+        else:
+            self._media = self._instance.media_new_path(path)
+        self._player.set_media(self._media)
+        self._path = path
 
     def pause(self) -> None:
         self._player.pause()
 
     def stop(self) -> None:
+        # Cancel first: a read blocked waiting for bytes would otherwise keep
+        # libvlc_media_player_stop from ever returning.
+        self._release_source()
         self._player.stop()
+
+    def _release_source(self) -> None:
+        if self._source is not None:
+            self._source.cancel()
+            self._source = None
 
     def release(self) -> None:
         """Tear down libvlc's objects. Safe to call more than once."""
+        self._release_source()
         for name in ("_player", "_media", "_instance"):
             obj = getattr(self, name, None)
             if obj is None:

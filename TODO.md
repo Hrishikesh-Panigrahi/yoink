@@ -69,14 +69,32 @@ Known work, roughly in the order it matters. Nothing here is in progress.
       runtime is present, so it is never imported at module scope. Everything
       goes through `player.runtime.load_vlc()`, which returns a reason instead.
       Discovery order: `YOINK_VLC_DIR`, the copy bundled beside a frozen build,
-      then an installed VLC via registry and Program Files. With none of them
-      the app runs normally and the button stays hidden. `build.py` fails
-      rather than shipping a dead button; `--no-player` opts out.
+      a portable copy under `%LOCALAPPDATA%\Yoink\vlc`, then an installed VLC
+      via registry and Program Files. With none of them the app runs normally
+      and the button stays hidden. `build.py` fails rather than shipping a dead
+      button; `--no-player` opts out.
 
-      **Not verified: actual decoding and rendering.** No libvlc runtime was
-      available on the machine this was written on, so the discovery, fallback,
-      bridge and packaging paths are tested but no frame has been drawn. Worth
-      one manual run before tagging a release.
+      Verified against real libvlc 3.0.23: runtime discovery, H.264 decode and
+      rendering into the Qt surface, the audio clock, playing a file that grows
+      underneath the player, and closing the window mid-stream without hanging.
+
+      Three things that verification caught, all fixed:
+
+      - Setting `VLC_PLUGIN_PATH` and calling `add_dll_directory` is *not*
+        enough. python-vlc's own loader reads `PYTHON_VLC_LIB_PATH` and
+        `PYTHON_VLC_MODULE_PATH`, and without them falls back to
+        `CDLL(".\\libvlc.dll")` — a relative path resolved against the working
+        directory, so it looked for the library in the repo root.
+      - python-vlc calls `sys.exit(1)` instead of raising when the library will
+        not load. `SystemExit` is a `BaseException`, so the `except Exception`
+        guard would have let it through and killed the app.
+      - `vlc.MediaOpenCb` and friends are exported as bare `c_void_p`
+        subclasses; the real CFUNCTYPE prototypes live in a scope python-vlc
+        never exports, so `vlc.MediaOpenCb(fn)` raises "cannot be converted to
+        pointer". `player/source.py` declares the prototypes itself and casts.
+
+      Still unverified: HEVC and AC3 specifically, and anything about how it
+      behaves on a real swarm rather than a file being appended to on disk.
 
 ## Search back end
 
