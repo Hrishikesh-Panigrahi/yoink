@@ -42,6 +42,10 @@ const App = (() => {
     networkDown: 0,
     networkUp: 0,
     hadInitialDownloadsSnapshot: false,
+    playerAvailable: false,
+    streamingKey: null,
+    streamingHash: null,
+    streamingPhase: "",
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -171,6 +175,7 @@ const App = (() => {
 
     els.viewToggleBtns = $$(".view-toggle-btn");
     els.settingClipboardWatcher = $("#settingClipboardWatcher");
+    els.settingDnsOverHttps = $("#settingDnsOverHttps");
     els.exportSettingsBtn = $("#exportSettingsBtn");
     els.importSettingsBtn = $("#importSettingsBtn");
     els.shortcutsBackdrop = $("#shortcutsBackdrop");
@@ -508,6 +513,16 @@ const App = (() => {
         infoBtn.addEventListener("click", () => openDetailsModal(r));
       }
 
+      // Streaming needs both a player and something to stream from. The file
+      // list is not known until the torrent is added, so this only checks that
+      // there is a magnet; the bridge reports back if it holds no video.
+      const playBtn = node.querySelector(".result-play");
+      if (playBtn && state.playerAvailable && r.magnet) {
+        playBtn.hidden = false;
+        playBtn.setAttribute("aria-label", `Play ${r.title}`);
+        playBtn.addEventListener("click", () => startStreamFromResult(r, playBtn));
+      }
+
       const key = r.magnet || r.infoHash || r.title;
       state.rowsByKey.set(key, { node, result: r });
       const cached = state.metadataByKey.get(key);
@@ -516,6 +531,45 @@ const App = (() => {
       frag.appendChild(node);
     });
     els.resultsList.appendChild(frag);
+  }
+
+  // ----- Streaming straight from a search result -----
+  function startStreamFromResult(r, btn) {
+    if (state.streamingKey) {
+      toast("info", "Already preparing a stream - one at a time.");
+      return;
+    }
+    state.streamingKey = r.magnet;
+    state.streamingPhase = "";
+    btn.disabled = true;
+    btn.classList.add("is-busy");
+    btn.title = "Starting...";
+    toast("info", "Preparing stream - this needs a few seconds of the file first.");
+    bridge.playFromMagnet(r.magnet, (raw) => {
+      let payload = {};
+      try { payload = JSON.parse(raw || "{}"); } catch (e) {}
+      if (!payload.hash) {
+        // The bridge already explained itself in a toast.
+        resetStreamButton(btn);
+        return;
+      }
+      state.streamingHash = payload.hash;
+    });
+  }
+
+  function resetStreamButton(btn) {
+    state.streamingKey = null;
+    state.streamingHash = null;
+    state.streamingPhase = "";
+    btn.disabled = false;
+    btn.classList.remove("is-busy");
+    btn.title = "Stream now, without waiting for the download";
+  }
+
+  function currentStreamButton() {
+    if (!state.streamingKey) return null;
+    const entry = state.rowsByKey.get(state.streamingKey);
+    return entry ? entry.node.querySelector(".result-play") : null;
   }
 
   // ----- TMDB metadata enrichment -----
@@ -1210,6 +1264,19 @@ const App = (() => {
         });
       });
     }
+    const playBtn = node.querySelector(".dl-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        playBtn.disabled = true;
+        bridge.playInApp(hash, -1, (raw) => {
+          playBtn.disabled = false;
+          let status = {};
+          try { status = JSON.parse(raw || "{}"); } catch (e) {}
+          // An empty payload means the bridge already explained itself in a toast.
+          if (status.ready === false) toast("info", "Buffering the start of the file...");
+        });
+      });
+    }
 
     const kebabBtn = node.querySelector(".dl-kebab");
     const menu = node.querySelector(".dl-menu");
@@ -1332,6 +1399,45 @@ const App = (() => {
     node.querySelector(".dl-resume").hidden = !isPaused;
     const openFileBtn = node.querySelector(".dl-open-file");
     if (openFileBtn) openFileBtn.hidden = !completed;
+    const playBtn = node.querySelector(".dl-play");
+    if (playBtn) updatePlayButton(playBtn, node, t);
+  }
+
+  // The play control needs two answers: is there a player at all (asked once at
+  // startup) and does this torrent hold a video (needs metadata, which lands
+  // after the row does — so it is asked once per row and cached on the node).
+  function updatePlayButton(btn, node, t) {
+    if (!state.playerAvailable) {
+      btn.hidden = true;
+      return;
+    }
+    const cached = node.dataset.playable;
+    if (cached === "1" || cached === "0") {
+      btn.hidden = cached !== "1";
+      return;
+    }
+    btn.hidden = true;
+    const metadataReady = !/metadata/i.test(t.status || "") && Boolean(t.name);
+    if (!metadataReady || node.dataset.playablePending === "1") return;
+    node.dataset.playablePending = "1";
+    bridge.getPlayableFile(t.hash, (index) => {
+      node.dataset.playablePending = "";
+      node.dataset.playable = index >= 0 ? "1" : "0";
+      btn.hidden = index < 0;
+    });
+  }
+
+  function loadPlayerStatus() {
+    if (!bridge || !bridge.getPlayerStatus) return;
+    bridge.getPlayerStatus((raw) => {
+      try {
+        const info = JSON.parse(raw || "{}");
+        state.playerAvailable = Boolean(info.available);
+        if (!info.available && info.reason) {
+          console.info(`In-app player unavailable: ${info.reason}`);
+        }
+      } catch (e) {}
+    });
   }
 
   // ----- File-selection modal -----
@@ -1859,6 +1965,30 @@ const App = (() => {
       }
     });
 
+    if (bridge.streamProgress) {
+      bridge.streamProgress.connect((payloadStr) => {
+        let info = {};
+        try { info = JSON.parse(payloadStr || "{}"); } catch (e) { return; }
+        const btn = currentStreamButton();
+        if (info.phase === "failed") {
+          if (btn) resetStreamButton(btn);
+          return;
+        }
+        // Progress lives in the tooltip so the row never changes width. A
+        // toast only fires when the phase changes, not on every poll.
+        if (btn && info.message) btn.title = info.message;
+        if (info.phase && info.phase !== state.streamingPhase) {
+          state.streamingPhase = info.phase;
+          if (info.phase === "buffering") toast("info", "Got the file list - buffering the start.");
+        }
+        // The window opens by itself once the head is in; the button goes back
+        // to normal so the same result can be replayed later.
+        if (info.phase === "buffering" && (info.bufferProgress || 0) >= 100 && btn) {
+          resetStreamButton(btn);
+        }
+      });
+    }
+
     if (bridge.updateAvailable) {
       bridge.updateAvailable.connect((payloadStr) => {
         let info = {};
@@ -1979,6 +2109,7 @@ const App = (() => {
     loadSearchHistory();
     loadProviderChoices();
     loadAboutInfo();
+    loadPlayerStatus();
     loadPaletteCommands();
     loadWatchFolder();
     loadFeeds();
@@ -2038,6 +2169,7 @@ const App = (() => {
     els.settingNotifications.checked = !!s.notifications;
     els.settingMinimizeTray.checked = !!s.minimizeToTray;
     if (els.settingClipboardWatcher) els.settingClipboardWatcher.checked = !!s.clipboardWatcher;
+    if (els.settingDnsOverHttps) els.settingDnsOverHttps.checked = !!s.dnsOverHttps;
     if (els.watchFolderPath) {
       els.watchFolderPath.textContent = s.watchFolder || "Not set";
       if (s.watchFolder) localStorage.setItem("yoink.watchFolderCached", s.watchFolder);
@@ -2187,7 +2319,7 @@ const App = (() => {
       els.categoryFilter.value = "movies";
       els.qualityFilter.value = "any";
       els.sortFilter.value = "relevance";
-      els.sourceFilter.value = "stable";
+      els.sourceFilter.value = "multi-default";
       saveFilters();
       if (state.query && !state.searching) doSearch(state.query, 1);
     });
@@ -2386,6 +2518,14 @@ const App = (() => {
       els.settingClipboardWatcher.addEventListener("change", (e) =>
         bridge.setBoolSetting("clipboard_watcher_enabled", e.target.checked)
       );
+    }
+    if (els.settingDnsOverHttps) {
+      els.settingDnsOverHttps.addEventListener("change", (e) => {
+        bridge.setBoolSetting("dns_over_https_enabled", e.target.checked);
+        toast("info", e.target.checked
+          ? "Sources will be resolved over DNS-over-HTTPS."
+          : "Back to your system's DNS resolver.");
+      });
     }
     if (els.exportSettingsBtn) {
       els.exportSettingsBtn.addEventListener("click", () => bridge.exportSettings(() => {}));

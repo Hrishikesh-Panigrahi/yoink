@@ -10,7 +10,7 @@ setup(
     name="yoink",
     version=version_ns["__version__"],
     py_modules=["main", "main_window", "bridge", "workers", "db", "models", "version"],
-    packages=["torrents", "search", "providers", "utils"],
+    packages=["torrents", "search", "providers", "utils", "player", "bridge", "feeds"],
     package_dir={"": "src"},
     include_package_data=True,
     install_requires=[
@@ -24,6 +24,7 @@ setup(
         'python-magic==0.4.27',
         'aiohttp==3.11.16',
         'cloudscraper>=1.2.71',
+        'python-vlc>=3.0.18',
     ],
     entry_points={
         'console_scripts': [
@@ -46,4 +47,4 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Topic :: Internet :: File Transfer Protocol (FTP)",
     ],
-) 
+)

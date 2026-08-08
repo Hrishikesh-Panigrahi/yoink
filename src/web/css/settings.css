@@ -675,7 +675,11 @@
 
 /* ----- Movie details modal ----- */
 .modal-details {
-  max-width: 900px;
+  /* `.modal` sets width: 520px, which beat a bare max-width and left this
+   * modal 518px wide - far too narrow for a 200px poster column beside the
+   * details. Setting width outright is what makes the 900px intent real. */
+  width: 900px;
+  max-width: 100%;
   padding: 0;
   overflow: hidden;
 }
@@ -707,10 +711,22 @@
 .modal-close:hover { background: rgba(0,0,0,0.75); }
 .details-body {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  /* minmax(0, 1fr), not 1fr: a grid item defaults to `min-width: auto`, so the
+   * column refused to shrink below its content. A long release title pushed
+   * .details-info 26px past the modal and clipped the Download button, because
+   * .modal-details sets overflow: hidden. */
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: 24px;
   padding: 0 28px 28px;
   position: relative;
+}
+.details-info { min-width: 0; }
+/* Release titles are one long unbroken token more often than not, and the
+ * close button floats above this corner - without the reserved space the last
+ * few characters end up underneath it. */
+.details-info h2 {
+  overflow-wrap: anywhere;
+  padding-right: 44px;
 }
 .details-poster {
   margin-top: -90px;
@@ -794,7 +810,16 @@
   font-size: 12px;
   color: var(--text-muted);
   align-items: center;
+  /* Same story as .details-info: without min-width the meta refuses to shrink
+   * and shoves the Download button out of the modal. Wrapping keeps the source
+   * name on one line instead of breaking "The Pirate Bay" across three. */
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
+.dt-meta > * { white-space: nowrap; }
+.dt-action { flex: 0 0 auto; }
 .dt-quality {
   padding: 2px 8px;
   background: var(--accent-soft);
@@ -1536,10 +1561,3 @@
 @media (max-width: 760px) {
   .feed-add-row { grid-template-columns: 1fr; }
 }
-
- 
- 
- 
- 
- 
- 

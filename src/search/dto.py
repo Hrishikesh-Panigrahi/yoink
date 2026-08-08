@@ -70,7 +70,8 @@ class SearchOptions:
     min_seeds: int = 0
     sites: Optional[List[str]] = None
     limit_per_site: int = 5
-    enabled_stable: Optional[List[str]] = None  # subset of {"yts", "piratebay_stable"}; None means all on
+    # Subset of {"yts", "piratebay_stable"}; None means all on.
+    enabled_stable: Optional[List[str]] = None
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "SearchOptions":

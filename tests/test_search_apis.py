@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime
 from urllib.parse import urlencode
 
-import pytest
 import responses
 
 from providers.pirate_bay import PIRATE_BAY_BASE_URL, search_pirate_bay

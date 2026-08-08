@@ -96,7 +96,7 @@ python build.py --compose-html
 ## Make targets
 
 There is a `Makefile` if you prefer it. `make help` lists everything; the useful
-ones are `install`, `run`, `compose-html`, `test`, `build` and `clean`.
+ones are `install`, `run`, `compose-html`, `test`, `lint`, `build` and `clean`.
 
 ## Run the tests
 
@@ -111,6 +111,94 @@ imports as the app (`from torrents import ...`, `from search import search`).
 every push. The release workflow runs it too, so a failing test blocks a
 release.
 
+## Sources and DNS
+
+Search runs against the stable APIs (The Pirate Bay) plus whichever vendored
+sites are enabled in Settings → Sources. Defaults are The Pirate Bay, 1337x,
+TorrentGalaxy and Nyaa.
+
+YTS is **off** by default: `yts.mx` no longer publishes an A record, and leaving
+it on cost every search two 10-second connect timeouts before any results
+appeared.
+
+Some networks answer DNS for torrent indexes with a sinkhole address instead of
+the real one, which makes every source look permanently offline. Yoink resolves
+source hostnames over DNS-over-HTTPS (Cloudflare, then Google) rather than
+trusting the local resolver — on one such connection that took reachable
+providers from 2 to 11. Turn it off in Settings → Advanced to use your system
+resolver.
+
+It works by replacing `socket.getaddrinfo` (see
+[`src/utils/resolver.py`](src/utils/resolver.py)), not by rewriting URLs to raw
+IPs — the latter breaks SNI, the `Host` header and certificate validation.
+
+DNS is not a cure-all. A site blocked at the TLS layer resets the connection
+even once the address is right, and one behind DDoS-Guard or Cloudflare returns
+an interstitial rather than results. For those, use the proxy setting in
+Settings, or see the Torznab note in [TODO.md](TODO.md).
+
+## Playing a file while it downloads
+
+A **Play** button appears on any search result with a magnet, and on any
+download whose torrent contains a video. From a search result Yoink adds the
+magnet, waits for the file list, switches to sequential pieces and buffers the
+head before opening the player — the button reports which of those it is on.
+
+The download-row button behaves the same way once the torrent is already added.
+It
+switches libtorrent to sequential order, deadlines the head *and* the tail of
+the file, and opens the file in an in-app window — you do not have to wait for
+the download to finish.
+
+The tail is prioritised alongside the head on purpose: MP4 keeps its `moov`
+index at the end unless the file was written for streaming, and Matroska keeps
+its cues there, so a player that cannot see the tail reports an unknown duration
+and refuses to seek.
+
+Playing a file that is still downloading needs more than sequential pieces.
+VLC's ordinary file access reports end-of-stream at the last byte on disk, so
+opening a torrent at 25% plays exactly 25% and stops — measured, not assumed.
+Yoink therefore feeds VLC through `libvlc_media_new_callbacks`
+(`src/player/source.py`), whose read callback blocks at the current end of the
+file and waits for the missing bytes. The torrent's final size is handed to VLC
+as the real stream length, so duration and seeking behave from the start.
+
+Playback is libVLC via [`python-vlc`](https://pypi.org/project/python-vlc/).
+That package is only a ctypes binding — it needs an actual VLC runtime, which
+released builds carry inside the exe. Running from source, Yoink looks for one
+in this order:
+
+1. `YOINK_VLC_DIR`, if you point it at a folder holding `libvlc.dll` and
+   `plugins/`.
+2. The copy bundled beside a frozen build.
+3. A portable copy under `%LOCALAPPDATA%\Yoink\vlc` — installing VLC properly
+   needs administrator rights, and unzipping VLC's official
+   [portable build](https://www.videolan.org/vlc/download-windows.html) here
+   does not.
+4. An installed VLC, via the registry then `C:\Program Files\VideoLAN\VLC`.
+
+With none of those, everything else works and the Play button simply stays
+hidden; `getPlayerStatus` reports why. `build.py` refuses to build without a
+runtime to bundle rather than shipping a dead button — pass `--no-player` if
+that is what you actually want.
+
+QtMultimedia was the alternative and was rejected: on Windows it goes through
+Media Foundation, which is patchy on exactly the MKV, HEVC and AC3 combinations
+torrents ship. The cost of libVLC is roughly 40-50 MB of plugins in the
+installer.
+
+## Lint
+
+```powershell
+.venv\Scripts\python.exe -m ruff check .
+```
+
+`ruff.toml` holds the config: pycodestyle, pyflakes, import order, bugbear and
+comprehension rules at a 100-column limit, with `src/vendor/` excluded because
+that tree is vendored third-party code. `ruff check . --fix` applies the
+mechanical fixes. CI runs the same check as its own job, so lint and test
+failures show up as separate signals.
+
 ## Package for Windows
 
 ```powershell
@@ -119,8 +207,8 @@ python build.py
 
 That composes the HTML, runs PyInstaller with `--onefile` to produce
 `dist/Yoink.exe`, then builds `dist/Yoink-Setup-<version>.exe` with Inno Setup
-if `ISCC` is on PATH. It bundles `src/web/`, `src/resources/` and `src/vendor/`.
-Pass `--exe-only` to skip the installer step. See
+if `ISCC` is on PATH. It bundles `src/web/`, `src/resources/`, `src/vendor/` and
+the VLC runtime. Pass `--exe-only` to skip the installer step. See
 [`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for the runtime
 data layout, signing notes and the release checklist.
 

@@ -24,6 +24,58 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 
+#: Where the VLC runtime lands inside the bundle. `player.runtime` looks here
+#: first in a frozen build, so the two constants have to agree.
+VLC_BUNDLE_DIR = "vlc"
+
+#: Directories to check for an installed VLC, in order. The env var lets a build
+#: machine point at a portable copy without installing anything.
+VLC_SEARCH_DIRS = (
+    os.environ.get("YOINK_VLC_DIR", ""),
+    r"C:\Program Files\VideoLAN\VLC",
+    r"C:\Program Files (x86)\VideoLAN\VLC",
+)
+
+
+def find_vlc_runtime() -> Path | None:
+    """Return a directory holding libvlc.dll plus its plugins/ tree."""
+    for raw in VLC_SEARCH_DIRS:
+        if not raw:
+            continue
+        directory = Path(raw)
+        if (directory / "libvlc.dll").exists() and (directory / "plugins").is_dir():
+            return directory
+    return None
+
+
+def vlc_bundle_args(sep: str, required: bool) -> list[str]:
+    """PyInstaller flags that copy the VLC runtime into the bundle.
+
+    The plugin tree is the bulk of it — a few hundred small DLLs — and libvlc
+    refuses to decode anything without it, so it travels whole.
+    """
+    runtime = find_vlc_runtime()
+    if runtime is None:
+        message = (
+            "VLC runtime not found. The in-app player will not work in this build.\n"
+            "  Install VLC (https://www.videolan.org/vlc/) or set YOINK_VLC_DIR to a\n"
+            "  folder containing libvlc.dll and plugins/."
+        )
+        if required:
+            raise SystemExit(f"build: {message}\n  Pass --no-player to build without it.")
+        # ASCII only: this is piped in CI, where Windows falls back to cp1252
+        # and a non-ASCII print raises UnicodeEncodeError mid-build.
+        print(f"build: WARNING - {message}")
+        return []
+
+    print(f"build: bundling VLC runtime from {runtime}")
+    args = [
+        f"--add-binary={runtime / 'libvlc.dll'}{sep}{VLC_BUNDLE_DIR}",
+        f"--add-binary={runtime / 'libvlccore.dll'}{sep}{VLC_BUNDLE_DIR}",
+        f"--add-data={runtime / 'plugins'}{sep}{VLC_BUNDLE_DIR}/plugins",
+    ]
+    return args
+
 
 def compose_html() -> Path:
     """Assemble src/web/index.html from index.template.html + partials.
@@ -74,7 +126,7 @@ def clean_build() -> None:
             print(f"cleaned {spec_path}")
 
 
-def build_exe() -> None:
+def build_exe(with_player: bool = True) -> None:
     """Run PyInstaller to produce the standalone Yoink.exe."""
     subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
 
@@ -114,6 +166,13 @@ def build_exe() -> None:
         "--hidden-import=torrents.persistence",
         "--hidden-import=torrents.resume",
         "--hidden-import=torrents.dto",
+        "--hidden-import=torrents.streaming",
+        "--hidden-import=feeds",
+        "--hidden-import=bridge",
+        "--hidden-import=player",
+        "--hidden-import=player.runtime",
+        "--hidden-import=player.backend",
+        "--hidden-import=player.window",
         "--hidden-import=search",
         "--hidden-import=search.enums",
         "--hidden-import=search.dto",
@@ -140,8 +199,10 @@ def build_exe() -> None:
         "--hidden-import=bs4",
         "--hidden-import=PIL",
         "--hidden-import=aiohttp",
-        "src/main.py",
+        "--hidden-import=vlc",
     ]
+    cmd += vlc_bundle_args(sep, required=with_player)
+    cmd.append("src/main.py")
     subprocess.run(cmd, check=True)
     print("PyInstaller build complete -> dist/Yoink.exe")
 
@@ -170,8 +231,21 @@ def build_installer() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exe-only", action="store_true", help="Skip the Inno Setup installer step")
-    parser.add_argument("--compose-html", action="store_true", help="Only re-assemble src/web/index.html from partials and exit")
+    parser.add_argument(
+        "--exe-only",
+        action="store_true",
+        help="Skip the Inno Setup installer step",
+    )
+    parser.add_argument(
+        "--compose-html",
+        action="store_true",
+        help="Only re-assemble src/web/index.html from partials and exit",
+    )
+    parser.add_argument(
+        "--no-player",
+        action="store_true",
+        help="Build without bundling VLC. The in-app player will not work.",
+    )
     args = parser.parse_args()
 
     if args.compose_html:
@@ -180,7 +254,7 @@ def main() -> None:
 
     clean_build()
     compose_html()
-    build_exe()
+    build_exe(with_player=not args.no_player)
     if not args.exe_only:
         build_installer()
 

@@ -30,6 +30,17 @@
   outline: none;
   transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
+/* Room for the search icon on the left and the clear button on the right.
+ *
+ * This has to out-specify the bare `.text-input` rule in settings.css, which is
+ * @imported after this file and sets `padding: 10px 12px` for the icon-less
+ * inputs on the settings page. With one class each, import order decided it and
+ * the icon ended up drawn on top of the first character. Two classes here means
+ * the cascade no longer depends on the order of the @imports. */
+.input-wrap .text-input {
+  padding-left: 40px;
+  padding-right: 40px;
+}
 .text-input::placeholder { color: var(--text-subtle); }
 .text-input:focus {
   border-color: var(--accent);

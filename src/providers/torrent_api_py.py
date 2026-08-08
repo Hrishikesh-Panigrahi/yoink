@@ -243,7 +243,9 @@ def _row_to_result(item: dict, source: str) -> SearchResult:
     )
 
 
-def _score_vendor_row(item: dict, query: str, region: Region, category: Category, result: SearchResult) -> float:
+def _score_vendor_row(
+    item: dict, query: str, region: Region, category: Category, result: SearchResult
+) -> float:
     title_l = result.title.lower()
     tokens = [tok for tok in query.lower().split() if tok]
     score = sum(100 for tok in tokens if tok in title_l)

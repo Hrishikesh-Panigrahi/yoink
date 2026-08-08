@@ -278,6 +278,22 @@
             <div class="setting-row">
               <div class="setting-info">
                 <span class="setting-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+                </span>
+                <div>
+                  <span class="setting-title">Resolve sources over DNS-over-HTTPS</span>
+                  <span class="setting-desc">Look up source hostnames via Cloudflare and Google instead of your network's DNS. Some networks answer with a wrong address, which makes sources look permanently offline. Turn this off to use your system resolver.</span>
+                </div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="settingDnsOverHttps" aria-label="Resolve sources over DNS-over-HTTPS" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-info">
+                <span class="setting-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" class="ic"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5-5 5 5"/><path d="M12 5v12"/></svg>
                 </span>
                 <div>

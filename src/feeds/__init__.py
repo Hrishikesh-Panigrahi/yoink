@@ -12,7 +12,7 @@ import time
 import uuid
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 from urllib.request import Request, urlopen
 
 import db

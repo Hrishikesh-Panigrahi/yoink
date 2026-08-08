@@ -1,7 +1,7 @@
 """Stateless shared helpers."""
 
-from utils.format import format_size, format_speed, format_eta
-from utils.magnets import build_magnet, DEFAULT_TRACKERS
+from utils.format import format_eta, format_size, format_speed
+from utils.magnets import DEFAULT_TRACKERS, build_magnet
 from utils.paths import normalize_path
 
 __all__ = [

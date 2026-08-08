@@ -36,8 +36,8 @@ def search(
     return nothing, we transparently fall back to the stable APIs so the
     user always sees results.
     """
-    from providers.torrent_api_py import available_sites, search_multi_site
     from providers.pirate_bay import search_pirate_bay
+    from providers.torrent_api_py import available_sites, search_multi_site
     from providers.yts import search_yts
 
     options = options or SearchOptions()

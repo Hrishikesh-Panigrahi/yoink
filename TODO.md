@@ -45,35 +45,112 @@ Known work, roughly in the order it matters. Nothing here is in progress.
 
 ## Features
 
-- [ ] **Play video in the app.** Nothing plays media today. `openPath` hands
-      the file to the OS default handler and that is the whole story.
+- [x] **Play video in the app.** A **Play** button on any download whose
+      torrent holds a video opens it in an in-app window while it is still
+      downloading. All three pieces are in:
 
-      Playing a *finished* file in-app is barely worth the code, since
-      double-clicking already does it. The version that earns its keep is
-      playing *while it downloads*, which needs three things, none of them
-      started:
+      - **Piece ordering.** `src/torrents/streaming.py` sets libtorrent's
+        `sequential_download` flag and deadlines the head *and* the tail. The
+        tail matters because MP4 keeps `moov` at the end unless written for
+        streaming and Matroska keeps its cues there, so a player that cannot
+        see the tail reports an unknown duration and refuses to seek.
+      - **The player.** libVLC through `python-vlc`, in `src/player/`.
+      - **The control.** `.dl-play` on the download row, shown only when a
+        runtime exists and `getPlayableFile` finds a video.
 
-      - sequential piece ordering and `set_piece_deadline`, so the front of the
-        file lands first. libtorrent supports both and neither is used
-        anywhere in `src/torrents/`.
-      - a player that copes with a file growing underneath it.
-      - somewhere to put a "play now" control, appearing once enough of the
-        head is in.
+      **The codec decision was libVLC**, and the cost was accepted knowingly:
+      roughly 40-50 MB of plugin tree in the installer, and the build is no
+      longer one self-contained exe in the strict sense. QtMultimedia was
+      rejected because Media Foundation is patchy on exactly the MKV, HEVC and
+      AC3 mix torrents ship — a player that fails on half the library is worse
+      than no player.
 
-      Codecs are the hard part, not the plumbing. QtMultimedia goes through
-      Media Foundation on Windows, which is patchy on the MKV, HEVC and AC3
-      combinations torrents actually ship, and HEVC wants a paid codec from the
-      Store. HTML5 `<video>` in the web view is worse, because Qt's Chromium
-      normally ships without proprietary codecs. Embedding libVLC through
-      `python-vlc` plays essentially everything, but bolts a large native
-      dependency onto a build that is currently one self-contained exe. That
-      tradeoff is the actual decision here.
+      `python-vlc` is only a ctypes binding, and `import vlc` *raises* when no
+      runtime is present, so it is never imported at module scope. Everything
+      goes through `player.runtime.load_vlc()`, which returns a reason instead.
+      Discovery order: `YOINK_VLC_DIR`, the copy bundled beside a frozen build,
+      a portable copy under `%LOCALAPPDATA%\Yoink\vlc`, then an installed VLC
+      via registry and Program Files. With none of them the app runs normally
+      and the button stays hidden. `build.py` fails rather than shipping a dead
+      button; `--no-player` opts out.
+
+      Verified against real libvlc 3.0.23: runtime discovery, H.264 decode and
+      rendering into the Qt surface, the audio clock, playing a file that grows
+      underneath the player, and closing the window mid-stream without hanging.
+
+      Three things that verification caught, all fixed:
+
+      - Setting `VLC_PLUGIN_PATH` and calling `add_dll_directory` is *not*
+        enough. python-vlc's own loader reads `PYTHON_VLC_LIB_PATH` and
+        `PYTHON_VLC_MODULE_PATH`, and without them falls back to
+        `CDLL(".\\libvlc.dll")` — a relative path resolved against the working
+        directory, so it looked for the library in the repo root.
+      - python-vlc calls `sys.exit(1)` instead of raising when the library will
+        not load. `SystemExit` is a `BaseException`, so the `except Exception`
+        guard would have let it through and killed the app.
+      - `vlc.MediaOpenCb` and friends are exported as bare `c_void_p`
+        subclasses; the real CFUNCTYPE prototypes live in a scope python-vlc
+        never exports, so `vlc.MediaOpenCb(fn)` raises "cannot be converted to
+        pointer". `player/source.py` declares the prototypes itself and casts.
+
+      Still unverified: HEVC and AC3 specifically, and anything about how it
+      behaves on a real swarm rather than a file being appended to on disk.
+
+- [x] **Play straight from a search result.** The download-row Play button
+      needed a torrent already in the session; a search result is only a magnet.
+      `StreamPrepareWorker` closes the gap by waiting on the three things that
+      have to happen first — the file list arriving over DHT, the switch to
+      sequential order, and the head actually reaching disk, since libtorrent
+      only creates the file when it first writes — then opening the window
+      itself. It reports which of the three it is on, so the control says
+      "Buffering 40%" rather than spinning.
+
+      It does not wait for the tail as well. That would stall on a slow swarm,
+      and the tail keeps arriving on its own deadline.
 
 ## Search back end
 
 Public torrent sites change domains, markup and bot protection constantly,
 which is why the long-tail providers behind `ProviderMode.MULTI` are flaky and
-why the health check exists at all. Two ways out, neither started:
+why the health check exists at all.
+
+- [x] **DNS-over-HTTPS.** Some networks answer DNS for torrent indexes with a
+      sinkhole rather than the real address. Measured on one connection,
+      `yts.mx`, `1337x.to`, `torrentgalaxy.to`, `thepiratebay.org` and
+      `magnetdl.com` all resolved to the same unrelated IP, so every probe timed
+      out. `src/utils/resolver.py` resolves through Cloudflare and Google over
+      HTTPS instead, and reachable providers went from **2 to 11**.
+
+      It patches `socket.getaddrinfo`, not the HTTP layer. Rewriting URLs to raw
+      IPs is the obvious first idea and it is wrong: it breaks SNI, the Host
+      header and certificate validation all at once. Replacing only the
+      name-to-address step leaves all three intact and covers `requests`,
+      `urllib` and `aiohttp` without any of them knowing. On by default,
+      toggleable in Settings.
+
+- [x] **Dropped YTS from the defaults.** `yts.mx` publishes no A record at all
+      any more — not blocked, gone — and left on it cost every search two
+      10-second connect timeouts before any results appeared.
+
+- [x] **Fixed the default vendor provider keys.** They read `"nyaaSi"` and
+      `"magnet_dl"`, which match nothing `site_configs()` returns, so Nyaa was
+      never enabled by default despite the intent. Now `nyaasi`, and it is on.
+
+- [ ] **The vendored scrapers return nothing.** This is the real remaining gap
+      and DNS does not touch it. With DoH on, all four sampled sites connect and
+      all four return zero rows:
+
+      - `1337x.to` resets the connection mid-handshake. DNS is correct by then,
+        so this is blocking on the TLS SNI, which nothing inside the process can
+        route around. The proxy setting in Settings, or a VPN, is the answer.
+      - `nyaa.si` answers HTTP 200 from `ddos-guard` — an interstitial, not
+        results, so there is nothing to parse.
+
+      `cloudscraper` is already a dependency but only `src/vendor/`'s
+      `magnet_dl` uses it. Wiring it into the other adapters is the cheap
+      experiment; fixing it properly is the Torznab item below.
+
+Two durable ways out, neither started:
 
 - [ ] **Torznab.** [Jackett](https://github.com/Jackett/Jackett) and
       [Prowlarr](https://github.com/Prowlarr/Prowlarr) expose one standard
@@ -89,8 +166,28 @@ Older notes on both live in `todo.txt`, which this file supersedes.
 
 ## Housekeeping
 
-- [ ] **No linter.** CI runs `pytest` and nothing else. Ruff would catch the
-      obvious things cheaply.
-- [ ] **Test coverage is uneven.** Eight test modules cover search, ranking,
-      safety, paths, the torrent manager and the updater. The bridge slots and
-      the workers have none, which is where most of the recent code went.
+- [x] **Added a linter.** `ruff.toml` selects pycodestyle, pyflakes, import
+      order, bugbear and comprehension rules at 100 columns, with `src/vendor/`
+      excluded because that tree is vendored. CI runs it as its own Linux job —
+      ruff is pure Python, so it does not need a Windows runner or the PyQt6 and
+      libtorrent wheels — which keeps lint and test failures as separate signals.
+      `make lint` runs the same check locally.
+
+      Style modernisation (`UP`) and refactor hints (`SIM`) are deliberately
+      off. Turning them on adds ~150 findings, nearly all mechanical rewrites of
+      `Optional[X]` and `List[X]`; that is a rename pass, not a lint gate, and
+      it should be its own commit if anyone wants it.
+- [x] **Covered the bridge slots and the workers.** `tests/test_bridge_slots.py`
+      and `tests/test_workers.py` add 89 tests, taking the suite from 60 to 149.
+
+      Both avoid Qt machinery rather than mocking it. The bridge tests build the
+      object with `__new__` plus a hand-run `QObject.__init__`, so no libtorrent
+      session or worker threads start, then attach one shared real session and
+      fake workers — every slot under test is the real implementation, and
+      signals still deliver because PyQt does direct connections without a
+      running `QApplication`. The worker tests call `run()` on the test thread
+      instead of `start()`, so emissions arrive synchronously; the polling
+      workers are stopped from inside their own signal handler to bound the
+      loop to one pass.
+
+      Still uncovered: `main.py`, `main_window.py`, and the `src/web/` JS.

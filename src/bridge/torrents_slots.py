@@ -204,6 +204,46 @@ class TorrentsMixin:
             logger.error(f"getDownloadFile failed: {exc}")
             return ""
 
+    @pyqtSlot(str, int, result=str)
+    def startStreaming(self, info_hash: str, file_index: int = -1) -> str:
+        """Reorder a torrent's pieces for playback. Returns status JSON, or '{}'.
+
+        Pass -1 for `file_index` to let the torrents layer pick the largest
+        video file. This only changes the download order — it does not open a
+        player.
+        """
+        try:
+            status = torrents.start_stream(
+                self.session, info_hash, None if file_index < 0 else file_index
+            )
+        except Exception as exc:
+            logger.exception("startStreaming failed")
+            self.toast.emit("error", f"Could not prepare stream: {exc}")
+            return "{}"
+        if status is None:
+            self.toast.emit("error", "Nothing playable in this torrent yet")
+            return "{}"
+        return json.dumps(status.to_dict())
+
+    @pyqtSlot(str, result=str)
+    def getStreamStatus(self, info_hash: str) -> str:
+        """Report buffer progress for a streaming torrent. '{}' when not streaming."""
+        try:
+            status = torrents.stream_status(self.session, info_hash)
+        except Exception as exc:
+            logger.error(f"getStreamStatus failed: {exc}")
+            return "{}"
+        return json.dumps(status.to_dict()) if status else "{}"
+
+    @pyqtSlot(str, result=bool)
+    def stopStreaming(self, info_hash: str) -> bool:
+        """Return the torrent to normal piece ordering."""
+        try:
+            return torrents.stop_stream(self.session, info_hash)
+        except Exception as exc:
+            logger.error(f"stopStreaming failed: {exc}")
+            return False
+
     @pyqtSlot(str, result=str)
     def pickAndMoveTorrent(self, info_hash: str) -> str:
         """Pick a new save folder for a single torrent and move its data there."""

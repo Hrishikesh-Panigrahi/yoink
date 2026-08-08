@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -68,3 +67,64 @@ class NetworkStats:
 
     download_kb_s: float
     upload_kb_s: float
+
+
+@dataclass(frozen=True)
+class StreamPlan:
+    """Which pieces of one file have to arrive first for playback to start.
+
+    `head_pieces` and `tail_pieces` never overlap: on a file small enough that
+    the two windows would meet, everything lands in the head.
+    """
+
+    first_piece: int
+    last_piece: int
+    head_pieces: tuple[int, ...]
+    tail_pieces: tuple[int, ...]
+
+    @property
+    def required_pieces(self) -> tuple[int, ...]:
+        return self.head_pieces + self.tail_pieces
+
+
+@dataclass(frozen=True)
+class StreamStatus:
+    """How close a file is to being playable while it downloads."""
+
+    info_hash: str
+    file_index: int
+    path: str             # path inside the torrent
+    absolute_path: str    # where it lands on disk
+    size: int
+    first_piece: int
+    last_piece: int
+    head_have: int        # head pieces already downloaded
+    head_total: int
+    tail_have: int        # tail pieces already downloaded
+    tail_total: int
+    sequential: bool      # is the torrent in sequential mode
+
+    @property
+    def ready(self) -> bool:
+        """True once a player can open the file without stalling immediately."""
+        return self.head_have >= self.head_total and self.tail_have >= self.tail_total
+
+    def to_dict(self) -> dict:
+        required = self.head_total + self.tail_total
+        have = self.head_have + self.tail_have
+        return {
+            "hash": self.info_hash,
+            "fileIndex": self.file_index,
+            "path": self.path,
+            "absolutePath": self.absolute_path,
+            "size": self.size,
+            "firstPiece": self.first_piece,
+            "lastPiece": self.last_piece,
+            "headHave": self.head_have,
+            "headTotal": self.head_total,
+            "tailHave": self.tail_have,
+            "tailTotal": self.tail_total,
+            "bufferProgress": (have / required * 100.0) if required else 0.0,
+            "sequential": self.sequential,
+            "ready": self.ready,
+        }

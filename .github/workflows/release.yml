@@ -28,6 +28,12 @@ jobs:
           pip install -r requirements-dev.txt
           pip install pyinstaller
 
+      # python-vlc is only a binding; build.py copies libvlc.dll, libvlccore.dll
+      # and the plugin tree out of this install and into the bundle. Without it
+      # the build fails rather than shipping a dead player.
+      - name: Install VLC (bundled into the exe)
+        run: choco install vlc --no-progress -y
+
       - name: Run tests
         env:
           PYTHONPATH: ${{ github.workspace }};${{ github.workspace }}\src

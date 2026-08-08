@@ -82,20 +82,38 @@
 
 .result-genres { display: flex; gap: 6px; flex-wrap: wrap; }
 
+/* Icon-only, like .result-info beside it. With a text label the actions column
+ * grew by ~80px, and since the row is `60px 1fr auto auto` that came straight
+ * out of the title. */
+.result-play { padding-left: 10px; padding-right: 10px; }
+.result-play.is-busy { opacity: 0.6; }
+.result-play.is-busy .ic { animation: result-play-pulse 1.2s ease-in-out infinite; }
+@keyframes result-play-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 1; }
+}
+
 .result-stats {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 86px;
-  align-items: flex-end;
+  /* `flex-end` right-aligned each line as a block. "seeders" is wider than
+   * "peers", so the two lines had different widths and their arrows and
+   * numbers landed at different x positions. Stretching both to the column
+   * width puts the icons in a straight vertical line. */
+  align-items: stretch;
 }
 .stat-line {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   font-size: 12px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
+.stat-line .ic { flex: 0 0 auto; }
 .stat-line .ic { width: 13px; height: 13px; }
 .stat-line .num { font-weight: 700; color: var(--text); min-width: 28px; text-align: right; }
 .stat-line.seeders .ic { color: var(--green); }
