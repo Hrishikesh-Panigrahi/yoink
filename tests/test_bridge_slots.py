@@ -133,6 +133,8 @@ def bridge(lt_session, monkeypatch, tmp_path):
     obj._update_worker = None
     obj._completion_announced = set()
     obj._player_window = None
+    obj._stream_worker = None
+    obj._retired_workers = []
     obj.downloads_worker = FakeWorker(running=True)
     obj.network_worker = FakeWorker(running=True)
     obj.watch_worker = FakeWorker()
@@ -357,6 +359,98 @@ def test_search_survives_malformed_options_json(bridge, monkeypatch):
 class _FakeSignal:
     def connect(self, _slot) -> None:
         pass
+
+
+class _RetirableWorker:
+    """A worker that reports itself running until `wait()` joins it."""
+
+    def __init__(self, running: bool = True) -> None:
+        self.running = running
+        self.interrupted = False
+        self.waits = 0
+
+    def isRunning(self) -> bool:
+        return self.running
+
+    def requestInterruption(self) -> None:
+        self.interrupted = True
+
+    def wait(self, msecs: int = 0) -> bool:
+        self.waits += 1
+        return True
+
+
+def test_a_second_search_keeps_the_first_worker_alive(bridge, monkeypatch):
+    """Overwriting a running QThread used to take the interpreter down.
+
+    Two searches fired in the same tick dropped the last reference to the first
+    worker's thread, and Qt tore it down mid-run.
+    """
+    built = []
+
+    class FakeSearchWorker(_RetirableWorker):
+        def __init__(self, query, page, options):
+            super().__init__(running=True)
+            self.query = query
+            self.finished = _FakeSignal()
+            self.failed = _FakeSignal()
+            built.append(self)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(search_slots, "SearchWorker", FakeSearchWorker)
+
+    bridge.search("first", 1, "{}")
+    first = bridge._search_worker
+    bridge.search("second", 1, "{}")
+
+    assert len(built) == 2
+    assert bridge._search_worker is built[1]
+    assert first in bridge._retired_workers
+    assert first.interrupted is True
+
+
+def test_retiring_drops_workers_whose_thread_has_ended(bridge):
+    finished = _RetirableWorker(running=False)
+    bridge._retired_workers = [finished]
+    running = _RetirableWorker(running=True)
+
+    bridge._retire_worker(running)
+
+    # The finished one is joined before its reference goes, and then released.
+    assert finished.waits == 1
+    assert bridge._retired_workers == [running]
+
+
+def test_retiring_ignores_a_worker_that_never_ran(bridge):
+    bridge._retire_worker(None)
+    bridge._retire_worker(_RetirableWorker(running=False))
+
+    assert bridge._retired_workers == []
+
+
+def test_metadata_enrich_retires_the_previous_worker(bridge, monkeypatch):
+    """`_kick_metadata_enrich` had the identical overwrite bug."""
+    from bridge import core
+
+    class FakeEnrichWorker(_RetirableWorker):
+        def __init__(self, query, results):
+            super().__init__(running=True)
+            self.enriched = _FakeSignal()
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(core, "MetadataEnrichWorker", FakeEnrichWorker)
+
+    bridge._kick_metadata_enrich("first", [])
+    first = bridge._metadata_worker
+    bridge._kick_metadata_enrich("second", [])
+
+    assert bridge._metadata_worker is not first
+    assert first in bridge._retired_workers
+    assert first.interrupted is True
 
 
 def test_provider_toggle_is_persisted_and_reflected(bridge, recorder):
@@ -841,6 +935,31 @@ def test_shutdown_stops_every_worker_and_the_session(bridge, monkeypatch):
         assert worker.stops == 1, f"{name} was not stopped"
         assert worker.waits == 1, f"{name} was not waited on"
     assert stopped == [bridge.session]
+
+
+def test_shutdown_drains_the_retired_workers(bridge, monkeypatch):
+    """They are still live threads touching the session that is about to stop."""
+    monkeypatch.setattr(torrents, "stop_session", lambda session: None)
+    retired = _RetirableWorker(running=True)
+    bridge._retired_workers = [retired]
+
+    bridge.shutdown()
+
+    assert retired.interrupted is True
+    assert retired.waits == 1
+    assert bridge._retired_workers == []
+
+
+def test_shutdown_continues_past_a_failing_retired_worker(bridge, monkeypatch):
+    monkeypatch.setattr(torrents, "stop_session", lambda session: None)
+    wedged = _RetirableWorker(running=True)
+    wedged.wait = lambda msecs=0: (_ for _ in ()).throw(RuntimeError("wedged"))
+    healthy = _RetirableWorker(running=True)
+    bridge._retired_workers = [wedged, healthy]
+
+    bridge.shutdown()
+
+    assert healthy.waits == 1
 
 
 def test_shutdown_continues_past_a_failing_worker(bridge, monkeypatch):

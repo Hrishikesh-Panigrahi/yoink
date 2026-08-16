@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import traceback
 
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
@@ -15,6 +16,33 @@ from utils.single_instance import send_to_existing
 
 LOG_FILE = default_log_path()
 logger = setup_logger("yoink", LOG_FILE)
+
+
+def _log_unhandled(exc_type, exc_value, exc_tb) -> None:
+    """`sys.excepthook`: log anything that escapes a Qt slot, and carry on."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_tb)
+        return
+    logger.critical(
+        "Unhandled exception:\n"
+        + "".join(traceback.format_exception(exc_type, exc_value, exc_tb)).rstrip()
+    )
+
+
+def _install_exception_logger() -> None:
+    """Stop one bad slot from taking the whole app down without a word.
+
+    Every JS-to-Python call, timer and signal handler runs inside `app.exec()`,
+    and an exception that escapes one of them does not propagate out to the
+    `try` in `__main__`: PyQt hands it to `sys.excepthook` and then aborts the
+    process. The default hook prints nothing at all here, so the app vanished
+    with no traceback, no log line and an exit code of 127 - which reads as a
+    crash in whatever was on screen at the time rather than as a Python error.
+
+    Replacing the hook is what prevents the abort as well as recording the
+    cause; PyQt only calls `qFatal` when the hook is still the default one.
+    """
+    sys.excepthook = _log_unhandled
 
 
 def _extract_payload(argv: list[str]) -> str:
@@ -40,6 +68,7 @@ def _apply_dns_setting() -> None:
 
 def main() -> None:
     logger.info("Starting Yoink")
+    _install_exception_logger()
 
     payload = _extract_payload(sys.argv)
     if payload and send_to_existing(payload):

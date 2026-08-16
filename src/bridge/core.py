@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
 import db
 import torrents
@@ -84,6 +84,7 @@ class Bridge(
         self._completion_announced: set[str] = set()
         self._player_window = None
         self._stream_worker: Optional[StreamPrepareWorker] = None
+        self._retired_workers: list[QThread] = []
 
         self.downloads_worker = DownloadsPollWorker(self.session)
         self.downloads_worker.snapshot.connect(self._on_downloads_snapshot)
@@ -110,6 +111,32 @@ class Bridge(
         self.schedule_worker.start()
 
     # ----- Private helpers shared across mixins ---------------------------
+
+    def _retire_worker(self, worker: Optional[QThread]) -> None:
+        """Hold a superseded worker until its thread has actually ended.
+
+        Replacing `self._x_worker` while the old one is still running drops the
+        last Python reference to a live QThread. PyQt keeps its own reference
+        for the duration, so this does not abort the process on 6.11, but the
+        thread then runs unowned and unjoined: nothing can interrupt it, and
+        `shutdown` cannot wait for it before the libtorrent session goes.
+
+        Polling `isRunning()` is the cleanup signal rather than
+        `QThread.finished`, because several of these workers declare their own
+        `finished` signal and shadow Qt's.
+        """
+        alive: list[QThread] = []
+        for retired in self._retired_workers:
+            if retired.isRunning():
+                alive.append(retired)
+            else:
+                # Returns immediately for a thread that has already ended, and
+                # guarantees it is joined before the reference goes away.
+                retired.wait(50)
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            alive.append(worker)
+        self._retired_workers = alive
 
     def _load_save_folder(self) -> str:
         saved = db.get_setting("download_directory")
@@ -175,8 +202,7 @@ class Bridge(
 
     def _kick_metadata_enrich(self, query: str, results: list) -> None:
         """Fire off TMDB enrichment for the visible page."""
-        if self._metadata_worker and self._metadata_worker.isRunning():
-            self._metadata_worker.requestInterruption()
+        self._retire_worker(self._metadata_worker)
         worker = MetadataEnrichWorker(query, results)
         worker.enriched.connect(self._on_metadata_enriched)
         worker.start()
@@ -293,6 +319,16 @@ class Bridge(
         if self._metadata_worker is not None and self._metadata_worker.isRunning():
             self._metadata_worker.requestInterruption()
             self._metadata_worker.wait(1000)
+
+        # Superseded workers are still live threads, and some of them touch the
+        # libtorrent session that is about to be stopped below.
+        for retired in self._retired_workers:
+            try:
+                retired.requestInterruption()
+                retired.wait(1000)
+            except Exception as exc:
+                logger.error(f"Retired worker shutdown error: {exc}")
+        self._retired_workers = []
 
         try:
             torrents.stop_session(self.session)

@@ -35,8 +35,11 @@ class SearchMixin:
 
         raw_options = self._apply_enabled_providers(raw_options)
 
-        if self._search_worker and self._search_worker.isRunning():
-            self._search_worker.requestInterruption()
+        # Interrupts the previous search and keeps it referenced until its
+        # thread ends. Overwriting the attribute alone left a running QThread
+        # with no owner, which is how a stale result could still land on top of
+        # a newer one.
+        self._retire_worker(self._search_worker)
 
         options = SearchOptions.from_dict(raw_options)
         self._search_worker = SearchWorker(query, max(1, page or 1), options)

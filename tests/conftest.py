@@ -1,15 +1,55 @@
-"""Pytest config: put `src/` on sys.path so flat imports work."""
+"""Pytest config: put `src/` on sys.path so flat imports work.
 
+Also forces `TORRENT_DB_PATH` at a temp file. That happens here, at import
+time, rather than in a fixture: conftest is imported before any test module,
+so it covers anything that reaches for the database while it is still being
+collected. Most test modules point the variable somewhere safe themselves, but
+nothing used to enforce it, and one module that forgot would read and delete
+rows from the real library under `%LOCALAPPDATA%\\Yoink\\yoink.db`.
+"""
+
+import atexit
 import os
+import shutil
 import sys
+import tempfile
+
+import pytest
 
 SRC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src")
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
+_TEST_DB_DIR = tempfile.mkdtemp(prefix="yoink-tests-")
+TEST_DB_PATH = os.path.join(_TEST_DB_DIR, "yoink-test.db")
+os.environ["TORRENT_DB_PATH"] = TEST_DB_PATH
+atexit.register(shutil.rmtree, _TEST_DB_DIR, True)
+
 import libtorrent as lt  # noqa: E402  (must follow the sys.path setup above)
 
+from utils.paths import default_db_path  # noqa: E402
+
 DEFAULT_PIECE_LENGTH = 1024 * 1024
+
+
+@pytest.fixture(autouse=True)
+def guard_real_database():
+    """Refuse to run a test whose db path has drifted onto the real library.
+
+    Modules that set `TORRENT_DB_PATH` themselves also restore it, and a
+    restore that pops the variable would silently hand the next module the
+    user's own database. Catch that here instead of after the damage.
+    """
+    real = os.path.normcase(os.path.abspath(default_db_path()))
+    configured = os.environ.get("TORRENT_DB_PATH")
+    if not configured:
+        os.environ["TORRENT_DB_PATH"] = TEST_DB_PATH
+        configured = TEST_DB_PATH
+    assert os.path.normcase(os.path.abspath(configured)) != real, (
+        f"TORRENT_DB_PATH points at the real library ({real}); "
+        "tests must use a temp database"
+    )
+    yield
 
 
 class FakeFileStorage:

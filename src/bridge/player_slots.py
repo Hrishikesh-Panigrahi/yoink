@@ -128,6 +128,7 @@ class PlayerMixin:
     def _start_stream_prepare(self, info_hash: str) -> None:
         """Wait for metadata and the head, then open the player."""
         self.cancelStreamPrepare()
+        self._retire_worker(getattr(self, "_stream_worker", None))
 
         worker = StreamPrepareWorker(self.session, info_hash)
         worker.progress.connect(self.streamProgress)

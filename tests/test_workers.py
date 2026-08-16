@@ -83,6 +83,44 @@ def test_search_worker_reports_failures_without_raising(monkeypatch):
     assert finishes == []
 
 
+def interrupt(worker, monkeypatch) -> None:
+    """Make a worker look interrupted.
+
+    `QThread.requestInterruption` is a no-op on a thread that was never
+    started, and these tests deliberately call `run()` on the test thread, so
+    the flag is stubbed rather than raised for real.
+    """
+    monkeypatch.setattr(worker, "isInterruptionRequested", lambda: True)
+
+
+def test_search_worker_drops_results_once_superseded(monkeypatch):
+    """A newer search has already replaced this one; its results are stale."""
+    monkeypatch.setattr(
+        workers, "run_search", lambda q, p, options=None: FakePage([FakeResult("Ubuntu")])
+    )
+    worker = workers.SearchWorker("ubuntu", 1, SearchOptions())
+    finishes = collect(worker.finished)
+    interrupt(worker, monkeypatch)
+
+    worker.run()
+
+    assert finishes == []
+
+
+def test_search_worker_stays_quiet_about_a_superseded_failure(monkeypatch):
+    def explode(query, page, options=None):
+        raise RuntimeError("provider down")
+
+    monkeypatch.setattr(workers, "run_search", explode)
+    worker = workers.SearchWorker("ubuntu", 1, SearchOptions())
+    failures = collect(worker.failed)
+    interrupt(worker, monkeypatch)
+
+    worker.run()
+
+    assert failures == []
+
+
 # ----- MetadataEnrichWorker -----------------------------------------------
 
 

@@ -32,9 +32,18 @@ class SearchWorker(QThread):
     def run(self) -> None:
         try:
             page = run_search(self.query, self.page, options=self.options)
+            # A superseded search must not deliver: its results would overwrite
+            # the newer query's, and its error would toast over them. The
+            # providers cannot be cancelled mid-flight, so the interruption is
+            # checked here instead - up to now `requestInterruption` did nothing.
+            if self.isInterruptionRequested():
+                logger.info(f"Dropping superseded search results for {self.query!r}")
+                return
             payload = [r.to_dict() for r in page.results]
             self.finished.emit(self.query, self.page, payload, page.total, page.pages)
         except Exception as exc:  # pragma: no cover - defensive
+            if self.isInterruptionRequested():
+                return
             logger.exception("Search failed")
             self.failed.emit(self.query, str(exc))
 
@@ -69,7 +78,7 @@ class MetadataEnrichWorker(QThread):
                         continue
                     if result:
                         updates.append(result)
-            if updates:
+            if updates and not self.isInterruptionRequested():
                 self.enriched.emit(self.query, updates)
         except Exception as exc:  # pragma: no cover - defensive
             logger.exception(f"Metadata enrich worker failed: {exc}")

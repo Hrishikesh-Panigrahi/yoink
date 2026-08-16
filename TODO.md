@@ -195,28 +195,50 @@ These were all reproduced during the player work and left alone deliberately,
 either because the fix was out of scope for that change or because it needs a
 decision. Ordered by how much damage each can do.
 
-- [ ] **Two overlapping searches can kill the process.** `SearchMixin.search`
-      overwrites `self._search_worker` while the previous one is still running.
-      That drops the last Python reference to a live `QThread`, and when the
-      collector gets to it Qt tears down a running thread. Reproduced: one
-      search returns results in 22s, two fired in the same tick produce no
-      output at all and the interpreter exits.
+- [x] **An exception in any slot killed the app silently.** This turned out to
+      be what "the interpreter exits with no output" actually was, and it was
+      never specific to search. Every JS call, timer and signal handler runs
+      inside `app.exec()`, so an exception escaping one of them does not
+      propagate out to the `try` in `__main__`. PyQt hands it to
+      `sys.excepthook` and then aborts the process, and the default hook prints
+      *nothing at all* here: no traceback, no log line, exit code 127. A
+      one-line typo in a slot was indistinguishable from a hard crash in
+      whatever was on screen.
 
-      Two halves to the fix. Keep superseded workers referenced until their
-      thread actually ends — a list pruned on `isRunning()` is enough, and note
-      that `QThread.finished` is *shadowed* here by a custom `finished` signal
-      so it cannot be used for cleanup. And make `SearchWorker.run` check
-      `isInterruptionRequested()` before emitting, because `requestInterruption`
-      is already called and currently does nothing at all.
+      `main._install_exception_logger()` replaces the hook, which both records
+      the traceback and prevents the abort — PyQt only calls `qFatal` while the
+      hook is still `sys.__excepthook__`. Verified against a real event loop: a
+      slot that raises now logs a full traceback and the app carries on.
+      `KeyboardInterrupt` still goes to the default hook so Ctrl-C keeps
+      quitting. Covered by `tests/test_main.py`, which is also the first
+      coverage `main.py` has had.
 
-      `_kick_metadata_enrich` has the identical shape and the same bug.
+- [x] **Two overlapping searches leaked a running `QThread`.**
+      `SearchMixin.search` overwrote `self._search_worker` while the previous
+      one was still running, dropping the last Python reference to a live
+      thread. `Bridge._retire_worker` now interrupts the superseded worker and
+      holds it in a list pruned on `isRunning()`, joining each one with
+      `wait()` before its reference goes; `shutdown` drains the list.
+      `_kick_metadata_enrich` and `_start_stream_prepare` had the same shape and
+      use the same helper. `SearchWorker.run` checks
+      `isInterruptionRequested()` before emitting, so a superseded search no
+      longer overwrites the newer query's results or toasts an error over them
+      — until now `requestInterruption` was called but did nothing at all.
 
-- [ ] **`pytest` without `TORRENT_DB_PATH` writes to the real library.** Most
-      test modules set it themselves, but nothing enforces it, so one module
-      that forgets will read and delete rows from
-      `%LOCALAPPDATA%\Yoink\yoink.db`. Force a temp path from a session-scoped
-      `conftest.py` fixture instead of trusting each module. Cheap, and it
-      removes a whole category of accident.
+      One correction to the original note: PyQt 6.11 keeps a reference to a
+      running `QThread` of its own, so dropping the last Python one does not by
+      itself abort the process — twelve overlapping searches survived it. The
+      leak was real and the fix stands, but the crash it was blamed for was the
+      missing excepthook above.
+
+- [x] **`pytest` without `TORRENT_DB_PATH` wrote to the real library.**
+      `tests/conftest.py` now points it at a temp file at *import* time rather
+      than from a fixture, so it is set before any test module is imported, and
+      an autouse fixture fails the test if the variable has drifted back onto
+      `%LOCALAPPDATA%\Yoink\yoink.db` — which is what a module restoring a
+      variable that was never set used to do to whichever module ran next.
+      Verified by running the full suite with the variable unset: the real
+      database's mtime does not move.
 
 - [ ] **Remove is one stray click from destroying a torrent.** The kebab's
       *Remove* fires immediately, and *Cancel* arms on the first click and
