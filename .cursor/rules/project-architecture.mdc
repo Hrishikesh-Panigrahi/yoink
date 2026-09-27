@@ -6,7 +6,7 @@ alwaysApply: true
 # Yoink Architecture
 
 - Yoink is a PyQt6 desktop app whose UI is HTML/CSS/JS in a `QWebEngineView`, wired to Python over `QWebChannel`. Backend: libtorrent + SQLAlchemy/SQLite. Frontend assets live in `src/web/`.
-- The codebase is flat under `src/`. Top-level modules: `main.py`, `main_window.py`, `workers.py`, `db.py`, `models.py`, `version.py`. Packages: `bridge/` (JS-facing slots, one mixin per area), `torrents/`, `search/`, `providers/`, `player/`, `feeds/`, `utils/`, `web/`, `vendor/`, `resources/`.
+- The codebase is flat under `src/`. Top-level modules: `main.py`, `main_window.py`, `workers.py`, `db.py`, `models.py`, `feeds.py`, `version.py`. Packages: `bridge/` (JS-facing slots, one mixin per area), `torrents/`, `search/`, `providers/`, `player/`, `utils/`, `web/`, `vendor/`, `resources/`. A package earns its directory by holding more than one module.
 - Prefer module-level functions over service/manager classes. Classes are reserved for what frameworks or native handles require: PyQt subclasses (`MainWindow`, `PlayerWindow`, `Bridge` and its mixins, `QThread` workers), SQLAlchemy ORM models, the small `Session` dataclass that holds the libtorrent handle cache, and the libvlc wrappers in `player/`.
 - Use enums (in `search/enums.py`) instead of magic strings for fixed value sets, and `@dataclass(frozen=True)` DTOs (in `search/dto.py`, `torrents/dto.py`) for data crossing module boundaries.
 - Shared helpers go in `utils/` (`format`, `paths`, `magnets`, `logger`, `resolver`, ...). Add a new util module only when the helper is used in 2+ places.

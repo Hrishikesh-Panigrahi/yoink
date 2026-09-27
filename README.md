@@ -2,20 +2,21 @@
 
 > Just yoink it from the swarm.
 
-Yoink is a desktop torrent client for Windows. It searches public torrent
-sites, downloads with libtorrent, and plays a video while it is still
-downloading. The shell is PyQt6 and the UI is HTML/CSS/JS in a web view.
+Yoink is a torrent client for Windows. You can search public torrent sites,
+download with libtorrent, and start watching a video before it has finished
+downloading. The window is PyQt6 and the interface inside it is plain
+HTML, CSS and JavaScript.
 
-**Yoink is self-hosted.** There are no published downloads: you run it from
-source, or build your own exe on your own machine.
+There are no ready-made downloads. You run Yoink from source, or build your own
+exe on your machine. Both are covered below.
 
-- [Features](docs/FEATURES.md): what it does, and how the in-app player works
-- [Development](docs/DEVELOPMENT.md): tests, lint, building an exe, code layout
-- [TODO](TODO.md): known gaps and bugs
+- [Features](docs/FEATURES.md): what Yoink can do and how the video player works
+- [Development](docs/DEVELOPMENT.md): tests, linting, building an exe, where the code lives
+- [TODO](TODO.md): known bugs and things still to do
 
 ## How to run
 
-You need Windows 10 or 11 (x64) and Python 3.10 or newer.
+You need Windows 10 or 11 (64-bit) and Python 3.10 or newer.
 
 ```powershell
 git clone https://github.com/Hrishikesh-Panigrahi/yoink.git
@@ -27,52 +28,55 @@ $env:PYTHONPATH = "$PWD;$PWD\src"
 python src\main.py
 ```
 
-Add `--minimized` to start in the tray with no window. With GNU Make installed,
-`make install` then `make run` does the same thing.
+Add `--minimized` if you want it to start in the tray. If you have GNU Make,
+`make install` and then `make run` do the same thing.
 
-Your library, settings and logs live in `%LOCALAPPDATA%\Yoink\`. To try things
-without touching them, point `TORRENT_DB_PATH` at another file first:
+Yoink keeps your library, settings and logs in `%LOCALAPPDATA%\Yoink\`. If you
+just want to try it out without touching that, point `TORRENT_DB_PATH` at a
+different file first:
 
 ```powershell
 $env:TORRENT_DB_PATH = "$env:TEMP\yoink-dev.db"
 ```
 
-The in-app player needs VLC. Install it, or, without admin rights, unzip VLC's
-[portable build](https://www.videolan.org/vlc/download-windows.html) into
-`%LOCALAPPDATA%\Yoink\vlc`. Without VLC everything else works and the Play
-button stays hidden.
+The video player needs VLC. Either install VLC, or if you don't have admin
+rights, unzip the [portable version](https://www.videolan.org/vlc/download-windows.html)
+into `%LOCALAPPDATA%\Yoink\vlc`. Without VLC the rest of the app works fine,
+you just won't see a Play button.
 
-To get an exe instead, run `python build.py`. It writes `dist/Yoink.exe`, plus
-an installer if Inno Setup is installed (see
-[Development](docs/DEVELOPMENT.md#build-an-exe-and-installer)).
+If you'd rather have an exe, run `python build.py`. You'll get `dist/Yoink.exe`,
+and an installer too if Inno Setup is installed. The details are in
+[Development](docs/DEVELOPMENT.md#build-an-exe-and-installer).
 
 ## Sources and DNS
 
-Search goes to the sites enabled in Settings → Sources (1337x, TorrentGalaxy
-and Nyaa out of the box) and falls back to The Pirate Bay's API if they return
-nothing. "Stable APIs only" in the source filter skips straight to The Pirate
-Bay.
+By default a search goes to the sites turned on in Settings > Sources (1337x,
+TorrentGalaxy and Nyaa). If none of them return anything, Yoink falls back to
+The Pirate Bay's API. Picking "Stable APIs only" in the source filter goes
+straight to The Pirate Bay.
 
-YTS is **off** by default: `yts.mx` no longer publishes an A record, and leaving
-it on cost every search two 10-second connect timeouts.
+YTS is turned off by default. `yts.mx` doesn't resolve any more, and leaving it
+on added about 20 seconds of timeouts to every search.
 
-Some networks answer DNS for torrent sites with a sinkhole address, which makes
-every source look permanently offline. Yoink therefore resolves source
-hostnames over DNS-over-HTTPS (Cloudflare, then Google) instead of the local
-resolver — on one such connection that took reachable sources from 2 to 11.
-Turn it off in Settings → Library & app behavior to use your system resolver.
+Some internet providers answer DNS lookups for torrent sites with a fake
+address, so every site looks like it's down. To get around that, Yoink looks up
+site addresses over DNS-over-HTTPS (Cloudflare first, then Google). On one
+connection like that, it took the number of working sources from 2 to 11. You
+can switch it off in Settings > Library & app behavior if you'd rather use your
+normal DNS.
 
-It works by replacing `socket.getaddrinfo` (see
-[`src/utils/resolver.py`](src/utils/resolver.py)), not by rewriting URLs to raw
-IPs, which would break SNI, the `Host` header and certificate validation.
+It does this by replacing `socket.getaddrinfo` (see
+[`src/utils/resolver.py`](src/utils/resolver.py)). Swapping hostnames for raw IP
+addresses in the URLs would have been simpler, but it breaks HTTPS: the
+certificate check, SNI and the `Host` header all need the real hostname.
 
-DNS is not a cure-all. A site blocked at the TLS layer still resets the
-connection, and one behind DDoS-Guard or Cloudflare returns a challenge page
-instead of results. For those, use the proxy setting in Settings → Advanced, or
-see the Torznab note in [TODO.md](TODO.md).
+DNS doesn't fix everything. Some sites are blocked at the connection level and
+still get cut off, and sites behind DDoS-Guard or Cloudflare send back a
+challenge page instead of results. A VPN gets around the first kind. The proxy
+box in Settings > Advanced doesn't do anything yet (see [TODO.md](TODO.md),
+which also has the Torznab idea for the second kind).
 
 ## Legal note
 
-Yoink is a torrent client. It does not host, bundle, or endorse copyrighted
-content. You are responsible for using torrents and magnet links legally in your
-region.
+Yoink is a torrent client. It doesn't host, bundle or endorse copyrighted
+content. It's up to you to use torrents and magnet links legally where you live.

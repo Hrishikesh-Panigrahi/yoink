@@ -1,115 +1,119 @@
 # Features
 
-Everything below is implemented and reachable from the UI. Where sources come
-from, and why YTS is off, is covered in the
+Everything here works today and can be reached from the app. For where search
+results come from and why YTS is off, see the
 [README](../README.md#sources-and-dns).
 
 ## Search
 
-- **Two provider modes.** `multi` searches the sites you have enabled and is the
-  default ("All my enabled sites"). `stable` queries The Pirate Bay's API
-  directly and is the fastest. YTS can be switched on as a stable source, but
-  is off by default.
-- **Filters.** Region (Bollywood, Hollywood, South Indian, Korean, anime),
-  category (movies, TV, anime, music, games, apps, books), quality, and sort by
-  relevance, seeds, size or newest.
-- **Health ranking.** Results are scored on seeders, quality and source weight,
-  then deduplicated by infohash so one release doesn't appear five times.
-- **Provider health checks.** Every source can be pinged with a small test
-  search and graded into three bands, so you can see what's reachable and turn
-  off what isn't. Sources can be enabled individually.
-- **Safety flags.** Results are scanned for common red flags: an `.exe` inside
-  something claiming to be a film, a file far too small for its stated quality,
-  password-protected archives.
-- **TMDB metadata.** With a free API key, results gain posters, backdrops,
-  ratings, runtime, genres, plot and a trailer link. Responses are cached.
-- **Search history**, recalled as you type.
+- Two ways to search. "All my enabled sites" is the default and searches every
+  site you've turned on. "Stable APIs only" asks The Pirate Bay's API directly,
+  which is the fastest. You can turn YTS on as a stable source, but it's off by
+  default.
+- Filters for region (Bollywood, Hollywood, South Indian, Korean, anime),
+  category (movies, TV, anime, music, games, apps, books) and quality. You can
+  sort by relevance, seeders, size or date.
+- Results are scored on seeders, quality and which site they came from.
+  Duplicates are merged by infohash, so the same release doesn't show up five
+  times.
+- Each source can be checked with a small test search. It gets marked as
+  working, slow or down, so you can see which ones are reachable and turn off
+  the rest.
+- Suspicious results get a warning, for example an `.exe` inside something that
+  says it's a film, a file far too small for the quality it claims, or a
+  password-protected archive.
+- With a free TMDB API key, results also show posters, ratings, runtime,
+  genres, a plot summary and a trailer link. These are cached.
+- Your past searches come up as you type.
 
-## Transfers
+## Downloads
 
-- Add by magnet link, `.torrent` file, or drag and drop.
-- Per-file priorities, so you can skip the extras inside a torrent.
-- Pause and resume individually or across the whole queue.
-- Move a torrent to a different folder after it has started.
-- Remove with or without deleting the data.
-- Labels for grouping a library.
-- Fast-resume data is written per torrent, so progress survives a restart.
-- Open the finished file or reveal it in Explorer.
-- Play a video while it is still downloading (see
+- Add torrents with a magnet link, a `.torrent` file, or by dragging either onto
+  the window.
+- Pick which files inside a torrent you want, so you can skip the extras.
+- Pause and resume one torrent or all of them.
+- Move a torrent to another folder after it has started.
+- Remove a torrent and choose whether to keep the downloaded files.
+- Group your library with labels.
+- Progress is saved for each torrent, so nothing is lost when you restart.
+- Open a finished file, or show it in Explorer.
+- Watch a video while it's still downloading (see
   [below](#playing-a-file-while-it-downloads)).
 
 ## Automation
 
-- **Watch folder.** Drop a `.torrent` into a directory and it gets added.
-- **RSS feeds.** Subscribe with an optional title regex and a minimum-seeder
-  floor. Seen items are tracked so nothing is added twice.
-- **Clipboard watcher.** Copy a magnet link, switch to Yoink, and it offers to
-  add it.
-- **Scheduled bandwidth.** Apply quieter caps during a chosen window.
-- **File associations.** The installer can register `magnet:` links and
-  `.torrent` files. A single-instance guard hands the path to the running
-  window instead of opening a second one.
+- Watch folder: drop a `.torrent` file into a folder you choose and Yoink adds
+  it.
+- RSS feeds: subscribe to a feed, optionally with a title pattern and a minimum
+  number of seeders. Yoink remembers what it has already added.
+- Clipboard: copy a magnet link, switch to Yoink, and it offers to add it.
+- Scheduled bandwidth: use lower speed limits during hours you pick.
+- File associations: the installer can make `magnet:` links and `.torrent`
+  files open in Yoink. If Yoink is already running, the link goes to that window
+  instead of starting a second copy.
 
 ## Limits
 
-Global download and upload caps, a limit on how many torrents download and seed
-at once, and a seed ratio limit that pauses a torrent once it is reached.
+You can cap download and upload speed, limit how many torrents download and
+seed at the same time, and set a seed ratio after which a torrent pauses.
 
-## Application
+## General
 
-- Eight themes. Minimise to tray and keep seeding.
-- Native notifications when a download finishes.
+- Eight themes. Yoink can minimise to the tray and keep seeding there.
+- A notification when a download finishes.
 - Optional launch at login.
-- Command palette and keyboard shortcuts.
-- Export and import settings.
-- Proxy support (`http`, `https`, `socks5`) with a custom user agent.
-- Settings live in a SQLite file under `%LOCALAPPDATA%\Yoink\`. No account, no
-  telemetry.
+- A command palette and keyboard shortcuts.
+- Export and import your settings.
+- Settings are kept in a SQLite file in `%LOCALAPPDATA%\Yoink\`. There's no
+  account and no telemetry.
 
 ## Playing a file while it downloads
 
-A **Play** button appears on any search result with a magnet, and on any
-download whose torrent contains a video. From a search result Yoink adds the
-magnet, waits for the file list, switches to sequential pieces and buffers the
-head before opening the player — the button reports which of those it is on.
+A Play button shows up on search results that have a magnet link, and on any
+download that contains a video.
 
-The download-row button behaves the same way once the torrent is already added.
-It switches libtorrent to sequential order, deadlines the head *and* the tail of
-the file, and opens the file in an in-app window — you do not have to wait for
-the download to finish.
+When you press Play on a search result, Yoink adds the magnet, waits for the
+list of files, switches to downloading the pieces in order, and buffers the
+start of the video before opening the player. The button tells you which of
+those steps it's on.
 
-The tail is prioritised alongside the head on purpose: MP4 keeps its `moov`
-index at the end unless the file was written for streaming, and Matroska keeps
-its cues there, so a player that cannot see the tail reports an unknown duration
-and refuses to seek.
+The Play button on a download does the same once the torrent is already there.
+It asks libtorrent to download pieces in order, gives priority to both the
+start and the end of the file, and opens the video in a player window while the
+rest keeps downloading.
 
-Playing a file that is still downloading needs more than sequential pieces.
-VLC's ordinary file access reports end-of-stream at the last byte on disk, so
-opening a torrent at 25% plays exactly 25% and stops — measured, not assumed.
-Yoink therefore feeds VLC through `libvlc_media_new_callbacks`
-(`src/player/source.py`), whose read callback blocks at the current end of the
-file and waits for the missing bytes. The torrent's final size is handed to VLC
-as the real stream length, so duration and seeking behave from the start.
+The end of the file matters as much as the start. MP4 files usually keep their
+index (`moov`) at the end, and MKV files keep their seek points there. Without
+it, the player can't show the length of the video or let you skip ahead.
 
-### Where the VLC runtime comes from
+Downloading in order isn't enough on its own. VLC normally stops playing at the
+last byte that's on disk, so a video that's 25% downloaded plays for 25% and
+then stops. Yoink gets around this by feeding VLC through
+`libvlc_media_new_callbacks` (see `src/player/source.py`). When VLC asks for
+data that hasn't arrived yet, Yoink waits for it instead of reporting the end of
+the file. It also tells VLC the full size of the file up front, so the length
+and seeking work straight away.
 
-Playback is libVLC via [`python-vlc`](https://pypi.org/project/python-vlc/).
-That package is only a ctypes binding — it needs an actual VLC runtime, which an
-exe from `build.py` carries inside it. Otherwise Yoink looks for one in this
-order:
+### Where VLC comes from
 
-1. `YOINK_VLC_DIR`, if you point it at a folder holding `libvlc.dll` and
-   `plugins/`.
-2. The copy bundled inside a frozen build.
-3. A portable copy under `%LOCALAPPDATA%\Yoink\vlc` — installing VLC properly
-   needs administrator rights, and unzipping VLC's official
-   [portable build](https://www.videolan.org/vlc/download-windows.html) here
-   does not.
-4. An installed VLC, via the registry then `C:\Program Files\VideoLAN\VLC`.
+Playback uses libVLC through [`python-vlc`](https://pypi.org/project/python-vlc/),
+which is only a thin wrapper and needs VLC itself to be present. An exe built
+with `build.py` includes VLC. Otherwise Yoink looks for it in this order:
 
-With none of those, everything else works and the Play button simply stays
-hidden; `getPlayerStatus` reports why.
+1. The folder in `YOINK_VLC_DIR`, if you've set it. It needs `libvlc.dll` and a
+   `plugins/` folder.
+2. The copy included in a built exe.
+3. A portable copy in `%LOCALAPPDATA%\Yoink\vlc`. Installing VLC normally
+   needs admin rights, but unzipping the
+   [portable version](https://www.videolan.org/vlc/download-windows.html) there
+   doesn't.
+4. An installed VLC, found through the registry or in
+   `C:\Program Files\VideoLAN\VLC`.
 
-QtMultimedia was the alternative and was rejected: on Windows it goes through
-Media Foundation, which is patchy on exactly the MKV, HEVC and AC3 combinations
-torrents ship. The cost of libVLC is roughly 40-50 MB of plugins in the build.
+If none of those are there, everything else still works and the Play button
+stays hidden. The `getPlayerStatus` bridge call says why.
+
+QtMultimedia was the other option. It wasn't used because on Windows it relies
+on Media Foundation, which struggles with the MKV, HEVC and AC3 files that are
+common on torrent sites. The downside of VLC is that it adds about 40 to 50 MB
+to the build.
