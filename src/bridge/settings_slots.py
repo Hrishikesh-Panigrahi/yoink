@@ -1,5 +1,3 @@
-"""Settings persistence: get/set, export/import, proxy, schedule."""
-
 from __future__ import annotations
 
 import json
@@ -18,27 +16,22 @@ logger = setup_logger("bridge.settings")
 
 
 class SettingsMixin:
-    """Mixin providing settings/preferences QWebChannel slots."""
-
     @pyqtSlot(result=str)
     def getSettings(self) -> str:
-        """Return the current persisted settings as JSON."""
         return json.dumps(self._settings_dict())
 
     @pyqtSlot(str, bool)
     def setBoolSetting(self, key: str, value: bool) -> None:
-        """Persist a boolean setting and notify listeners."""
         db.set_setting(key, "1" if value else "0")
         if key == "dns_over_https_enabled":
-            # Takes effect immediately; no restart, and cached answers are
-            # dropped so the next lookup reflects the change.
+            # Applies without a restart. The cache is cleared so the next
+            # lookup uses the new resolver.
             resolver.clear_cache()
             resolver.apply_from_settings()
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
 
     @pyqtSlot(str, int)
     def setIntSetting(self, key: str, value: int) -> None:
-        """Persist an int setting (bandwidth caps, active limits)."""
         db.set_setting(key, str(int(value)))
         if key in {
             "download_limit_kb_s",
@@ -51,27 +44,24 @@ class SettingsMixin:
 
     @pyqtSlot(str, float)
     def setFloatSetting(self, key: str, value: float) -> None:
-        """Persist a float setting (e.g. seed_ratio_limit)."""
         db.set_setting(key, f"{float(value):.4f}")
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
 
     @pyqtSlot(str)
     def setTmdbApiKey(self, key: str) -> None:
-        """Persist the user's TMDB API key (empty string clears it)."""
         cleaned = (key or "").strip()
         db.set_setting("tmdb_api_key", cleaned)
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
 
     @pyqtSlot(bool, result=bool)
     def setLaunchAtLogin(self, enabled: bool) -> bool:
-        """Toggle Windows launch-at-login. Returns the effective state."""
+        """Returns the state actually in effect, which can differ from `enabled`."""
         effective = autostart.set_enabled(enabled)
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
         return effective
 
     @pyqtSlot(result=str)
     def exportSettings(self) -> str:
-        """Write all settings to a user-picked JSON file. Returns the path or ''."""
         try:
             file_path, _ = QFileDialog.getSaveFileName(
                 None,
@@ -99,7 +89,6 @@ class SettingsMixin:
 
     @pyqtSlot(result=str)
     def importSettings(self) -> str:
-        """Pick a JSON file and replace current settings. Returns the path or ''."""
         try:
             file_path, _ = QFileDialog.getOpenFileName(
                 None,
@@ -130,11 +119,10 @@ class SettingsMixin:
 
     @pyqtSlot(str, str)
     def setProxy(self, proxy_url: str, user_agent: str) -> None:
-        """Persist proxy + UA. Applied to providers' shared requests session."""
         db.set_setting("proxy_url", (proxy_url or "").strip())
         db.set_setting("user_agent", (user_agent or "").strip())
         try:
-            from providers import _http  # provider http session module if present
+            from providers import _http  # does not exist yet, so the proxy is only saved
             _http.apply_proxy_and_ua()
         except Exception:
             pass
@@ -170,5 +158,5 @@ class SettingsMixin:
         db.set_setting("schedule_quiet_end", str(payload.get("quietEnd") or "08:00"))
         db.set_setting("schedule_quiet_down_kb_s", str(int(payload.get("quietDownKbS") or 0)))
         db.set_setting("schedule_quiet_up_kb_s", str(int(payload.get("quietUpKbS") or 0)))
-        # Reset cached state so the worker reapplies on next tick.
+        # Makes the worker reapply the limits on its next tick.
         self.schedule_worker._last_window = ""

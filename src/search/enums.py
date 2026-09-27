@@ -1,5 +1,3 @@
-"""Enums replacing magic strings used by the search layer."""
-
 from __future__ import annotations
 
 from enum import Enum
@@ -7,10 +5,8 @@ from typing import Iterable
 
 
 class ProviderMode(str, Enum):
-    """How searches should be sourced."""
-
-    STABLE = "stable"  # direct YTS + Pirate Bay APIs (default, reliable)
-    MULTI = "multi"    # vendored Torrent-Api-py scrapers across many sites
+    STABLE = "stable"  # YTS and Pirate Bay JSON APIs
+    MULTI = "multi"    # vendored Torrent-Api-py site scrapers
 
     @classmethod
     def from_value(cls, value: str | None) -> "ProviderMode":
@@ -23,8 +19,6 @@ class ProviderMode(str, Enum):
 
 
 class Region(str, Enum):
-    """Cultural region used to expand queries and bias ranking."""
-
     ANY = "any"
     BOLLYWOOD = "bollywood"
     HOLLYWOOD = "hollywood"
@@ -43,8 +37,6 @@ class Region(str, Enum):
 
 
 class Category(str, Enum):
-    """Content category passed through to category-aware providers."""
-
     ANY = "any"
     MOVIES = "movies"
     TV = "tv"
@@ -65,8 +57,6 @@ class Category(str, Enum):
 
 
 class Quality(str, Enum):
-    """Video quality filter applied client-side after providers respond."""
-
     ANY = "any"
     UHD_2160P = "2160p"
     FHD_1080P = "1080p"
@@ -86,9 +76,7 @@ class Quality(str, Enum):
 
 
 class SortBy(str, Enum):
-    """How the final results page is ordered."""
-
-    RELEVANCE = "relevance"  # health_score() — seeds * quality * source weight
+    RELEVANCE = "relevance"  # sorts by ranking.health_score
     SEEDS = "seeds"
     SIZE = "size"
     NEWEST = "newest"
@@ -114,5 +102,4 @@ REGION_TERMS: dict[Region, tuple[str, ...]] = {
 
 
 def region_terms(region: Region) -> Iterable[str]:
-    """Return the search/score booster terms for a region."""
     return REGION_TERMS.get(region, ())

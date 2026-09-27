@@ -1,6 +1,4 @@
-/* search.css - Search results list and pagination. */
-
-/* ----- Results list ----- */
+/* Results list */
 .results-list { display: flex; flex-direction: column; }
 .result-row {
   display: grid;
@@ -82,9 +80,8 @@
 
 .result-genres { display: flex; gap: 6px; flex-wrap: wrap; }
 
-/* Icon-only, like .result-info beside it. With a text label the actions column
- * grew by ~80px, and since the row is `60px 1fr auto auto` that came straight
- * out of the title. */
+/* Icon-only, like .result-info beside it. A text label would widen the actions
+ * column, and that width comes out of the title. */
 .result-play { padding-left: 10px; padding-right: 10px; }
 .result-play.is-busy { opacity: 0.6; }
 .result-play.is-busy .ic { animation: result-play-pulse 1.2s ease-in-out infinite; }
@@ -98,10 +95,8 @@
   flex-direction: column;
   gap: 6px;
   min-width: 86px;
-  /* `flex-end` right-aligned each line as a block. "seeders" is wider than
-   * "peers", so the two lines had different widths and their arrows and
-   * numbers landed at different x positions. Stretching both to the column
-   * width puts the icons in a straight vertical line. */
+  /* stretch, not flex-end, so the seeders and peers lines are the same width
+   * and their icons line up vertically. */
   align-items: stretch;
 }
 .stat-line {
@@ -123,7 +118,7 @@
 
 .result-action { padding: 9px 18px; font-size: 13px; }
 
-/* ----- Pagination ----- */
+/* Pagination */
 .pagination {
   display: flex;
   align-items: center;
@@ -158,3 +153,199 @@
 }
 .page-num.ellipsis:hover { background: transparent; }
 
+/* Search history dropdown */
+.input-wrap { position: relative; }
+.history-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-elev);
+  z-index: 40;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.history-item:hover,
+.history-item:focus-visible {
+  background: var(--bg-surface-2);
+  outline: none;
+}
+.history-item .ic {
+  width: 14px; height: 14px;
+  color: var(--text-muted);
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+}
+.history-item span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Safety badges */
+.meta.safety-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: help;
+}
+.meta.safety-badge.safe { background: var(--green-soft); color: var(--green); }
+.meta.safety-badge.caution { background: var(--yellow-soft); color: var(--yellow); }
+.meta.safety-badge.risky { background: var(--red-soft); color: var(--red); }
+
+/* Result actions */
+.result-actions { display: flex; gap: 6px; align-items: center; }
+.result-info {
+  padding: 8px 10px;
+}
+.result-info .ic {
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+}
+
+/* Example searches in the empty state */
+.example-chips {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+.example-chips-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-right: 4px;
+}
+.chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.chip:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* "Add this magnet" hint under the search box */
+.search-mode-hint {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: calc(100% + 6px);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 4;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+.search-mode-hint .ic { width: 16px; height: 16px; stroke: var(--accent); }
+.search-mode-hint strong { color: var(--accent); }
+
+/* Seeder health colors */
+.stat-line.seeders.health-good .num { color: #4ade80; }
+.stat-line.seeders.health-ok .num   { color: #fbbf24; }
+.stat-line.seeders.health-poor .num { color: #f87171; }
+.stat-line.seeders[title] { cursor: help; }
+
+/* Clickable safety badge */
+.meta.safety-badge { cursor: pointer; }
+.meta.safety-badge:hover { filter: brightness(1.1); }
+
+.filter-control {
+  position: relative;
+}
+
+/* View toggle */
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-left: auto;
+}
+.view-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.view-toggle-btn .ic { width: 16px; height: 16px; }
+.view-toggle-btn:hover { color: var(--text); }
+.view-toggle-btn.is-active {
+  background: var(--accent);
+  color: var(--bg-page);
+}
+
+/* Card view */
+.results-list[data-view-mode="cards"] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.results-list[data-view-mode="cards"] .result-row {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "poster"
+    "main"
+    "stats"
+    "action";
+  padding: 12px;
+}
+.results-list[data-view-mode="cards"] .result-row .poster-wrap {
+  grid-area: poster;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+}
+.results-list[data-view-mode="cards"] .result-row .poster,
+.results-list[data-view-mode="cards"] .result-row .poster img,
+.results-list[data-view-mode="cards"] .result-row img.poster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.results-list[data-view-mode="cards"] .result-row .result-stats {
+  grid-area: stats;
+  flex-direction: row;
+  gap: 14px;
+  margin-top: 6px;
+}
+.results-list[data-view-mode="cards"] .result-row .result-actions {
+  grid-area: action;
+}
+.results-list[data-view-mode="cards"] .result-row .result-summary { display: none; }
+.results-list[data-view-mode="cards"] .result-row .result-genres { display: none; }

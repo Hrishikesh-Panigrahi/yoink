@@ -19,14 +19,14 @@ exclude = [
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
-    "F",   # pyflakes — undefined names, unused imports
-    "I",   # isort — import order
-    "B",   # flake8-bugbear — likely bugs
+    "F",   # pyflakes: undefined names, unused imports
+    "I",   # isort: import order
+    "B",   # flake8-bugbear: likely bugs
     "C4",  # flake8-comprehensions
 ]
 
 [lint.per-file-ignores]
-# Tests reach into private helpers and shadow names freely.
+# Test data and assertions often run past the line limit.
 "tests/*" = ["E501"]
 
 [lint.isort]

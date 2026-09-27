@@ -1,10 +1,4 @@
-"""Tests for how `build.py` reads the version it stamps on the installer.
-
-`src/version.py`'s docstring mentions ``__version__`` as well as assigning it,
-and a loose match once picked up the docstring line - which named an installer
-`Yoink-Setup-__version__.exe` and registered `__version__` as its version in
-Add/Remove Programs.
-"""
+"""Tests for how `build.py` reads the app version from `src/version.py`."""
 
 from __future__ import annotations
 
@@ -33,7 +27,7 @@ def test_read_version_looks_like_a_version():
 
 
 def test_read_version_ignores_a_docstring_mention(tmp_path, monkeypatch):
-    """The shape `src/version.py` actually has."""
+    """Mirrors `src/version.py`, whose docstring also mentions `__version__`."""
     src = tmp_path / "src"
     src.mkdir()
     (src / "version.py").write_text(

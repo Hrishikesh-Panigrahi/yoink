@@ -1,9 +1,9 @@
 """libtorrent session lifecycle and tuning.
 
-`Session` is the one stateful holder in the torrents layer — it groups
-the libtorrent session, the alert-pump thread, our handle cache, and
-the current save path. All public operations are module-level functions
-in this package that take a `Session` as the first argument.
+`Session` is the only stateful object in the torrents layer. It holds the
+libtorrent session, the alert-pump thread, the handle cache and the current save
+path. Everything else in the package is a plain function that takes a `Session`
+first.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from utils.paths import normalize_path
 
 logger = setup_logger("torrents.session")
 
-#: Settings applied on session start so downloads aren't throttled by libtorrent defaults.
+#: Applied at startup so libtorrent's conservative defaults do not throttle downloads.
 _OPTIMIZED_SETTINGS = {
     "active_downloads": -1,
     "active_seeds": -1,
@@ -62,8 +62,6 @@ _OPTIMIZED_SETTINGS = {
 
 @dataclass
 class Session:
-    """Mutable wrapper that holds everything the torrents layer needs."""
-
     lt_session: lt.session
     save_path: str
     handles: Dict[str, lt.torrent_handle] = field(default_factory=dict)
@@ -74,7 +72,7 @@ class Session:
 
 
 def create_session(save_path: str) -> Session:
-    """Create, optimize, and start a new libtorrent session pumping alerts."""
+    """Start a libtorrent session and its alert-pump thread."""
     lt_session = lt.session()
     lt_session.apply_settings(_OPTIMIZED_SETTINGS)
     lt_session.start_dht()
@@ -92,7 +90,6 @@ def create_session(save_path: str) -> Session:
 
 
 def stop_session(session: Session) -> None:
-    """Stop the alert pump and shut libtorrent's background services down."""
     logger.info("Stopping libtorrent session")
     for handle in list(session.handles.values()):
         if handle is not None and handle.is_valid():
@@ -120,10 +117,7 @@ def apply_limits(
     active_downloads: int | None = None,
     active_seeds: int | None = None,
 ) -> None:
-    """Apply runtime bandwidth / concurrency limits to the live session.
-
-    Pass ``0`` (or negative) for unlimited. ``None`` leaves the value untouched.
-    """
+    """Rates are in KB/s. 0 or negative means unlimited, None leaves a value as is."""
     patch: dict = {}
     if download_kb_s is not None:
         patch["download_rate_limit"] = max(0, int(download_kb_s)) * 1024
@@ -141,10 +135,7 @@ def apply_limits(
 
 
 def enforce_seed_ratio(session: Session, max_ratio: float) -> int:
-    """Pause any torrent that has hit the configured share ratio.
-
-    Returns the number of torrents paused. ``max_ratio <= 0`` disables enforcement.
-    """
+    """Returns how many torrents were paused. `max_ratio <= 0` turns this off."""
     if max_ratio is None or max_ratio <= 0:
         return 0
     paused = 0
@@ -163,14 +154,13 @@ def enforce_seed_ratio(session: Session, max_ratio: float) -> int:
 
 
 def set_save_path(session: Session, path: str) -> str:
-    """Normalize and remember the default save path for new torrents."""
+    """Set the default save path for new torrents. Returns it normalized."""
     session.save_path = normalize_path(path)
     logger.info(f"Save path set to {session.save_path}")
     return session.save_path
 
 
 def network_stats(session: Session) -> NetworkStats:
-    """Current session throughput in KB/s."""
     status = session.lt_session.status()
     return NetworkStats(
         download_kb_s=status.download_rate / 1024.0,
@@ -179,7 +169,6 @@ def network_stats(session: Session) -> NetworkStats:
 
 
 def _pump_alerts(session: Session) -> None:
-    """Background loop that drives libtorrent's update/alert pipeline."""
     while not session._stop.is_set():
         try:
             session.lt_session.post_torrent_updates()
@@ -192,7 +181,6 @@ def _pump_alerts(session: Session) -> None:
 
 
 def _handle_alerts(session: Session) -> None:
-    """Handle libtorrent alerts that matter for persistence and diagnostics."""
     try:
         alerts = session.lt_session.pop_alerts()
     except Exception as exc:

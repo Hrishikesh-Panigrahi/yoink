@@ -1,8 +1,4 @@
-"""Python <-> JavaScript bridge package.
-
-Re-exports the Bridge class so legacy ``from bridge import Bridge`` callers
-keep working after the module-to-package split.
-"""
+"""The object the web UI calls into over QWebChannel."""
 
 from bridge.core import Bridge
 

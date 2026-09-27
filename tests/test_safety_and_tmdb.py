@@ -1,5 +1,3 @@
-"""Tests for safety scoring and TMDB cache / key resolution."""
-
 from __future__ import annotations
 
 import os
@@ -25,8 +23,6 @@ def tmp_db(monkeypatch):
     if os.path.exists(handle.name):
         os.remove(handle.name)
 
-
-# --------- Safety ---------
 
 class TestSafety:
     def test_safe_when_trusted_group(self):
@@ -71,8 +67,6 @@ class TestSafety:
         })
         assert result["level"] == "risky"
 
-
-# --------- TMDB ---------
 
 class TestTmdbConfig:
     def test_get_api_key_prefers_setting(self, tmp_db, monkeypatch):
@@ -140,7 +134,7 @@ class TestTmdbEnrich:
         assert meta["trailerUrl"].endswith("?v=abc")
         assert meta["imdbUrl"].endswith("tt0133093/")
 
-        # Cache should be hit on the second call -> no extra HTTP requests.
+        # After the reset no HTTP mocks remain, so this call has to use the cache.
         responses.reset()
         meta_cached = tmdb.enrich("The Matrix", 1999)
         assert meta_cached is not None
@@ -155,12 +149,10 @@ class TestTmdbEnrich:
             json={"results": []},
         )
         assert tmdb.enrich("totally fake film name xyz", 2099) is None
-        # Subsequent call should hit cache and skip the HTTP layer.
+        # After the reset no HTTP mocks remain, so this call has to use the cache.
         responses.reset()
         assert tmdb.enrich("totally fake film name xyz", 2099) is None
 
-
-# --------- Grouping by tmdbId (search dedupe + enrichment combination) ---------
 
 class TestGroupingHelper:
     def test_normalize_title_used_for_cache_key(self):

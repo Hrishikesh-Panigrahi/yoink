@@ -1,5 +1,3 @@
-"""DTOs that flow between providers, the search orchestrator, and the bridge."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,8 +8,6 @@ from search.enums import Category, ProviderMode, Quality, Region, SortBy
 
 @dataclass(frozen=True)
 class SearchResult:
-    """One torrent search hit, normalized across providers."""
-
     title: str
     size: str
     seeds: int
@@ -30,7 +26,6 @@ class SearchResult:
     language: str = ""
 
     def to_dict(self) -> dict:
-        """JSON-friendly mapping used by the JS bridge."""
         from search.safety import evaluate as evaluate_safety
 
         payload = self._raw_dict()
@@ -60,8 +55,6 @@ class SearchResult:
 
 @dataclass(frozen=True)
 class SearchOptions:
-    """User-controlled filters passed to the search orchestrator."""
-
     provider_mode: ProviderMode = ProviderMode.STABLE
     region: Region = Region.ANY
     category: Category = Category.MOVIES
@@ -70,7 +63,7 @@ class SearchOptions:
     min_seeds: int = 0
     sites: Optional[List[str]] = None
     limit_per_site: int = 5
-    # Subset of {"yts", "piratebay_stable"}; None means all on.
+    # Any of "yts" and "piratebay_stable". None means both are on.
     enabled_stable: Optional[List[str]] = None
 
     @classmethod
@@ -113,8 +106,6 @@ class SearchOptions:
 
 @dataclass(frozen=True)
 class SearchPage:
-    """A single page of search results plus pagination metadata."""
-
     results: List[SearchResult]
     total: int
     pages: int

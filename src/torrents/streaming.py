@@ -1,22 +1,14 @@
-"""Sequential piece ordering, so a file can be played while it downloads.
+"""Piece ordering that lets a file play while it downloads.
 
-libtorrent's default piece picker optimises for the swarm: it asks for the
-rarest pieces first, in whatever order they turn up. That is exactly wrong for
-playback, which needs byte 0 before byte 1. Two libtorrent features fix it and
-this module is the only place either is used:
+By default libtorrent asks for the rarest pieces first, in any order, but a
+player needs the start of the file first. This module is the only place that
+uses the two libtorrent features that fix this: the `sequential_download` flag
+and `set_piece_deadline` for individual pieces.
 
-- ``sequential_download``, a torrent-wide flag that switches the picker to
-  in-order requests.
-- ``set_piece_deadline``, which promotes individual pieces ahead of the queue.
-
-Both ends of the file are prioritised, not just the front. The head is what a
-player reads first. The tail matters because MP4 keeps its ``moov`` index at the
-end unless the file was explicitly written for streaming, and Matroska keeps its
-cues there — a player that cannot see the tail typically reports an unknown
-duration and refuses to seek.
-
-Nothing here decides *how* the file is played. It only makes the bytes arrive in
-an order a player can use.
+Both ends of the file are rushed. The head is what a player reads first. The
+tail matters because MP4 files often keep their `moov` index at the end and
+Matroska keeps its cues there. Without the tail, players tend to report an
+unknown duration and refuse to seek.
 """
 
 from __future__ import annotations
@@ -32,7 +24,6 @@ from utils.logger import setup_logger
 
 logger = setup_logger("torrents.streaming")
 
-#: Containers worth offering a "play" control for.
 VIDEO_EXTENSIONS = frozenset(
     {
         ".avi", ".flv", ".m2ts", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg",
@@ -40,17 +31,18 @@ VIDEO_EXTENSIONS = frozenset(
     }
 )
 
-#: How much of each end to insist on before calling a file playable. The head is
-#: sized to cover a container's header plus a few seconds of video; the tail only
-#: has to cover a trailing index.
+#: How much of each end must arrive before a file counts as playable. The head
+#: covers the container header and a few seconds of video. The tail only needs
+#: to cover a trailing index.
 DEFAULT_HEAD_BYTES = 16 * 1024 * 1024
 DEFAULT_TAIL_BYTES = 2 * 1024 * 1024
 
-#: Spacing between the deadlines handed to consecutive head pieces. Deadlines are
-#: relative to now, so ascending values keep the head in playback order.
+#: Gap between the deadlines of consecutive pieces. Deadlines are relative to
+#: now, so increasing values keep the pieces in playback order.
 DEADLINE_STEP_MS = 100
 
-#: Tail pieces are wanted early but never ahead of the head.
+#: Where tail deadlines start, so the tail comes early but after the start of
+#: the head.
 TAIL_DEADLINE_MS = 30_000
 
 
@@ -59,11 +51,11 @@ def is_video(path: str) -> bool:
 
 
 def pick_video_file(files: Sequence[Tuple[str, int]]) -> Optional[int]:
-    """Return the index of the video file a "play" control should target.
+    """Index of the video file a play control should target, or None.
 
-    ``files`` is ``(path, size)`` in torrent order. The largest video wins.
-    Release groups often ship a short clip under ``sample/``, which is a video by
-    every other measure, so those are only considered when nothing else is.
+    `files` is `(path, size)` in torrent order. The largest video wins. Sample
+    clips (named `sample*` or under a `sample/` folder) only count when there is
+    no other video.
     """
     videos = [(idx, path, size) for idx, (path, size) in enumerate(files) if is_video(path)]
     if not videos:
@@ -88,8 +80,7 @@ def plan_stream(
 ) -> StreamPlan:
     """Work out which pieces cover the head and tail of one file in a torrent.
 
-    Pure arithmetic on the torrent's layout — no handle, no session — because
-    this is the part worth testing exhaustively.
+    Pure arithmetic with no handle or session, so it can be tested on its own.
     """
     if piece_length <= 0 or num_pieces <= 0:
         raise ValueError("piece_length and num_pieces must be positive")
@@ -106,14 +97,17 @@ def plan_stream(
 
     tail_count = _pieces_for(min(tail_bytes, file_size), piece_length)
     tail_start = max(last_piece - tail_count + 1, first_piece)
-    # A short file can make the two windows meet; the head already covers it.
+    # On a short file the two ranges can overlap. The head already covers those.
     tail = tuple(piece for piece in range(tail_start, last_piece + 1) if piece > head_end)
 
     return StreamPlan(first_piece, last_piece, head, tail)
 
 
 def _pieces_for(byte_count: int, piece_length: int) -> int:
-    """Pieces needed to hold `byte_count`, at least one. May straddle a boundary."""
+    """Pieces needed for `byte_count` bytes.
+
+    One extra is added because the range may not start on a piece boundary.
+    """
     return max(1, -(-int(byte_count) // piece_length) + 1)
 
 
@@ -126,9 +120,8 @@ def start_stream(
 ) -> Optional[StreamStatus]:
     """Switch a torrent to sequential order and rush one file's head and tail.
 
-    Returns the resulting status, or None when there is no metadata yet or the
-    torrent holds nothing playable. Passing `file_index` overrides the automatic
-    pick; anything out of range is treated as "choose for me".
+    Returns None when there is no metadata yet or nothing playable. A
+    `file_index` that is None or out of range means pick the file automatically.
     """
     handle = _live_handle(session, info_hash)
     if handle is None:
@@ -161,9 +154,9 @@ def start_stream(
 
 
 def playable_file(session: Session, info_hash: str) -> Optional[int]:
-    """Index of the file a play control would target, without changing anything.
+    """Index of the file a play control would target, or None.
 
-    The UI asks this to decide whether to show the control at all, so it must not
+    The UI calls this only to decide whether to show the control, so it must not
     set flags, deadlines or priorities.
     """
     handle = _live_handle(session, info_hash)
@@ -177,7 +170,7 @@ def playable_file(session: Session, info_hash: str) -> Optional[int]:
 
 
 def stream_status(session: Session, info_hash: str) -> Optional[StreamStatus]:
-    """Report progress on the file `start_stream` selected, or None if idle."""
+    """Progress on the file `start_stream` picked, or None if not streaming."""
     key = info_hash.lower()
     index = session.streams.get(key)
     if index is None:
@@ -197,7 +190,7 @@ def stream_status(session: Session, info_hash: str) -> Optional[StreamStatus]:
 
 
 def stop_stream(session: Session, info_hash: str) -> bool:
-    """Drop the deadlines and leave sequential mode. Returns True if it was on."""
+    """Drop the deadlines and leave sequential mode. True if a stream was active."""
     key = info_hash.lower()
     was_streaming = session.streams.pop(key, None) is not None
     handle = _live_handle(session, key)
@@ -211,9 +204,6 @@ def stop_stream(session: Session, info_hash: str) -> bool:
     return was_streaming
 
 
-# ----- Handle plumbing ----------------------------------------------------
-
-
 def _live_handle(session: Session, info_hash: str):
     handle = session.handles.get((info_hash or "").lower())
     if handle is None or not handle.is_valid():
@@ -222,7 +212,10 @@ def _live_handle(session: Session, info_hash: str):
 
 
 def _layout(handle) -> Optional[Tuple[List[Tuple[str, int, int]], int, int]]:
-    """Return ((path, size, offset) per file, piece_length, num_pieces)."""
+    """`(files, piece_length, num_pieces)` with `(path, size, offset)` per file.
+
+    None until metadata has arrived or if the layout cannot be read.
+    """
     try:
         if not handle.has_metadata():
             return None
@@ -266,7 +259,6 @@ def _ensure_wanted(handle, index: int) -> None:
 
 
 def _apply_deadlines(handle, plan: StreamPlan) -> None:
-    """Ask for the head in playback order, then the tail."""
     for offset, piece in enumerate(plan.head_pieces):
         _set_deadline(handle, piece, offset * DEADLINE_STEP_MS)
     for offset, piece in enumerate(plan.tail_pieces):

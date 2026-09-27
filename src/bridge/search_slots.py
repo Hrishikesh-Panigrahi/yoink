@@ -1,5 +1,3 @@
-"""Search, provider discovery, and search-history slots."""
-
 from __future__ import annotations
 
 import json
@@ -16,11 +14,9 @@ logger = setup_logger("bridge.search")
 
 
 class SearchMixin:
-    """Mixin providing search and provider-discovery slots."""
-
     @pyqtSlot(str, int, str)
     def search(self, query: str, page: int, options_json: str = "{}") -> None:
-        """Kick off an async search; results arrive via `searchCompleted`."""
+        """Start a search. Results arrive on `searchCompleted` or `searchError`."""
         query = (query or "").strip()
         if not query:
             self.searchError.emit("Please enter a search query.")
@@ -35,10 +31,8 @@ class SearchMixin:
 
         raw_options = self._apply_enabled_providers(raw_options)
 
-        # Interrupts the previous search and keeps it referenced until its
-        # thread ends. Overwriting the attribute alone left a running QThread
-        # with no owner, which is how a stale result could still land on top of
-        # a newer one.
+        # Interrupt the previous search so a stale result can't land on top of
+        # this one.
         self._retire_worker(self._search_worker)
 
         options = SearchOptions.from_dict(raw_options)
@@ -52,7 +46,6 @@ class SearchMixin:
 
     @pyqtSlot(result=str)
     def getSiteConfigs(self) -> str:
-        """Return provider metadata for the web UI."""
         try:
             return json.dumps(site_configs())
         except Exception as exc:
@@ -61,7 +54,6 @@ class SearchMixin:
 
     @pyqtSlot(result=str)
     def getProviderChoices(self) -> str:
-        """List every toggleable provider with current enabled state."""
         try:
             choices = all_provider_choices()
             enabled = self._enabled_provider_set()
@@ -74,7 +66,7 @@ class SearchMixin:
 
     @pyqtSlot()
     def refreshProviderHealth(self) -> None:
-        """Probe every provider and emit `providerHealth` when done."""
+        """Probe every provider. Results arrive on `providerHealth`."""
         if self._health_worker and self._health_worker.isRunning():
             return
         worker = ProviderHealthWorker()
@@ -84,7 +76,6 @@ class SearchMixin:
 
     @pyqtSlot(str, bool)
     def setProviderEnabled(self, key: str, enabled: bool) -> None:
-        """Toggle a provider on/off and persist the choice."""
         current = self._enabled_provider_set()
         if enabled:
             current.add(key)
@@ -95,14 +86,13 @@ class SearchMixin:
 
     @pyqtSlot(result=str)
     def getSearchHistory(self) -> str:
-        """Return the last 20 unique search queries, newest first."""
+        """JSON list of recent queries, newest first."""
         raw = db.get_setting("search_history") or ""
         history = [entry for entry in raw.split("|") if entry]
         return json.dumps(history)
 
     @pyqtSlot(str)
     def rememberSearch(self, query: str) -> None:
-        """Append a query to history, deduped, capped at 20 entries."""
         cleaned = (query or "").strip()
         if not cleaned:
             return
@@ -114,5 +104,4 @@ class SearchMixin:
 
     @pyqtSlot()
     def clearSearchHistory(self) -> None:
-        """Wipe the persisted search history."""
         db.set_setting("search_history", "")

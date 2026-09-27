@@ -1,6 +1,4 @@
-/* downloads.css - Download rows, summary bar, toasts. */
-
-/* ----- Downloads ----- */
+/* Download rows */
 .downloads-list { display: flex; flex-direction: column; }
 .download-row {
   padding: 18px 22px;
@@ -80,43 +78,208 @@
 .dl-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .dl-actions .btn { padding: 7px 14px; font-size: 12px; }
 
-/* ----- Toasts ----- */
-.toast-stack {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
+/* Downloads tabs */
+.downloads-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.downloads-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.downloads-tab:hover { color: var(--text); }
+.downloads-tab.is-active {
+  color: var(--text-strong);
+  border-bottom-color: var(--accent);
+}
+.dl-tab-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-surface-2);
+  color: var(--text-muted);
+}
+.downloads-tab.is-active .dl-tab-count {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Row kebab menu */
+.dl-kebab-wrap { position: relative; display: inline-flex; }
+.dl-kebab { padding: 6px 8px; }
+.dl-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 220px;
+  z-index: 30;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-elev);
+  padding: 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  z-index: 100;
-  pointer-events: none;
-  max-width: calc(100vw - 40px);
 }
-.toast {
-  background: var(--bg-elev);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: var(--shadow-elev);
+.dl-menu-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 240px;
-  max-width: 360px;
-  pointer-events: auto;
-  animation: slideIn 200ms ease;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
 }
-.toast::before { content: ""; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.toast.success { border-left: 3px solid var(--green); }
-.toast.success::before { background: var(--green); }
-.toast.error { border-left: 3px solid var(--red); }
-.toast.error::before { background: var(--red); }
-.toast.info { border-left: 3px solid var(--accent); }
-.toast.info::before { background: var(--accent); }
-.toast.fade-out { animation: slideOut 200ms ease forwards; }
-@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes slideOut { to { transform: translateX(20px); opacity: 0; } }
+.dl-menu-item:hover { background: var(--bg-surface-2); }
+.dl-menu-item.is-danger { color: var(--red); }
+.dl-menu-item.is-danger:hover { background: var(--red-soft); }
+.dl-menu-item .ic {
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+}
+.dl-menu-sep {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 4px 6px;
+}
 
+/* Downloads summary bar */
+.downloads-summary-bar {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 12px 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.dsb-chunk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.dsb-chunk .ic { width: 14px; height: 14px; stroke: var(--text-muted); }
+.dsb-num {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dsb-label { color: var(--text-muted); font-size: 13px; }
+
+/* Empty state tips */
+.empty-tips {
+  list-style: none;
+  padding: 0;
+  margin: 12px auto 0;
+  max-width: 340px;
+  text-align: left;
+}
+.empty-tips li {
+  padding: 8px 12px;
+  border-radius: 10px;
+  margin: 6px 0;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text);
+  font-size: 13px;
+}
+.empty-tips em { color: var(--accent); font-style: normal; }
+
+/* Row actions stay dim until hover */
+.download-row .dl-actions {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+.download-row:hover .dl-actions,
+.download-row:focus-within .dl-actions {
+  opacity: 1;
+}
+.download-row.completed .dl-actions { opacity: 1; }
+
+/* Completed rows */
+.download-row.completed {
+  border-left: 3px solid var(--accent);
+}
+.download-row.completed .dl-name::before {
+  content: "✓ ";
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 4px;
+}
+.download-row.completed .dl-progress-wrap { display: none; }
+
+/* Groups */
+.dl-group {
+  margin-bottom: 16px;
+}
+.dl-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.dl-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.dl-group-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dl-group.collapsed .dl-group-items { display: none; }
+.dl-group-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 6px;
+}
+
+/* Flash when jumping to a duplicate */
+.download-row.flash {
+  animation: flashRow 1.5s ease;
+}
+@keyframes flashRow {
+  0%, 100% { background-color: transparent; }
+  20%, 60% { background-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+}
+
+/* Labels on rows */
+.dl-labels-inline {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.dl-labels-inline .label-pill { font-size: 11px; padding: 2px 8px; }

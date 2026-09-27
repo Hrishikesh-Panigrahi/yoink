@@ -43,7 +43,7 @@ env/
 logs/
 *.log
 
-# Database (local state — never commit)
+# Local databases, never commit these
 *.db
 *.sqlite3
 

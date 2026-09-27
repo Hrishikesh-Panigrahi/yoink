@@ -17,7 +17,7 @@ logger = setup_logger("torrents.actions")
 
 
 def add_magnet(session: Session, magnet: str, save_path: Optional[str] = None) -> str:
-    """Add a torrent from a magnet URI. Returns its info hash (lowercase)."""
+    """Returns the torrent's info hash in lowercase."""
     info_hash, _ = add_magnet_verbose(session, magnet, save_path)
     return info_hash
 
@@ -25,10 +25,7 @@ def add_magnet(session: Session, magnet: str, save_path: Optional[str] = None) -
 def add_magnet_verbose(
     session: Session, magnet: str, save_path: Optional[str] = None
 ) -> tuple[str, bool]:
-    """Add a torrent and report whether it was already known.
-
-    Returns ``(info_hash, was_existing)``.
-    """
+    """Like `add_magnet`, but returns `(info_hash, was_existing)`."""
     if not magnet or not magnet.startswith("magnet:"):
         raise ValueError("Invalid magnet link")
 
@@ -53,7 +50,7 @@ def add_magnet_verbose(
 
 
 def add_torrent_file(session: Session, file_path: str, save_path: Optional[str] = None) -> str:
-    """Add a torrent from a `.torrent` file. Returns its info hash (lowercase)."""
+    """Returns the torrent's info hash in lowercase."""
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Torrent file not found: {file_path}")
 
@@ -81,7 +78,10 @@ def add_torrent_file(session: Session, file_path: str, save_path: Optional[str] 
 
 
 def set_file_priorities(session: Session, info_hash: str, priorities: dict[int, int]) -> bool:
-    """Set per-file libtorrent priorities (0=skip, 1=low, 4=normal, 7=high)."""
+    """Map file index to libtorrent priority (0 skip, 1 low, 4 normal, 7 high).
+
+    Returns False if nothing was applied.
+    """
     handle = session.handles.get(info_hash.lower())
     if handle is None or not handle.is_valid() or not handle.has_metadata():
         return False
@@ -115,7 +115,7 @@ def set_file_priorities(session: Session, info_hash: str, priorities: dict[int, 
 
 
 def _clear_auto_managed(handle) -> None:
-    """Drop the auto_managed flag so libtorrent's queue manager won't auto-resume."""
+    """Without this, libtorrent's queue manager resumes a paused torrent on its own."""
     try:
         handle.unset_flags(lt.torrent_flags.auto_managed)
     except Exception:
@@ -123,7 +123,6 @@ def _clear_auto_managed(handle) -> None:
 
 
 def _set_auto_managed(handle) -> None:
-    """Restore the auto_managed flag so libtorrent can schedule the torrent again."""
     try:
         handle.set_flags(lt.torrent_flags.auto_managed)
     except Exception:
@@ -131,7 +130,7 @@ def _set_auto_managed(handle) -> None:
 
 
 def pause_all(session: Session) -> int:
-    """Pause every torrent in the session. Returns how many were paused."""
+    """Returns how many torrents were paused."""
     count = 0
     for info_hash, handle in list(session.handles.items()):
         if handle is None or not handle.is_valid():
@@ -144,7 +143,7 @@ def pause_all(session: Session) -> int:
 
 
 def resume_all(session: Session) -> int:
-    """Resume every torrent in the session. Returns how many were resumed."""
+    """Returns how many torrents were resumed."""
     count = 0
     for info_hash, handle in list(session.handles.items()):
         if handle is None or not handle.is_valid():
@@ -157,7 +156,6 @@ def resume_all(session: Session) -> int:
 
 
 def pause(session: Session, info_hash: str) -> bool:
-    """Pause a torrent by info hash."""
     handle = session.handles.get(info_hash.lower())
     if handle is None:
         return False
@@ -168,7 +166,6 @@ def pause(session: Session, info_hash: str) -> bool:
 
 
 def resume(session: Session, info_hash: str) -> bool:
-    """Resume a paused torrent by info hash."""
     handle = session.handles.get(info_hash.lower())
     if handle is None:
         return False
@@ -179,7 +176,7 @@ def resume(session: Session, info_hash: str) -> bool:
 
 
 def remove(session: Session, info_hash: str, delete_files: bool = False) -> bool:
-    """Remove a torrent from the session and persistence, optionally deleting data."""
+    """Remove a torrent from the session, the database and its resume data."""
     key = info_hash.lower()
     handle = session.handles.get(key)
     if handle is None:

@@ -1,5 +1,3 @@
-"""Logger setup shared across the app."""
-
 from __future__ import annotations
 
 import logging
@@ -11,19 +9,18 @@ from logging.handlers import RotatingFileHandler
 def setup_logger(
     name: str, log_file: str | None = None, level: int = logging.INFO
 ) -> logging.Logger:
-    """Return a logger configured once per name with console + optional file output."""
+    """Set up the logger on the first call for `name`.
+
+    Later calls return it as is and ignore `log_file` and `level`.
+    """
     logger = logging.getLogger(name)
-    # `hasHandlers()` also answers True when only an *ancestor* has handlers, so
-    # it cannot distinguish "already set up" from "the parent is set up". Check
-    # this logger's own handlers instead.
+    # hasHandlers() is also True when only a parent logger has handlers, so check
+    # this logger's own list.
     if logger.handlers:
         return logger
 
-    # Dotted names are a hierarchy: a record on "bridge.search" is handled here
-    # and then propagates to "bridge" and to root. With a handler on each, one
-    # log call printed the same line twice - which reads exactly like the code
-    # ran twice, and cost an afternoon of chasing a search that had only ever
-    # been dispatched once.
+    # Every logger gets its own handler, so letting "bridge.search" propagate to
+    # "bridge" would print each line twice.
     logger.propagate = False
 
     logger.setLevel(level)

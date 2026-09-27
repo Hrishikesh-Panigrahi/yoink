@@ -1,9 +1,9 @@
 """Tests for the QThread workers in `src/workers.py`.
 
-Every test calls `run()` directly rather than `start()`. That keeps the work on
-the test thread, so the emitted signals arrive synchronously and no event loop
-is needed. The polling workers loop until `stop()`, so their tests stop them
-from inside the signal handler — one iteration, then the loop unwinds.
+Tests call `run()` directly instead of `start()`, so the work stays on the test
+thread and signals arrive synchronously without an event loop. The polling
+workers loop until `stop()`, so their tests call `stop()` from a signal handler
+or a patched `msleep` to end after one pass.
 """
 
 from __future__ import annotations
@@ -36,13 +36,13 @@ class FakePage:
 
 
 def collect(signal) -> list:
-    """Connect a list to a signal and return it."""
+    """Return a list that records every emission of `signal`."""
     received: list = []
     signal.connect(lambda *args: received.append(args if len(args) != 1 else args[0]))
     return received
 
 
-# ----- SearchWorker -------------------------------------------------------
+# SearchWorker
 
 
 def test_search_worker_emits_result_dicts(monkeypatch):
@@ -86,15 +86,13 @@ def test_search_worker_reports_failures_without_raising(monkeypatch):
 def interrupt(worker, monkeypatch) -> None:
     """Make a worker look interrupted.
 
-    `QThread.requestInterruption` is a no-op on a thread that was never
-    started, and these tests deliberately call `run()` on the test thread, so
-    the flag is stubbed rather than raised for real.
+    `requestInterruption` does nothing on a thread that was never started, and
+    these tests call `run()` on the test thread, so the check is stubbed.
     """
     monkeypatch.setattr(worker, "isInterruptionRequested", lambda: True)
 
 
 def test_search_worker_drops_results_once_superseded(monkeypatch):
-    """A newer search has already replaced this one; its results are stale."""
     monkeypatch.setattr(
         workers, "run_search", lambda q, p, options=None: FakePage([FakeResult("Ubuntu")])
     )
@@ -121,7 +119,7 @@ def test_search_worker_stays_quiet_about_a_superseded_failure(monkeypatch):
     assert failures == []
 
 
-# ----- MetadataEnrichWorker -----------------------------------------------
+# MetadataEnrichWorker
 
 
 def test_metadata_worker_does_nothing_without_an_api_key(monkeypatch):
@@ -214,7 +212,7 @@ def test_metadata_lookup_returns_none_when_tmdb_has_nothing(monkeypatch):
     assert workers.MetadataEnrichWorker._lookup({"title": "T"}) is None
 
 
-# ----- ProviderHealthWorker -----------------------------------------------
+# ProviderHealthWorker
 
 
 def test_health_worker_forwards_the_status_map(monkeypatch):
@@ -240,7 +238,7 @@ def test_health_worker_emits_an_empty_map_on_failure(monkeypatch):
     assert received == [{}]
 
 
-# ----- DownloadsPollWorker ------------------------------------------------
+# DownloadsPollWorker
 
 
 class FakeSnapshot:
@@ -282,7 +280,7 @@ def test_downloads_worker_keeps_polling_after_an_error(monkeypatch):
     assert calls["n"] == 2
 
 
-# ----- NetworkSpeedWorker -------------------------------------------------
+# NetworkSpeedWorker
 
 
 def test_network_worker_emits_throughput_then_stops(monkeypatch):
@@ -298,7 +296,7 @@ def test_network_worker_emits_throughput_then_stops(monkeypatch):
     assert received == [(12.5, 3.25)]
 
 
-# ----- WatchFolderWorker --------------------------------------------------
+# WatchFolderWorker
 
 
 def test_watch_worker_adds_discovered_files_and_marks_them(monkeypatch):
@@ -353,7 +351,7 @@ def test_watch_worker_skips_the_scan_when_no_folder_is_set(monkeypatch):
     worker = workers.WatchFolderWorker(session=object(), folder="", interval_ms=1)
     worker._running = True
 
-    # One pass with no folder, then unwind.
+    # Stop after the first pass.
     original_msleep = worker.msleep
     worker.msleep = lambda ms: (worker.stop(), original_msleep(0))
     worker.run()
@@ -364,7 +362,7 @@ def test_watch_worker_skips_the_scan_when_no_folder_is_set(monkeypatch):
     assert worker.folder == ""
 
 
-# ----- RssPollWorker ------------------------------------------------------
+# RssPollWorker
 
 
 def _feed(**overrides):
@@ -418,7 +416,7 @@ def test_rss_worker_honours_the_filter_regex(monkeypatch):
     )
 
     assert added == [("Example", "hash-1")]
-    # The filtered-out item is still remembered, so it is not re-checked forever.
+    # Filtered-out items are marked seen too, so they are not checked again.
     assert sorted(marked) == ["1", "2"]
 
 
@@ -457,7 +455,7 @@ def test_rss_worker_falls_back_to_the_url_when_a_feed_is_unnamed(monkeypatch):
     assert added == [("https://example.com/rss", "hash-1")]
 
 
-# ----- ScheduledBandwidthWorker -------------------------------------------
+# ScheduledBandwidthWorker
 
 
 @pytest.mark.parametrize(
@@ -563,11 +561,10 @@ def test_schedule_worker_stays_idle_while_disabled(monkeypatch):
     assert applied == []
 
 
-# ----- StreamPrepareWorker ------------------------------------------------
+# StreamPrepareWorker
 #
-# The search-result Play path. A magnet carries no file list, so this worker
-# waits for metadata, switches to sequential order, and waits for the head to
-# reach disk before anything tries to open it.
+# Used when playing a search result. It waits for metadata, starts the stream,
+# then waits for the head of the file to reach disk before playback opens it.
 
 
 class MetadataHandle(FakeSnapshot):
@@ -648,13 +645,12 @@ def test_stream_prepare_waits_for_the_head_then_reports_ready(monkeypatch, tmp_p
     worker.run()
 
     assert ready == [("abc", 2)]
-    # It reported buffering progress rather than sitting silent.
     assert any(json.loads(u)["phase"] == "buffering" for u in updates)
 
 
 def test_stream_prepare_will_not_open_a_file_that_is_not_on_disk_yet(monkeypatch, tmp_path):
-    # libtorrent creates the file only when it first writes. Opening before
-    # that hands VLC a path that does not exist.
+    # libtorrent creates the file on its first write. Before that, VLC would be
+    # handed a path that does not exist.
     missing = str(tmp_path / "not-written-yet.mkv")
     monkeypatch.setattr(torrents, "start_stream", lambda *a, **k: _status(4, 4, missing))
     monkeypatch.setattr(torrents, "stream_status", lambda *a: _status(4, 4, missing))
@@ -685,11 +681,7 @@ def test_stream_prepare_stops_when_asked(monkeypatch, tmp_path):
     assert ready == [] and failures == []
 
 
-# ----- StreamPrepareWorker: dead-swarm reporting ---------------------------
-#
-# "Buffering 0%" forever was indistinguishable from a slow swarm, and the only
-# thing a user could conclude was that the player was broken. It waited ten
-# minutes before saying anything.
+# StreamPrepareWorker: dead-swarm reporting
 
 
 class SwarmHandle(MetadataHandle):
@@ -740,8 +732,7 @@ def test_stream_prepare_gives_up_when_no_data_arrives(monkeypatch, tmp_path):
 
 
 def test_stream_prepare_keeps_waiting_while_the_head_is_filling(monkeypatch, tmp_path):
-    # Progress resets the no-data clock, so a slow swarm is not mistaken for
-    # a dead one.
+    # Each bit of progress resets the no-data timeout.
     target = tmp_path / "Movie.mkv"
     target.write_bytes(b"x")
     states = iter([_status(n, 4, str(target)) for n in (0, 1, 2, 3, 4)])

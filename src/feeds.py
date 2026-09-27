@@ -1,8 +1,7 @@
-"""RSS feed subscription helpers.
+"""RSS feed subscriptions, kept in the settings table to avoid a schema change.
 
-Backed by the existing settings table to avoid schema migrations:
-- ``rss.feeds`` stores a JSON list of feed configs.
-- ``rss.seen.<feed_id>`` stores a comma-separated list of GUIDs we've already added.
+``rss.feeds`` holds the feed list as JSON. ``rss.seen.<feed_id>`` holds the
+comma-separated GUIDs already added from that feed.
 """
 
 from __future__ import annotations
@@ -111,7 +110,7 @@ def mark_seen(feed_id: str, guids: List[str]) -> None:
 
 
 def fetch_feed_items(url: str, timeout: float = 10.0) -> List[dict]:
-    """Return a list of ``{title, magnet, guid, seeders}`` items from an RSS feed."""
+    """Items as ``{title, magnet, guid, seeders}`` dicts, or [] if the feed can't be read."""
     try:
         req = Request(url, headers={"User-Agent": "Yoink-RSS/1.0"})
         with urlopen(req, timeout=timeout) as resp:

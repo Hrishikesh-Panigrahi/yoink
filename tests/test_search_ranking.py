@@ -1,5 +1,3 @@
-"""Unit tests for the search ranking + normalization helpers."""
-
 from __future__ import annotations
 
 from search.dto import SearchResult

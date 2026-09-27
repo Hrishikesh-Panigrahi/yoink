@@ -1,5 +1,3 @@
-"""YTS.mx movie API adapter — module-level function."""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -35,7 +33,7 @@ _HEADERS = {
 
 
 def search_yts(query: str, limit: int = 20) -> List[SearchResult]:
-    """Search YTS for movies and return one `SearchResult` per quality."""
+    """Return one result per quality of each matching movie."""
     url = f"{YTS_BASE_URL}/list_movies.json"
     params = {
         "query_term": query,

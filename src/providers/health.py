@@ -1,8 +1,5 @@
-"""Lightweight health pings for every available provider.
-
-Each ping issues a tiny test search and times how long it took. We grade
-the result on three bands so the Sources panel can show a quick traffic
-light per source.
+"""Status checks for the Sources panel: each provider runs a small test search
+and is graded ok, slow or down by how long it took.
 """
 
 from __future__ import annotations
@@ -18,7 +15,7 @@ from utils.logger import setup_logger
 
 logger = setup_logger("providers.health")
 
-# Grades: "ok" <= 4s, "slow" <= 12s, "down" otherwise / on exception.
+# Latency limits in seconds for the "ok" and "slow" grades.
 _OK_LATENCY = 4.0
 _SLOW_LATENCY = 12.0
 _PROBE_QUERY = "matrix"
@@ -27,10 +24,9 @@ _cache: tuple[float, Dict[str, dict]] | None = None
 
 
 def ping_all(timeout_seconds: float = 12.0, *, force: bool = False) -> Dict[str, dict]:
-    """Concurrently probe every provider and return a status map.
+    """Probe every provider in parallel.
 
-    Keys mirror those exposed by ``providers.all_provider_choices`` so the
-    web UI can directly index into the response.
+    The keys match those from `providers.all_provider_choices()`, which the UI relies on.
     """
     global _cache
     now = time.monotonic()
@@ -82,7 +78,7 @@ def _probe(name: str, fn, timeout_seconds: float) -> dict:
         if elapsed > timeout_seconds:
             return {"status": "down", "latencyMs": int(elapsed * 1000), "error": "timeout"}
         status = "ok" if elapsed <= _OK_LATENCY else "slow" if elapsed <= _SLOW_LATENCY else "down"
-        # An empty result for a generic probe still means the site answered.
+        # An empty list still means the site answered. Only None counts as down.
         if result is None:
             status = "down"
         return {"status": status, "latencyMs": int(elapsed * 1000), "error": ""}

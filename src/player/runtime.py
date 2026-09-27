@@ -1,19 +1,14 @@
-"""Finding a libvlc runtime and importing `vlc` without blowing up.
+"""Find a libvlc runtime and import `vlc` safely.
 
-`python-vlc` is a ctypes binding, not a copy of VLC. Importing it runs a search
-for `libvlc.dll` at *import* time and raises `FileNotFoundError` when it comes up
-empty — so `import vlc` can never sit at the top of a module in this app. Every
-entry point here goes through `load_vlc()`, which returns a reason instead of
-raising and caches the outcome.
+`python-vlc` is only a ctypes binding. Importing it searches for `libvlc.dll` and
+raises `FileNotFoundError` if it finds nothing, so `import vlc` must never sit at
+the top of a module in this app. Go through `load_vlc()`, which returns an error
+message instead of raising and caches the result.
 
-Search order, first hit wins:
-
-1. `YOINK_VLC_DIR`, for anyone pointing at a portable copy.
-2. The runtime bundled beside a frozen build (`_MEIPASS/vlc`).
-3. An installed VLC, via the registry then the usual install directories.
-
-On anything other than Windows the system loader already knows where libvlc
-lives, so discovery is skipped and the plain import is used.
+Search order, first hit wins: `YOINK_VLC_DIR`, the copy bundled with a frozen
+build, a portable copy in Yoink's data folder, then an installed VLC (Windows
+only: registry, then the usual install directories). On other platforms, if
+nothing is found, the plain import is tried and the system loader finds libvlc.
 """
 
 from __future__ import annotations
@@ -29,15 +24,13 @@ from utils.paths import app_data_dir
 
 logger = setup_logger("player.runtime")
 
-#: Set this to a directory holding libvlc.dll and a plugins/ folder.
+#: Points at a directory holding libvlc.dll and a plugins/ folder.
 DIR_ENV_VAR = "YOINK_VLC_DIR"
 
-#: Where a frozen build keeps its bundled copy, relative to the unpack dir.
 BUNDLED_SUBDIR = "vlc"
 
-#: A portable VLC dropped in here is picked up with no configuration. Useful
-#: when installing VLC properly is not an option — the system installer needs
-#: administrator rights, this does not.
+#: A portable VLC placed here is found with no setup. This helps when the user
+#: cannot run the VLC installer, which needs admin rights.
 DATA_DIR_SUBDIR = "vlc"
 
 _WINDOWS_INSTALL_DIRS = (
@@ -53,12 +46,12 @@ _REGISTRY_KEYS = (
 
 @dataclass(frozen=True)
 class Runtime:
-    """A directory that actually holds a usable libvlc."""
+    """A directory holding a usable libvlc and its plugins."""
 
     directory: Path
     library: Path
     plugin_path: Path
-    source: str  # how it was found, for logs and the About panel
+    source: str  # how it was found, shown in logs and the About panel
 
 
 def _is_windows() -> bool:
@@ -70,7 +63,6 @@ def _library_name() -> str:
 
 
 def _looks_like_a_runtime(directory: Path) -> Optional[Runtime]:
-    """A runtime needs the library itself and its plugin tree beside it."""
     if not directory or not directory.is_dir():
         return None
     library = directory / _library_name()
@@ -89,7 +81,6 @@ def _bundled_dir() -> Optional[Path]:
 
 
 def _data_dir() -> Optional[Path]:
-    """Yoink's own data folder, where a portable VLC can be dropped."""
     try:
         return Path(app_data_dir(create=False)) / DATA_DIR_SUBDIR
     except Exception as exc:
@@ -102,7 +93,7 @@ def _registry_dirs() -> List[Path]:
         return []
     try:
         import winreg
-    except ImportError:  # pragma: no cover - Windows only
+    except ImportError:  # pragma: no cover
         return []
     found: List[Path] = []
     for key_path in _REGISTRY_KEYS:
@@ -117,7 +108,6 @@ def _registry_dirs() -> List[Path]:
 
 
 def find_runtime() -> Optional[Runtime]:
-    """Return the first directory that holds a usable libvlc, or None."""
     candidates: List[Tuple[str, Path]] = []
 
     override = os.environ.get(DIR_ENV_VAR, "").strip()
@@ -144,16 +134,15 @@ def find_runtime() -> Optional[Runtime]:
     return None
 
 
-# `load_vlc` is called from several places per session; the import is the
-# expensive part and its failure mode is stable, so the outcome is cached.
+# The import is slow and its outcome does not change during a run.
 _cache: Optional[Tuple[Optional[object], str]] = None
 
 
 def load_vlc(force: bool = False) -> Tuple[Optional[object], str]:
     """Import `vlc` with a runtime prepared. Returns `(module, error)`.
 
-    Exactly one of the two is set: on success `error` is empty, on failure
-    `module` is None and `error` says what a user could do about it.
+    On success `error` is empty. On failure `module` is None and `error` says
+    what the user can do about it.
     """
     global _cache
     if _cache is not None and not force:
@@ -171,17 +160,16 @@ def _load_vlc_uncached() -> Tuple[Optional[object], str]:
         )
 
     if runtime is not None:
-        # These two are the ones python-vlc's own loader reads. Without them it
-        # runs its own registry / Program Files search and then falls back to
-        # `CDLL(".\\libvlc.dll")` — a *relative* path, so it resolves against the
-        # working directory and finds nothing. Neither add_dll_directory nor
-        # VLC_PLUGIN_PATH influences that decision.
+        # python-vlc's loader reads these two. Without them it does its own
+        # search and falls back to `CDLL(".\\libvlc.dll")`, a relative path that
+        # resolves against the working directory and fails. add_dll_directory
+        # and VLC_PLUGIN_PATH do not change that.
         os.environ["PYTHON_VLC_LIB_PATH"] = str(runtime.library)
         os.environ["PYTHON_VLC_MODULE_PATH"] = str(runtime.plugin_path)
-        # libvlc itself reads this one once it is loaded.
+        # libvlc reads this one after it loads.
         os.environ["VLC_PLUGIN_PATH"] = str(runtime.plugin_path)
         if _is_windows():
-            # So libvlc.dll can resolve libvlccore.dll sitting beside it.
+            # Lets libvlc.dll find libvlccore.dll next to it.
             try:
                 os.add_dll_directory(str(runtime.directory))
             except (OSError, AttributeError) as exc:
@@ -189,11 +177,10 @@ def _load_vlc_uncached() -> Tuple[Optional[object], str]:
         logger.info(f"Using libvlc from {runtime.directory} (found via {runtime.source})")
 
     try:
-        import vlc  # noqa: PLC0415 — deliberately late; see the module docstring
+        import vlc
     except SystemExit as exc:
-        # python-vlc calls sys.exit(1) rather than raising when the library or
-        # plugin path it was handed will not load. That is a BaseException, so
-        # without this it would sail past `except Exception` and kill the app.
+        # python-vlc calls sys.exit(1) when the library or plugin path will not
+        # load. SystemExit is not an Exception, so without this the app would exit.
         return None, f"VLC refused to load from {runtime.library if runtime else '?'} ({exc})"
     except Exception as exc:
         return None, f"Could not load VLC: {exc}"
@@ -207,7 +194,7 @@ def is_available() -> bool:
 
 
 def describe() -> dict:
-    """Player-runtime facts for the UI: is it usable, and if not, why not."""
+    """Player runtime details for the UI, including why it is unavailable."""
     module, error = load_vlc()
     runtime = find_runtime()
     version = ""
@@ -227,6 +214,6 @@ def describe() -> dict:
 
 
 def reset_cache() -> None:
-    """Forget the cached import. Only useful in tests."""
+    """Forget the cached import. Used by tests."""
     global _cache
     _cache = None

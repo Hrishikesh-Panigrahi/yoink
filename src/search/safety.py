@@ -1,13 +1,6 @@
-"""Heuristic safety scoring for search results.
+"""Rough safety hints for search results.
 
-The goal is to surface obvious red flags in the UI (random ``.exe`` in a
-"movie" torrent, suspiciously small file, password-protected archives,
-trackers with no seeders) without pretending to do real malware analysis.
-
-The output is a small dict:
-
-    {"level": "safe" | "caution" | "risky",
-     "reasons": ["short, human-readable strings"]}
+The checks look only at the result's own fields. Nothing is downloaded or scanned.
 """
 
 from __future__ import annotations
@@ -43,7 +36,7 @@ _SIZE_RE = re.compile(r"([\d.]+)\s*(KB|MB|GB|TB)", re.I)
 
 
 def evaluate(result_dict: dict) -> dict:
-    """Score a serialized SearchResult dict and tag it with safety hints."""
+    """Rate a serialized SearchResult as safe, caution or risky, with up to four reasons."""
     reasons: List[str] = []
     score = 100  # higher = safer
 
@@ -63,7 +56,7 @@ def evaluate(result_dict: dict) -> dict:
             break
 
     if seeds <= 0:
-        reasons.append("No seeders — may never finish")
+        reasons.append("No seeders, so it may never finish")
         score -= 30
     elif seeds < 3:
         reasons.append(f"Very low seeders ({seeds})")

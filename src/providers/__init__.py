@@ -1,29 +1,18 @@
-"""Per-source torrent search adapters.
-
-Import the concrete adapter modules directly
-(`from providers.yts import search_yts`) — this package intentionally
-avoids re-exports to prevent circular imports with `search/`.
-"""
+"""Provider list and on-by-default choices for Settings > Sources."""
 
 from providers.torrent_api_py import available_sites, site_configs
 
-#: Stable APIs that always show as toggleable in Settings -> Sources.
 STABLE_PROVIDERS: tuple[tuple[str, str], ...] = (
     ("yts", "YTS"),
     ("piratebay_stable", "The Pirate Bay"),
 )
 
-#: Stable APIs on by default. YTS is deliberately absent: yts.mx no longer
-#: publishes an A record at all - not blocked, simply gone - so leaving it on
-#: cost every search two 10-second connect timeouts before any results showed.
+#: YTS is off by default because yts.mx no longer has a DNS A record. Leaving it
+#: on adds two 10-second connect timeouts to every search.
 DEFAULT_STABLE_PROVIDERS: tuple[str, ...] = ("piratebay_stable",)
 
-#: Vendored multi-site providers we recommend enabling by default.
-#:
-#: These must match the keys `site_configs()` actually returns. They previously
-#: read "nyaaSi" and "magnet_dl", which match nothing, so Nyaa was never on by
-#: default despite the intent - and Nyaa is one of the two sources that answer
-#: reliably. MagnetDL is left out: magnetdl.com is the slowest probe by far.
+#: These must match the keys `site_configs()` returns. MagnetDL is left out
+#: because it is by far the slowest source to answer.
 DEFAULT_VENDOR_PROVIDERS: tuple[str, ...] = (
     "1337x",
     "tgx",
@@ -32,7 +21,6 @@ DEFAULT_VENDOR_PROVIDERS: tuple[str, ...] = (
 
 
 def all_provider_choices() -> list[dict]:
-    """List every provider the user can toggle, with display metadata."""
     choices: list[dict] = []
     for key, label in STABLE_PROVIDERS:
         choices.append({

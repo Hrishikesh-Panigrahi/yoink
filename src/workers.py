@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import os
+import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
@@ -18,8 +22,6 @@ logger = setup_logger("workers")
 
 
 class SearchWorker(QThread):
-    """Run a torrent search off the UI thread."""
-
     finished = pyqtSignal(str, int, list, int, int)  # query, page, results-as-dicts, total, pages
     failed = pyqtSignal(str, str)  # query, error message
 
@@ -32,16 +34,14 @@ class SearchWorker(QThread):
     def run(self) -> None:
         try:
             page = run_search(self.query, self.page, options=self.options)
-            # A superseded search must not deliver: its results would overwrite
-            # the newer query's, and its error would toast over them. The
-            # providers cannot be cancelled mid-flight, so the interruption is
-            # checked here instead - up to now `requestInterruption` did nothing.
+            # A superseded search must not overwrite the newer one's results or
+            # show its error. Providers cannot be cancelled mid-request, so check here.
             if self.isInterruptionRequested():
                 logger.info(f"Dropping superseded search results for {self.query!r}")
                 return
             payload = [r.to_dict() for r in page.results]
             self.finished.emit(self.query, self.page, payload, page.total, page.pages)
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:  # pragma: no cover
             if self.isInterruptionRequested():
                 return
             logger.exception("Search failed")
@@ -80,7 +80,7 @@ class MetadataEnrichWorker(QThread):
                         updates.append(result)
             if updates and not self.isInterruptionRequested():
                 self.enriched.emit(self.query, updates)
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:  # pragma: no cover
             logger.exception(f"Metadata enrich worker failed: {exc}")
 
     @staticmethod
@@ -95,22 +95,18 @@ class MetadataEnrichWorker(QThread):
 
 
 class ProviderHealthWorker(QThread):
-    """Run provider health probes off the UI thread."""
-
     finished = pyqtSignal(dict)
 
     def run(self) -> None:
         try:
             statuses = health.ping_all()
             self.finished.emit(statuses)
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:  # pragma: no cover
             logger.exception(f"Health worker failed: {exc}")
             self.finished.emit({})
 
 
 class DownloadsPollWorker(QThread):
-    """Poll the torrent session once per interval and push snapshots."""
-
     snapshot = pyqtSignal(list)
 
     def __init__(self, session: Session, interval_ms: int = 1000):
@@ -136,8 +132,6 @@ class DownloadsPollWorker(QThread):
 
 
 class WatchFolderWorker(QThread):
-    """Poll a folder for new .torrent files and add them to the session (7.1)."""
-
     added = pyqtSignal(str, str)  # path, info hash
 
     def __init__(self, session: Session, folder: str, interval_ms: int = 10000):
@@ -172,7 +166,7 @@ class WatchFolderWorker(QThread):
 
 
 class RssPollWorker(QThread):
-    """Poll subscribed RSS feeds and auto-add matching items (7.2)."""
+    """Poll subscribed RSS feeds and add the items that match their filters."""
 
     added = pyqtSignal(str, str)  # feed name, info hash
 
@@ -183,8 +177,6 @@ class RssPollWorker(QThread):
         self._running = True
 
     def run(self) -> None:
-        import re
-
         import feeds
 
         while self._running:
@@ -221,29 +213,22 @@ class RssPollWorker(QThread):
 
 
 class StreamPrepareWorker(QThread):
-    """Get a freshly added magnet to the point where a player can open it.
+    """Take a freshly added magnet to the point where a player can open it.
 
-    Playing straight from a search result needs three waits that the download
-    list never has to do, which is why the Play control there could not simply
-    be reused:
+    There are three waits, each reported through `progress` so the UI can say
+    which one it is on:
 
-    1. A magnet carries no file list. Until the DHT or a tracker answers there
-       is nothing to know which file is the video, so the stream cannot even be
-       aimed yet.
-    2. Once metadata lands, piece order has to be switched to sequential before
-       any useful bytes arrive - otherwise the pieces already in hand are
-       scattered across the file and worthless for playback.
-    3. libtorrent only creates the file on disk when it first writes to it, and
-       the head has to actually be there. Opening earlier hands VLC a path that
-       does not exist yet.
-
-    Progress is emitted throughout so the UI can say which of the three it is
-    waiting on rather than showing an unexplained spinner.
+    1. Metadata. A magnet has no file list, so the video file cannot be picked
+       until a peer or the DHT sends it.
+    2. Sequential mode. It is switched on as soon as metadata arrives, or the
+       first pieces would be scattered across the file and useless for playback.
+    3. The head on disk. libtorrent creates the file only on its first write,
+       so opening it earlier hands VLC a path that does not exist.
     """
 
-    progress = pyqtSignal(str)          # JSON: phase, message, buffer percentage
-    ready = pyqtSignal(str, int)        # info hash, file index
-    failed = pyqtSignal(str, str)       # info hash, reason
+    progress = pyqtSignal(str)  # JSON: phase, message, buffer percentage
+    ready = pyqtSignal(str, int)  # info hash, file index
+    failed = pyqtSignal(str, str)  # info hash, reason
 
     def __init__(
         self,
@@ -267,9 +252,6 @@ class StreamPrepareWorker(QThread):
         self._running = False
 
     def run(self) -> None:
-        import os
-        import time
-
         try:
             if not self._await_metadata():
                 return
@@ -279,59 +261,59 @@ class StreamPrepareWorker(QThread):
                 self.failed.emit(self.info_hash, "Nothing playable in this torrent")
                 return
 
-            self._emit("buffering", "Buffering the start of the file...", 0.0)
-            deadline = time.monotonic() + self.buffer_timeout_s
-            best_have = -1
-            last_progress_at = time.monotonic()
-            while self._running and time.monotonic() < deadline:
-                if self.isInterruptionRequested():
-                    return
-                live = torrents.stream_status(self.session, self.info_hash)
-                if live is None:
-                    self.failed.emit(self.info_hash, "Torrent went away while buffering")
-                    return
-                payload = live.to_dict()
-                # The tail is wanted too, but waiting for it before starting
-                # would stall on a slow swarm. The head plus a file on disk is
-                # enough to open; the tail keeps arriving on its deadline.
-                head_in = live.head_total and live.head_have >= live.head_total
-                if head_in and os.path.exists(live.absolute_path):
-                    self.ready.emit(self.info_hash, live.file_index)
-                    return
-
-                now = time.monotonic()
-                if live.head_have > best_have:
-                    best_have = live.head_have
-                    last_progress_at = now
-
-                peers, seeds, rate_kb_s = self._swarm()
-                # A dead swarm is the single most likely reason a stream never
-                # starts, and "Buffering 0%" forever gives no way to tell it
-                # apart from a slow one. Give up early and say which it was.
-                if now - last_progress_at >= self.no_data_timeout_s:
-                    self.failed.emit(
-                        self.info_hash,
-                        f"No data arriving - {seeds} seed(s), {peers} peer(s) connected. "
-                        "This torrent looks dead; try one with more seeders.",
-                    )
-                    return
-
-                self._emit(
-                    "buffering",
-                    self._buffer_message(payload["bufferProgress"], peers, seeds, rate_kb_s),
-                    payload["bufferProgress"],
-                )
-                self.msleep(self.poll_ms)
-
-            if self._running:
-                self.failed.emit(self.info_hash, "Gave up waiting for the file to buffer")
-        except Exception as exc:  # pragma: no cover - defensive
+            self._await_head()
+        except Exception as exc:  # pragma: no cover
             logger.exception("Stream preparation failed")
             self.failed.emit(self.info_hash, str(exc))
 
-    def _await_metadata(self) -> bool:
-        import time
+    def _await_head(self) -> None:
+        """Wait for the head of the file to be on disk, then emit `ready`."""
+        self._emit("buffering", "Buffering the start of the file...", 0.0)
+        deadline = time.monotonic() + self.buffer_timeout_s
+        best_have = -1
+        last_progress_at = time.monotonic()
+        while self._running and time.monotonic() < deadline:
+            if self.isInterruptionRequested():
+                return
+            live = torrents.stream_status(self.session, self.info_hash)
+            if live is None:
+                self.failed.emit(self.info_hash, "Torrent went away while buffering")
+                return
+            payload = live.to_dict()
+            # Only the head is waited for. Waiting for the tail as well would
+            # stall on a slow swarm, and the tail keeps arriving on its deadline.
+            head_in = live.head_total and live.head_have >= live.head_total
+            if head_in and os.path.exists(live.absolute_path):
+                self.ready.emit(self.info_hash, live.file_index)
+                return
 
+            now = time.monotonic()
+            if live.head_have > best_have:
+                best_have = live.head_have
+                last_progress_at = now
+
+            peers, seeds, rate_kb_s = self._swarm()
+            # Fail early on a dead swarm and say so, instead of showing
+            # "Buffering 0%" until the overall timeout.
+            if now - last_progress_at >= self.no_data_timeout_s:
+                self.failed.emit(
+                    self.info_hash,
+                    f"No data arriving - {seeds} seed(s), {peers} peer(s) connected. "
+                    "This torrent looks dead; try one with more seeders.",
+                )
+                return
+
+            self._emit(
+                "buffering",
+                self._buffer_message(payload["bufferProgress"], peers, seeds, rate_kb_s),
+                payload["bufferProgress"],
+            )
+            self.msleep(self.poll_ms)
+
+        if self._running:
+            self.failed.emit(self.info_hash, "Gave up waiting for the file to buffer")
+
+    def _await_metadata(self) -> bool:
         self._emit("metadata", "Fetching torrent details...", 0.0)
         deadline = time.monotonic() + self.metadata_timeout_s
         while self._running and time.monotonic() < deadline:
@@ -372,7 +354,6 @@ class StreamPrepareWorker(QThread):
 
     @staticmethod
     def _buffer_message(percent: float, peers: int, seeds: int, rate_kb_s: float) -> str:
-        """Say why nothing is happening, not just that nothing is happening."""
         if peers <= 0 and seeds <= 0:
             return "Looking for peers..."
         if rate_kb_s < 1:
@@ -380,8 +361,6 @@ class StreamPrepareWorker(QThread):
         return f"Buffering {percent:.0f}% at {rate_kb_s:.0f} KB/s"
 
     def _emit(self, phase: str, message: str, percent: float) -> None:
-        import json
-
         self.progress.emit(
             json.dumps(
                 {
@@ -395,7 +374,7 @@ class StreamPrepareWorker(QThread):
 
 
 class ScheduledBandwidthWorker(QThread):
-    """Apply different bandwidth caps at user-defined time ranges (5.2)."""
+    """Call `apply_callback` with "quiet" or "default" when the quiet hours start or end."""
 
     applied = pyqtSignal(str)  # window name
 
@@ -426,8 +405,6 @@ class ScheduledBandwidthWorker(QThread):
 
     @staticmethod
     def _current_window() -> str:
-        import time
-
         import db
 
         try:
@@ -457,8 +434,6 @@ class ScheduledBandwidthWorker(QThread):
 
 
 class NetworkSpeedWorker(QThread):
-    """Poll the libtorrent session for aggregate throughput."""
-
     speed = pyqtSignal(float, float)  # download KB/s, upload KB/s
 
     def __init__(self, session: Session, interval_ms: int = 1000):

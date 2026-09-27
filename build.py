@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
-"""Build Yoink for Windows.
-
-Stages:
-    1. clean   — wipe `build/`, `dist/`, and stale spec files.
-    2. exe     — run PyInstaller --onefile to produce `dist/Yoink.exe`.
-    3. installer (optional, Windows only) — invoke Inno Setup with
-       `installer/yoink.iss` to produce `dist/Yoink-Setup-<ver>.exe`.
+"""Build Yoink for Windows: `dist/Yoink.exe`, then the installer if Inno Setup is found.
 
 Usage:
-    python build.py            # full pipeline (exe + installer if ISCC found)
-    python build.py --exe-only # skip the installer step
+    python build.py             # exe and installer
+    python build.py --exe-only  # skip the installer
+    python build.py --help      # other options
 """
 
 from __future__ import annotations
@@ -24,12 +19,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 
-#: Where the VLC runtime lands inside the bundle. `player.runtime` looks here
-#: first in a frozen build, so the two constants have to agree.
+#: Folder for the VLC runtime inside the bundle. Must match `player.runtime.BUNDLED_SUBDIR`.
 VLC_BUNDLE_DIR = "vlc"
 
-#: Directories to check for an installed VLC, in order. The env var lets a build
-#: machine point at a portable copy without installing anything.
+#: Checked in order. YOINK_VLC_DIR can point at a portable VLC copy.
 VLC_SEARCH_DIRS = (
     os.environ.get("YOINK_VLC_DIR", ""),
     r"C:\Program Files\VideoLAN\VLC",
@@ -38,7 +31,6 @@ VLC_SEARCH_DIRS = (
 
 
 def find_vlc_runtime() -> Path | None:
-    """Return a directory holding libvlc.dll plus its plugins/ tree."""
     for raw in VLC_SEARCH_DIRS:
         if not raw:
             continue
@@ -51,8 +43,7 @@ def find_vlc_runtime() -> Path | None:
 def vlc_bundle_args(sep: str, required: bool) -> list[str]:
     """PyInstaller flags that copy the VLC runtime into the bundle.
 
-    The plugin tree is the bulk of it — a few hundred small DLLs — and libvlc
-    refuses to decode anything without it, so it travels whole.
+    The whole plugins/ tree goes in, because libvlc can't decode anything without it.
     """
     runtime = find_vlc_runtime()
     if runtime is None:
@@ -63,8 +54,8 @@ def vlc_bundle_args(sep: str, required: bool) -> list[str]:
         )
         if required:
             raise SystemExit(f"build: {message}\n  Pass --no-player to build without it.")
-        # ASCII only: when output is piped, Windows falls back to cp1252 and a
-        # non-ASCII print raises UnicodeEncodeError mid-build.
+        # Keep this ASCII. Piped output on Windows uses cp1252, where a non-ASCII
+        # print raises UnicodeEncodeError.
         print(f"build: WARNING - {message}")
         return []
 
@@ -78,13 +69,10 @@ def vlc_bundle_args(sep: str, required: bool) -> list[str]:
 
 
 def compose_html() -> Path:
-    """Assemble src/web/index.html from index.template.html + partials.
+    """Build src/web/index.html from index.template.html and src/web/partials/.
 
-    Each partial in src/web/partials/<name>.html replaces the matching
-    ``<!-- include:<name> -->`` placeholder in the template.
-
-    Idempotent and safe to run before PyInstaller; the generated file
-    is checked in so direct ``python src/main.py`` keeps working.
+    Each partials/<name>.html replaces ``<!-- include:<name> -->`` in the template.
+    The output is checked in so ``python src/main.py`` works without a build.
     """
     template_path = SRC / "web" / "index.template.html"
     partials_dir = SRC / "web" / "partials"
@@ -102,12 +90,10 @@ def compose_html() -> Path:
 
 
 def _read_version() -> str:
-    """Read version from `src/version.py` without importing it.
+    """Read the version from `src/version.py` without importing it.
 
-    Anchored to the start of the line on purpose. The module docstring also
-    mentions ``__version__``, and a looser match picks that line up too - which
-    is exactly how the v2.1.0 installer shipped as `Yoink-Setup-__version__.exe`
-    with `__version__` registered as its version in Add/Remove Programs.
+    Only a line that starts with ``__version__`` counts, because the module
+    docstring mentions it too.
     """
     text = (SRC / "version.py").read_text(encoding="utf-8")
     for line in text.splitlines():
@@ -133,7 +119,6 @@ def clean_build() -> None:
 
 
 def build_exe(with_player: bool = True) -> None:
-    """Run PyInstaller to produce the standalone Yoink.exe."""
     subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"], check=True)
 
     sep = ";" if os.name == "nt" else ":"
@@ -149,7 +134,6 @@ def build_exe(with_player: bool = True) -> None:
         f"--add-data=src/resources{sep}resources",
         f"--add-data=src/web{sep}web",
         f"--add-data=src/vendor{sep}vendor",
-        # Stable PyQt6 imports
         "--hidden-import=PyQt6",
         "--hidden-import=PyQt6.QtWidgets",
         "--hidden-import=PyQt6.QtGui",
@@ -158,7 +142,6 @@ def build_exe(with_player: bool = True) -> None:
         "--hidden-import=PyQt6.QtWebEngineWidgets",
         "--hidden-import=PyQt6.QtWebEngineCore",
         "--hidden-import=PyQt6.QtWebChannel",
-        # First-party modules
         "--hidden-import=main_window",
         "--hidden-import=bridge",
         "--hidden-import=workers",
@@ -196,7 +179,6 @@ def build_exe(with_player: bool = True) -> None:
         "--hidden-import=utils.magnets",
         "--hidden-import=utils.autostart",
         "--hidden-import=utils.single_instance",
-        # Third-party
         "--hidden-import=libtorrent",
         "--hidden-import=sqlalchemy",
         "--hidden-import=requests",
@@ -211,7 +193,6 @@ def build_exe(with_player: bool = True) -> None:
 
 
 def build_installer() -> None:
-    """Invoke Inno Setup if available to produce the Windows installer."""
     if os.name != "nt":
         print("installer step skipped (non-Windows host)")
         return

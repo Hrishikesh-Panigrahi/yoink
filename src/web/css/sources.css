@@ -1,0 +1,181 @@
+/* Provider toggles on the Sources tab in Settings. */
+
+#providerGrid {
+  padding: 20px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.provider-section { display: flex; flex-direction: column; gap: 12px; }
+
+.provider-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.provider-section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+.provider-section-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.provider-count {
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+}
+.provider-bulk { display: inline-flex; gap: 4px; }
+.provider-bulk-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.provider-bulk-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-surface-2);
+}
+
+.provider-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+/* Provider tile */
+.provider-tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-surface-2);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.provider-tile:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-elev);
+}
+.provider-tile.is-on {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-soft), var(--bg-surface-2));
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 2px 12px var(--accent-ring);
+}
+
+/* The native checkbox is hidden and .provider-tick draws the tick instead. */
+.provider-tile input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.provider-tick {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-input);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  transition: all var(--transition);
+}
+.provider-tick .ic {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.provider-tile.is-on .provider-tick {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: white;
+}
+
+.provider-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.provider-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.provider-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.provider-default-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-ring);
+  flex-shrink: 0;
+}
+.provider-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.provider-status-text { color: var(--text-muted); }
+
+/* Health dot */
+.health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-subtle);
+  flex-shrink: 0;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.health-dot.ok      { background: var(--green);  box-shadow: 0 0 6px var(--green-soft); }
+.health-dot.slow    { background: var(--yellow); box-shadow: 0 0 6px var(--yellow-soft); }
+.health-dot.down    { background: var(--red);    box-shadow: 0 0 6px var(--red-soft); }
+.health-dot.unknown { background: var(--text-subtle); opacity: 0.5; }
+
+.health-latency {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-subtle);
+}

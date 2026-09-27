@@ -1,12 +1,13 @@
-/* Yoink web UI - aggregate stylesheet.
- * Source modules live in css/. Order below preserves cascade from the
- * original monolithic styles.css.
- */
+/* One file per area in css/. Order matters: later files override earlier ones
+ * at equal specificity, and responsive.css must stay last. */
 
 @import "css/tokens.css";
 @import "css/layout.css";
 @import "css/base.css";
 @import "css/search.css";
 @import "css/downloads.css";
+@import "css/toasts.css";
 @import "css/modals.css";
 @import "css/settings.css";
+@import "css/sources.css";
+@import "css/responsive.css";

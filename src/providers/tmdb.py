@@ -1,14 +1,7 @@
-"""TMDB enrichment for search results.
+"""Movie details (poster, rating, plot, links) from the TMDB v3 API.
 
-Takes a (title, year) and returns a small JSON-friendly dict with poster,
-backdrop, rating, runtime, genres, plot, and external links. Looks up
-results through the public TMDB v3 API. Caches everything in `db.set_setting`
-under the `tmdb:` namespace so repeat queries don't burn the rate limit.
-
-The API key resolution order:
-    1. Setting `tmdb_api_key` (user-supplied, takes priority)
-    2. `TMDB_API_KEY` env var (handy for dev)
-    3. None -> enrichment is skipped, callers must handle that
+Answers, including misses, are cached for a week in the settings table under
+`tmdb:` keys so repeat lookups don't use up the rate limit.
 """
 
 from __future__ import annotations
@@ -30,12 +23,11 @@ logger = setup_logger("providers.tmdb")
 _BASE = "https://api.themoviedb.org/3"
 _IMG_BASE = "https://image.tmdb.org/t/p"
 _TIMEOUT = 6.0
-_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7  # 1 week
+_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7
 _YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
 
 def get_api_key() -> Optional[str]:
-    """Return the configured TMDB API key, if any."""
     key = db.get_setting("tmdb_api_key")
     if key:
         key = key.strip()
@@ -50,7 +42,6 @@ def get_api_key() -> Optional[str]:
 
 
 def extract_year(title: str, fallback_date: str | None = None) -> Optional[int]:
-    """Best-effort year extraction from a release title or date string."""
     for candidate in (title, fallback_date or ""):
         if not candidate:
             continue
@@ -64,23 +55,10 @@ def extract_year(title: str, fallback_date: str | None = None) -> Optional[int]:
 
 
 def enrich(title: str, year: Optional[int] = None) -> Optional[dict]:
-    """Look up a movie on TMDB; returns ``None`` when unavailable.
+    """Return TMDB details for a movie (keys as built in `_fetch_details`).
 
-    Result shape:
-        {
-            "tmdbId": int,
-            "title": str,
-            "year": int|None,
-            "rating": float,
-            "runtime": int (minutes),
-            "genres": [str, ...],
-            "plot": str,
-            "poster": str (CDN URL) | None,
-            "backdrop": str (CDN URL) | None,
-            "trailerUrl": str | None,
-            "imdbId": str | None,
-            "imdbUrl": str | None,
-        }
+    Runtime is in minutes. Returns None when there is no API key, no match, or the
+    request fails.
     """
     if not title:
         return None

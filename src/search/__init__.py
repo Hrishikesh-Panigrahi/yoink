@@ -1,9 +1,3 @@
-"""Search orchestrator — public `search()` function.
-
-Provider imports are deferred to call time so this package can be
-imported by providers (for DTOs/enums) without circular import errors.
-"""
-
 from __future__ import annotations
 
 from typing import List, Optional
@@ -30,12 +24,8 @@ def search(
     limit: int = 20,
     options: Optional[SearchOptions] = None,
 ) -> SearchPage:
-    """Search torrents and return one page of relevance-sorted results.
-
-    When `provider_mode=MULTI` is requested but the vendored providers
-    return nothing, we transparently fall back to the stable APIs so the
-    user always sees results.
-    """
+    # Imported here because the providers import search.dto and search.enums.
+    # A top-level import would be circular.
     from providers.pirate_bay import search_pirate_bay
     from providers.torrent_api_py import available_sites, search_multi_site
     from providers.yts import search_yts
@@ -88,7 +78,6 @@ def _finalize(
     page: int,
     limit: int,
 ) -> SearchPage:
-    """Dedupe -> filter (quality, seeds) -> sort -> paginate."""
     unique = dedupe_results(raw)
     unique = filter_by_quality(unique, options.quality)
     unique = filter_by_min_seeds(unique, options.min_seeds)

@@ -1,10 +1,10 @@
 """Tests for the QWebChannel slots in `src/bridge/`.
 
-`Bridge.__init__` opens a libtorrent session and starts five QThreads, none of
-which a unit test wants. These tests build the object with `__new__` and run
-`QObject.__init__` by hand, then attach a real (shared) torrent session and fake
-workers. Signals still work — PyQt delivers direct connections without a running
-QApplication — so every slot below is the real implementation.
+`Bridge.__init__` opens a libtorrent session and starts worker QThreads, which
+unit tests should not do. The `bridge` fixture builds the object with `__new__`,
+runs `QObject.__init__` by hand, and attaches a shared real session and fake
+workers. PyQt delivers direct signal connections without a running
+QApplication, so every slot under test is the real implementation.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class Recorder:
 
 
 class FakeWorker:
-    """Stands in for the QThread workers the slots poke at."""
+    """Stand-in for the bridge's QThread workers."""
 
     def __init__(self, running: bool = False) -> None:
         self.running = running
@@ -94,10 +94,10 @@ class FakeWorker:
 
 
 def stub_dialog(monkeypatch, module, **methods) -> None:
-    """Replace a slot module's QFileDialog with one returning canned answers.
+    """Swap a slot module's QFileDialog for a stub that returns canned answers.
 
-    The real `Option` enum is carried over: callers pass `QFileDialog.Option.
-    ShowDirsOnly` straight through to the stub.
+    The real `Option` enum is kept because the slots pass
+    `QFileDialog.Option.ShowDirsOnly` to the dialog.
     """
     attrs = {name: staticmethod(fn) for name, fn in methods.items()}
     attrs["Option"] = module.QFileDialog.Option
@@ -106,7 +106,7 @@ def stub_dialog(monkeypatch, module, **methods) -> None:
 
 @pytest.fixture(scope="module")
 def lt_session():
-    """One real libtorrent session for the whole module — it is slow to build."""
+    """Module-scoped because a real libtorrent session is slow to build."""
     with tempfile.TemporaryDirectory(prefix="yoink-bridge-") as save_dir:
         session = torrents.create_session(save_dir)
         yield session
@@ -152,7 +152,7 @@ def recorder(bridge):
     return Recorder(bridge)
 
 
-# ----- Settings -----------------------------------------------------------
+# Settings
 
 
 def test_get_settings_reports_defaults(bridge):
@@ -298,7 +298,7 @@ def test_set_schedule_ignores_malformed_json(bridge):
     assert bridge.schedule_worker._last_window == "default"
 
 
-# ----- Search -------------------------------------------------------------
+# Search
 
 
 def test_search_with_a_blank_query_reports_an_error(bridge, recorder):
@@ -379,11 +379,7 @@ class _RetirableWorker:
 
 
 def test_a_second_search_keeps_the_first_worker_alive(bridge, monkeypatch):
-    """Overwriting a running QThread used to take the interpreter down.
-
-    Two searches fired in the same tick dropped the last reference to the first
-    worker's thread, and Qt tore it down mid-run.
-    """
+    """Dropping the last reference to a running QThread lets Qt destroy it mid-run."""
     built = []
 
     class FakeSearchWorker(_RetirableWorker):
@@ -416,7 +412,7 @@ def test_retiring_drops_workers_whose_thread_has_ended(bridge):
 
     bridge._retire_worker(running)
 
-    # The finished one is joined before its reference goes, and then released.
+    # The finished worker is joined first, then released.
     assert finished.waits == 1
     assert bridge._retired_workers == [running]
 
@@ -429,7 +425,6 @@ def test_retiring_ignores_a_worker_that_never_ran(bridge):
 
 
 def test_metadata_enrich_retires_the_previous_worker(bridge, monkeypatch):
-    """`_kick_metadata_enrich` had the identical overwrite bug."""
     from bridge import core
 
     class FakeEnrichWorker(_RetirableWorker):
@@ -505,7 +500,7 @@ def test_search_history_ignores_blank_queries_and_can_be_cleared(bridge):
     assert json.loads(bridge.getSearchHistory()) == []
 
 
-# ----- Torrents -----------------------------------------------------------
+# Torrents
 
 
 def test_add_torrent_rejects_an_empty_magnet(bridge, recorder):
@@ -555,7 +550,7 @@ def test_get_all_labels_returns_the_union(bridge):
     assert json.loads(bridge.getAllLabels()) == ["anime", "docs", "hd"]
 
 
-# ----- Streaming ----------------------------------------------------------
+# Streaming
 
 
 def test_start_streaming_returns_the_buffer_status(bridge):
@@ -608,11 +603,11 @@ def test_stop_streaming_reports_whether_it_was_on(bridge):
     assert bridge.stopStreaming("abc") is False
 
 
-# ----- Player -------------------------------------------------------------
+# Player
 
 
 class FakePlayerModule:
-    """Stands in for the `player` package inside the bridge's player slots."""
+    """Stand-in for the `player` package used by the player slots."""
 
     def __init__(self, available: bool, reason: str = "") -> None:
         self._available = available
@@ -666,7 +661,7 @@ def test_play_in_app_explains_a_missing_player(bridge, recorder, monkeypatch):
 
     assert bridge.playInApp("abc", -1) == "{}"
     assert recorder.last("toast")[2] == "VLC was not found."
-    # Nothing was reordered, since nothing could have played it.
+    # No stream is started when there is no player to show it.
     assert bridge.session.streams == {}
 
 
@@ -707,7 +702,7 @@ def test_play_in_app_survives_a_window_that_will_not_open(bridge, recorder, monk
 
 
 def test_close_player_is_a_no_op_without_a_window(bridge):
-    bridge.closePlayer()  # must not raise
+    bridge.closePlayer()
 
     assert bridge._player_window is None
 
@@ -731,7 +726,7 @@ def test_shutdown_closes_the_player(bridge, monkeypatch):
     assert closed == [True]
 
 
-# ----- Downloads snapshot -------------------------------------------------
+# Downloads snapshot
 
 
 def test_snapshot_announces_each_completion_once(bridge, recorder):
@@ -767,7 +762,7 @@ def test_snapshot_respects_the_notifications_toggle(bridge, recorder):
     assert recorder.named("requestNotification") == []
 
 
-# ----- Feeds --------------------------------------------------------------
+# Feeds
 
 
 def test_add_feed_starts_the_poller_and_enables_rss(bridge, recorder):
@@ -813,7 +808,7 @@ def test_get_feeds_survives_a_corrupt_settings_row(bridge, monkeypatch):
     assert bridge.getFeeds() == "[]"
 
 
-# ----- System -------------------------------------------------------------
+# System
 
 
 def test_pick_watch_folder_persists_and_starts_the_worker(bridge, recorder, monkeypatch, tmp_path):
@@ -888,7 +883,7 @@ def test_notify_respects_the_notifications_toggle(bridge, recorder):
 def test_every_listed_command_has_a_handler(bridge, monkeypatch):
     dispatched = []
     for command in json.loads(bridge.listCommands()):
-        # `openSaveFolder` is dispatched with an argument; the rest take none.
+        # `openSaveFolder` is dispatched with an argument, the rest with none.
         monkeypatch.setattr(
             bridge,
             command["id"],
@@ -918,7 +913,7 @@ def test_open_path_ignores_a_blank_target(bridge, recorder, monkeypatch):
     assert recorder.events == []
 
 
-# ----- Shutdown -----------------------------------------------------------
+# Shutdown
 
 
 def test_shutdown_stops_every_worker_and_the_session(bridge, monkeypatch):
@@ -936,7 +931,7 @@ def test_shutdown_stops_every_worker_and_the_session(bridge, monkeypatch):
 
 
 def test_shutdown_drains_the_retired_workers(bridge, monkeypatch):
-    """They are still live threads touching the session that is about to stop."""
+    """Retired workers are still live threads using the session that is about to stop."""
     monkeypatch.setattr(torrents, "stop_session", lambda session: None)
     retired = _RetirableWorker(running=True)
     bridge._retired_workers = [retired]

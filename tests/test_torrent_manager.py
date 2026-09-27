@@ -1,4 +1,4 @@
-"""Tests for the torrents package (session + actions)."""
+"""Tests for the `torrents` package (session and actions) and `utils.autostart`."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ class TestTorrentActions(unittest.TestCase):
         self.assertEqual(resumed, 1)
 
     def test_pause_clears_auto_managed_flag(self) -> None:
-        """Pause must drop auto_managed so libtorrent's queue won't auto-resume."""
+        """A paused torrent must drop auto_managed, or libtorrent's queue resumes it."""
         from unittest import mock
 
         info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
@@ -115,7 +115,7 @@ class TestTorrentActions(unittest.TestCase):
 
     def test_set_file_priorities_returns_false_without_metadata(self) -> None:
         info_hash = torrents.add_magnet(self.session, TEST_MAGNET)
-        # Magnet-only torrents have no metadata yet, so prioritize must no-op.
+        # A torrent added from a magnet has no metadata yet.
         ok = torrents.set_file_priorities(self.session, info_hash, {0: 0})
         self.assertFalse(ok)
 
@@ -131,7 +131,7 @@ class TestTorrentActions(unittest.TestCase):
             active_downloads=3,
             active_seeds=5,
         )
-        # Unsetting (passing 0) should also work
+        # 0 means unlimited.
         torrents.apply_limits(self.session, download_kb_s=0, upload_kb_s=0)
 
     def test_load_saved_restores_paused_state(self) -> None:
@@ -166,7 +166,6 @@ class TestAutostart(unittest.TestCase):
 
         if sys.platform == "win32":
             self.skipTest("Skipped on Windows where it would touch the registry")
-        # Should be a no-op everywhere else and report False.
         self.assertFalse(autostart.set_enabled(True))
 
 

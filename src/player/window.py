@@ -1,10 +1,7 @@
 """The in-app video window: a native surface for libvlc plus transport controls.
 
-The file is usually still downloading, which shapes two things. Duration is read
-every tick rather than once, because VLC only reports what it can currently see
-and that grows. And the window takes a `buffer_probe` callable so it can show how
-much of the head has landed without knowing anything about torrents — the caller
-supplies the closure.
+The window takes a `buffer_probe` callable so it can show buffering progress
+without knowing anything about torrents.
 """
 
 from __future__ import annotations
@@ -30,16 +27,15 @@ from utils.logger import setup_logger
 
 logger = setup_logger("player.window")
 
-#: How often to refresh position, duration and buffer state.
 TICK_MS = 500
 
-#: `buffer_probe` returns a stream-status dict; this is what it is asked for.
+#: Keys read from the stream-status dict that `buffer_probe` returns.
 _READY_KEY = "ready"
 _PROGRESS_KEY = "bufferProgress"
 
 
 def format_time(milliseconds: int) -> str:
-    """`h:mm:ss` when the file is over an hour, `m:ss` otherwise. `--:--` if unknown."""
+    """`h:mm:ss` from one hour up, `m:ss` below that, `--:--` if unknown."""
     if milliseconds is None or milliseconds < 0:
         return "--:--"
     total_seconds = int(milliseconds // 1000)
@@ -51,8 +47,6 @@ def format_time(milliseconds: int) -> str:
 
 
 class PlayerWindow(QMainWindow):
-    """A standalone video window driven by a `VlcPlayer`."""
-
     def __init__(
         self,
         player: VlcPlayer,
@@ -73,8 +67,6 @@ class PlayerWindow(QMainWindow):
         self._timer = QTimer(self)
         self._timer.setInterval(TICK_MS)
         self._timer.timeout.connect(self._tick)
-
-    # ----- Construction ---------------------------------------------------
 
     def _build_ui(self) -> None:
         root = QWidget(self)
@@ -130,16 +122,13 @@ class PlayerWindow(QMainWindow):
 
         return bar
 
-    # ----- Lifecycle ------------------------------------------------------
-
     def open(self, path: str, title: str = "", expected_size: int = 0) -> None:
         """Show the window and start playing `path`.
 
-        `expected_size` is the file's final length; passing it lets the backend
-        wait for bytes that have not downloaded yet instead of stopping at the
-        current end of the file.
+        `expected_size` is the file's final length. It lets playback wait for
+        bytes that are still downloading instead of stopping early.
         """
-        self.setWindowTitle(f"Yoink Player — {title or os.path.basename(path)}")
+        self.setWindowTitle(f"Yoink Player: {title or os.path.basename(path)}")
         self.show()
         self.raise_()
         self.activateWindow()
@@ -158,7 +147,7 @@ class PlayerWindow(QMainWindow):
             self._player.play()
             self.play_button.setText("Pause")
 
-    def closeEvent(self, event) -> None:  # noqa: N802 — Qt's spelling
+    def closeEvent(self, event) -> None:
         self._timer.stop()
         try:
             self._player.stop()
@@ -172,8 +161,6 @@ class PlayerWindow(QMainWindow):
                 logger.error(f"Player close callback failed: {exc}")
         super().closeEvent(event)
 
-    # ----- Ticking --------------------------------------------------------
-
     def _on_scrub_start(self) -> None:
         self._scrubbing = True
 
@@ -182,8 +169,8 @@ class PlayerWindow(QMainWindow):
         self._player.seek_ms(self.seek_slider.value())
 
     def _tick(self) -> None:
-        # Duration is re-read every tick: VLC only knows what has been written
-        # so far, so a growing file reports a growing length.
+        # Re-read every tick, because VLC reports a growing length for a file
+        # that is still downloading.
         duration = self._player.duration_ms()
         elapsed = self._player.time_ms()
 

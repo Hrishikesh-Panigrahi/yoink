@@ -1,9 +1,6 @@
-"""Adapter around the vendored Torrent-Api-py scrapers.
+"""Runs the vendored Torrent-Api-py scrapers (src/vendor/torrent_api_py) in-process.
 
-The upstream repository ships a FastAPI service with one async class per
-torrent site. We import those classes directly from the vendored copy
-under `src/vendor/torrent_api_py/` and run them as standalone async
-calls — no FastAPI process needed.
+Upstream is a FastAPI service. We call its per-site async classes directly instead.
 """
 
 from __future__ import annotations
@@ -32,13 +29,12 @@ _VENDOR_ROOT = _vendor_root()
 
 
 def _load_vendored_sites() -> dict:
-    """Import the vendored site registry without letting it shadow our packages.
+    """Import the vendored site registry without shadowing our own `torrents` package.
 
-    The vendored project has its own `torrents/` package. If it lands in
-    `sys.modules` under the bare name `torrents`, it will permanently shadow
-    our top-level `torrents/` package. We prepend the vendor root, import
-    the site registry, then evict the vendored `torrents.*` modules from
-    `sys.modules` so subsequent `import torrents` resolves to ours.
+    The vendored code has its own top-level `torrents` package. While it imports, the
+    vendor root goes first on sys.path and our `torrents` modules are taken out of
+    sys.modules. Afterwards the vendored `torrents.*` modules are dropped and ours
+    are put back, so a later `import torrents` still gets ours.
     """
     if not _VENDOR_ROOT.exists():
         return {}
@@ -46,8 +42,6 @@ def _load_vendored_sites() -> dict:
     vendor_path = str(_VENDOR_ROOT)
     sys.path.insert(0, vendor_path)
 
-    # Hide our `torrents/` package while the vendored code resolves its
-    # own `torrents.*` submodules, then restore everything afterwards.
     stashed = {name: mod for name, mod in sys.modules.items()
                if name == "torrents" or name.startswith("torrents.")}
     for name in stashed:
@@ -57,10 +51,11 @@ def _load_vendored_sites() -> dict:
     try:
         from helper.is_site_available import all_sites  # type: ignore
         return dict(all_sites)
-    except Exception as exc:  # pragma: no cover - exercised when vendor missing
+    except Exception as exc:  # pragma: no cover
         logger.error(f"Unable to import vendored torrent providers: {exc}")
         return {}
     finally:
+        # Keep the vendor root on the path, but last, so it can't shadow our packages.
         try:
             sys.path.remove(vendor_path)
         except ValueError:
@@ -76,7 +71,7 @@ def _load_vendored_sites() -> dict:
 
 _VENDORED_SITES = _load_vendored_sites()
 
-#: Module-level dict that tests can monkeypatch.
+#: Tests monkeypatch this.
 AVAILABLE_SITES: Dict[str, dict] = dict(_VENDORED_SITES)
 
 DEFAULT_SITES: tuple[str, ...] = (
@@ -105,12 +100,10 @@ _CATEGORY_FOR_VENDOR = {
 
 
 def available_sites() -> Dict[str, dict]:
-    """Return the active site registry (vendored, or test override)."""
     return AVAILABLE_SITES
 
 
 def site_configs() -> Dict[str, dict]:
-    """UI-friendly metadata about each available site."""
     configs: Dict[str, dict] = {}
     for key, cfg in AVAILABLE_SITES.items():
         configs[key] = {
@@ -131,10 +124,7 @@ def search_multi_site(
     limit_per_site: int = 5,
     timeout_seconds: float = 12.0,
 ) -> List[SearchResult]:
-    """Search the selected vendored sites concurrently.
-
-    Returns a flat list of `SearchResult` ordered by per-row relevance score.
-    """
+    """Search the sites concurrently, best match first. `sites=None` means DEFAULT_SITES."""
     if not AVAILABLE_SITES:
         return []
     return asyncio.run(

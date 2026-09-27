@@ -1,11 +1,3 @@
-"""Tests for `torrents.streaming` — sequential ordering for playback.
-
-The piece arithmetic is a pure function and gets the bulk of the attention. The
-handle-facing calls are driven through `FakeTorrentHandle` (see conftest), which
-records the deadlines it is given so the request *order* can be asserted, not
-just the fact that deadlines were set.
-"""
-
 from __future__ import annotations
 
 import libtorrent as lt
@@ -19,11 +11,11 @@ MB = 1024 * 1024
 
 
 def make_session(handles=None) -> Session:
-    """A Session with no libtorrent behind it — streaming only touches the dicts."""
+    """A Session with no libtorrent behind it. Streaming only uses its dicts."""
     return Session(lt_session=None, save_path="C:/downloads", handles=handles or {})
 
 
-# ----- Picking the file ---------------------------------------------------
+# Picking the file
 
 
 @pytest.mark.parametrize(
@@ -70,7 +62,7 @@ def test_pick_video_file_returns_none_without_video():
     assert streaming.pick_video_file([]) is None
 
 
-# ----- Piece arithmetic ---------------------------------------------------
+# Piece arithmetic
 
 
 def test_plan_covers_both_ends_of_the_file():
@@ -80,8 +72,8 @@ def test_plan_covers_both_ends_of_the_file():
 
     assert plan.first_piece == 0
     assert plan.last_piece == 999
-    # 16 MB of head needs 16 pieces, plus one because the file need not start on
-    # a piece boundary.
+    # 16 MB of head is 16 pieces, plus one because the file may not start on a
+    # piece boundary.
     assert plan.head_pieces == tuple(range(0, 17))
     assert plan.tail_pieces == (997, 998, 999)
 
@@ -143,7 +135,7 @@ def test_plan_rejects_a_nonsense_layout():
 
 
 
-# ----- start_stream -------------------------------------------------------
+# start_stream
 
 
 def test_start_stream_switches_to_sequential_and_rushes_the_head():
@@ -174,7 +166,6 @@ def test_start_stream_asks_for_the_tail_after_the_head():
     tail = handle.deadlines[status.head_total :]
     assert len(tail) == status.tail_total
     assert min(ms for _, ms in tail) > max(ms for _, ms in head)
-    # The tail is the end of the file, not the start.
     assert max(piece for piece, _ in tail) == status.last_piece
 
 
@@ -255,7 +246,7 @@ def test_start_stream_returns_none_when_nothing_is_playable():
     assert session.streams == {}
 
 
-# ----- stream_status ------------------------------------------------------
+# stream_status
 
 
 def test_status_is_not_ready_with_an_empty_buffer():
@@ -324,7 +315,7 @@ def test_status_dict_is_camel_case_for_the_web_ui():
     }
 
 
-# ----- stop_stream --------------------------------------------------------
+# stop_stream
 
 
 def test_stop_stream_clears_deadlines_and_leaves_sequential_mode():

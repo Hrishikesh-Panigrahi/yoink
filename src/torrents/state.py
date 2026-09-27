@@ -14,8 +14,7 @@ from utils.logger import setup_logger
 
 logger = setup_logger("torrents.state")
 
-# Smooths short-term spikes in libtorrent's download_rate when computing ETA.
-# Each entry is a small ring buffer of recent (bytes/sec) samples per info hash.
+# Recent download rates (bytes/s) per info hash, averaged so the ETA does not jump.
 _ETA_WINDOW: int = 8
 _RATE_SAMPLES: Dict[str, Deque[float]] = {}
 
@@ -32,7 +31,6 @@ _STATE_NAMES = {
 
 
 def list_torrents(session: Session) -> List[TorrentSnapshot]:
-    """Return a snapshot for every active torrent in the session."""
     snapshots: List[TorrentSnapshot] = []
     for handle in session.lt_session.get_torrents():
         if not handle.is_valid():
@@ -96,7 +94,6 @@ def _snapshot(handle: lt.torrent_handle, info_hash: str) -> TorrentSnapshot:
 
 
 def _smooth_rate(info_hash: str, current_rate: float) -> float:
-    """Return a rolling average of recent download rates to stabilize ETA."""
     samples = _RATE_SAMPLES.setdefault(info_hash, deque(maxlen=_ETA_WINDOW))
     if current_rate and current_rate > 0:
         samples.append(float(current_rate))
@@ -106,7 +103,7 @@ def _smooth_rate(info_hash: str, current_rate: float) -> float:
 
 
 def list_files(session: Session, info_hash: str) -> List[TorrentFile]:
-    """Return the file table for a torrent (empty list if metadata isn't ready)."""
+    """Empty until the torrent's metadata has arrived."""
     handle = session.handles.get(info_hash.lower())
     if handle is None or not handle.is_valid() or not handle.has_metadata():
         return []

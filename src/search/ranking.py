@@ -1,5 +1,3 @@
-"""Query expansion, title normalization, deduping, scoring, and sorting."""
-
 from __future__ import annotations
 
 import re
@@ -9,7 +7,7 @@ from typing import Iterable, List
 from search.dto import SearchResult
 from search.enums import Quality, Region, SortBy, region_terms
 
-# Source-reliability weights: nudges well-curated sources above scrapers.
+# Multipliers on health_score, so curated sources rank a little above scrapers.
 SOURCE_WEIGHTS: dict[str, float] = {
     "yts": 1.15,
     "the pirate bay": 1.05,
@@ -51,7 +49,6 @@ _TITLE_QUALITY_RE = re.compile(
 
 
 def expand_region_queries(query: str, region: Region) -> List[str]:
-    """Add region marker tokens (e.g. "hindi") to the base query when missing."""
     base = (query or "").strip()
     if not base:
         return []
@@ -64,12 +61,7 @@ def expand_region_queries(query: str, region: Region) -> List[str]:
 
 
 def normalize_title(title: str) -> str:
-    """Collapse a release title to its bare 'movie / show' signature.
-
-    Strips release groups, quality tokens, year, brackets, and punctuation.
-    Used as the dedupe key so the same release across 3 providers collapses
-    into one row.
-    """
+    """Reduce a release title to the bare name, for use as a dedupe key."""
     if not title:
         return ""
     text = title.lower()
@@ -82,10 +74,7 @@ def normalize_title(title: str) -> str:
 
 
 def dedupe_results(results: Iterable[SearchResult]) -> List[SearchResult]:
-    """Drop duplicates by magnet URL, then by normalized title.
-
-    When the same release lands twice we keep the one with the most seeds.
-    """
+    """Dedupe by magnet URL, then by normalized title, keeping the one with most seeds."""
     by_key: dict[str, SearchResult] = {}
     for result in results:
         magnet_key = (result.magnet_url or "").lower()
@@ -109,7 +98,7 @@ def dedupe_results(results: Iterable[SearchResult]) -> List[SearchResult]:
 
 
 def _replacement_score(new: SearchResult, existing: SearchResult) -> int:
-    """Prefer the higher-seeded, then higher-quality variant on dedupe ties."""
+    """Positive if `new` should replace `existing`: more seeds wins, then higher quality."""
     if new.seeds != existing.seeds:
         return 1 if new.seeds > existing.seeds else -1
     new_q = _quality_rank(new.quality or "")
@@ -118,7 +107,6 @@ def _replacement_score(new: SearchResult, existing: SearchResult) -> int:
 
 
 def _quality_rank(quality: str) -> int:
-    """Numeric ranking so we can compare quality strings."""
     q = (quality or "").lower()
     if "2160" in q:
         return 4
@@ -132,12 +120,7 @@ def _quality_rank(quality: str) -> int:
 
 
 def health_score(result: SearchResult, query: str, region: Region) -> float:
-    """Combined relevance + reliability score in roughly the 0-500 range.
-
-    Inputs:
-        title-match strength, region marker hits, seeds/peers, source weight,
-        recency bonus (newer releases get a small nudge).
-    """
+    """Relevance score for the default sort. Higher is better, roughly 0 to 500."""
     title = (result.title or "").lower()
     tokens = [tok for tok in (query or "").lower().split() if tok]
     score = sum(100 for tok in tokens if tok in title)
@@ -168,7 +151,6 @@ def health_score(result: SearchResult, query: str, region: Region) -> float:
 
 
 def _recency_bonus(date_str: str | None) -> float:
-    """Small bonus for releases from the last 5 years."""
     if not date_str:
         return 0.0
     match = _YEAR_RE.search(date_str)
@@ -185,7 +167,6 @@ def _recency_bonus(date_str: str | None) -> float:
 
 
 def filter_by_quality(results: List[SearchResult], quality: Quality) -> List[SearchResult]:
-    """Drop results whose quality token doesn't match the user's selection."""
     if quality is Quality.ANY:
         return results
     needle = quality.value.lower()
@@ -198,7 +179,6 @@ def filter_by_quality(results: List[SearchResult], quality: Quality) -> List[Sea
 
 
 def filter_by_min_seeds(results: List[SearchResult], min_seeds: int) -> List[SearchResult]:
-    """Drop results below the seed threshold (0 disables the filter)."""
     if not min_seeds:
         return results
     return [r for r in results if (r.seeds or 0) >= min_seeds]
@@ -210,7 +190,6 @@ def sort_results(
     query: str,
     region: Region,
 ) -> List[SearchResult]:
-    """Order results by the user's chosen sort key."""
     if sort_by is SortBy.SEEDS:
         return sorted(results, key=lambda r: r.seeds or 0, reverse=True)
     if sort_by is SortBy.NEWEST:
@@ -221,7 +200,6 @@ def sort_results(
 
 
 def _date_key(result: SearchResult) -> tuple[int, int]:
-    """Best-effort date key: (year, score) so unknown dates sink to the bottom."""
     if not result.date:
         return (0, result.seeds or 0)
     match = _YEAR_RE.search(result.date)
@@ -238,7 +216,6 @@ _SIZE_RE = re.compile(r"([\d.]+)\s*([KMGT]?B)", re.I)
 
 
 def _size_to_bytes(size_str: str | None) -> float:
-    """Parse '2.1 GB' -> bytes for sorting."""
     if not size_str:
         return 0.0
     match = _SIZE_RE.search(size_str)

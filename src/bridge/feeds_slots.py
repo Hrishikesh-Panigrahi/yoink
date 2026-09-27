@@ -1,5 +1,3 @@
-"""RSS feed slots."""
-
 from __future__ import annotations
 
 import json
@@ -14,8 +12,6 @@ logger = setup_logger("bridge.feeds")
 
 
 class FeedsMixin:
-    """Mixin providing RSS-feed slots."""
-
     @pyqtSlot(result=str)
     def getFeeds(self) -> str:
         try:

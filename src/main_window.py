@@ -1,5 +1,3 @@
-"""QMainWindow that hosts the QWebEngineView, tray icon, and bridge."""
-
 from __future__ import annotations
 
 import json
@@ -38,7 +36,7 @@ def _resource_path(*parts: str) -> Path:
 
 
 class MainWindow(QMainWindow):
-    """Top-level window: web view + tray icon + bridge."""
+    """Hosts the web UI, the tray icon and the bridge."""
 
     def __init__(self, initial_payload: str = ""):
         super().__init__()
@@ -83,7 +81,7 @@ class MainWindow(QMainWindow):
         self._initial_payload = ""
 
     def _handle_handoff_payload(self, payload: str) -> None:
-        """Add a magnet/.torrent passed via CLI handoff and surface the window."""
+        """Add a magnet or .torrent path from the command line, then show the window."""
         payload = (payload or "").strip()
         if not payload:
             return
@@ -137,7 +135,6 @@ class MainWindow(QMainWindow):
         self.close()
 
     def _update_tray_tooltip(self, payload_json: str) -> None:
-        """Tray progress (9.1): reflect active count + speeds in the tooltip."""
         try:
             items = json.loads(payload_json or "[]")
         except Exception:
@@ -149,14 +146,14 @@ class MainWindow(QMainWindow):
             and "error" not in (t.get("status") or "").lower()
         ]
         if not active:
-            self.tray.setToolTip("Yoink — idle")
+            self.tray.setToolTip("Yoink: idle")
             return
         names = ", ".join((t.get("name") or "?")[:32] for t in active[:2])
         tail = "" if len(active) <= 2 else f" and {len(active) - 2} more"
-        self.tray.setToolTip(f"Yoink — {len(active)} downloading\n{names}{tail}")
+        self.tray.setToolTip(f"Yoink: {len(active)} downloading\n{names}{tail}")
 
     def changeEvent(self, event):
-        """Clipboard magnet watcher (2.2): peek when the window gains focus."""
+        """Check the clipboard for a magnet link whenever the window gains focus."""
         try:
             if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
                 self._maybe_emit_clipboard_magnet()

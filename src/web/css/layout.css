@@ -1,9 +1,7 @@
-/* layout.css - App shell, sidebar, mobile sidebar, main pane. */
-
-/* ----- Layout ----- */
+/* App shell */
 .app { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-/* ----- Sidebar ----- */
+/* Sidebar */
 .sidebar {
   flex: 0 0 var(--sidebar-w);
   width: var(--sidebar-w);
@@ -170,7 +168,7 @@
 }
 .sidebar.collapsed .version { font-size: 9px; }
 
-/* ----- Mobile sidebar overlay ----- */
+/* Mobile sidebar overlay */
 .sidebar-scrim {
   position: fixed;
   inset: 0;
@@ -182,7 +180,7 @@
 }
 .app.sidebar-open .sidebar-scrim { opacity: 1; pointer-events: auto; }
 
-/* ----- Main ----- */
+/* Main pane */
 .main {
   flex: 1;
   display: flex;

@@ -1,22 +1,14 @@
-"""Resolve provider hostnames over DNS-over-HTTPS instead of the system resolver.
+"""Resolve hostnames over DNS-over-HTTPS instead of the system resolver.
 
-Some networks answer DNS for torrent indexes with a sinkhole address rather
-than the real one. Measured on one such connection, `yts.mx`, `1337x.to`,
-`torrentgalaxy.to`, `thepiratebay.org` and `magnetdl.com` all resolved to the
-same unrelated IP, every connection timed out, and every search stalled for
-20 seconds before falling back to the one provider that still answered. Asked
-over DoH, `1337x.to` returned its real Cloudflare addresses and connected
-immediately.
+Some networks answer DNS for torrent sites with a sinkhole address, so every
+connection times out. DoH returns the real addresses.
 
-The interception point is `socket.getaddrinfo`, not the HTTP layer. Rewriting
-URLs to raw IPs is the usual first idea and it is a bad one: it breaks SNI, it
-breaks the Host header, and it breaks certificate validation, so every HTTPS
-request either fails or has to disable verification. Replacing only the
-name-to-address step leaves all three correct, and works for `requests`,
-`urllib` and `aiohttp` alike without any of them knowing.
+This patches `socket.getaddrinfo` instead of rewriting URLs to IP addresses.
+Rewriting URLs breaks SNI, the Host header and certificate checks. Patching the
+lookup keeps all three working, for `requests`, `urllib` and `aiohttp` alike.
 
-Off unless `dns_over_https_enabled` is set. Nothing here is installed at import
-time; `install()` is called once during startup.
+Nothing is patched at import time. `apply_from_settings()` turns it on or off from
+the `dns_over_https_enabled` setting, which defaults to on.
 """
 
 from __future__ import annotations
@@ -39,7 +31,7 @@ DOH_ENDPOINTS: Tuple[str, ...] = (
     "https://dns.google/resolve",
 )
 
-#: Hosts of the resolvers themselves. Resolving these over DoH would recurse.
+#: Looking these up over DoH would recurse, so they use the system resolver.
 _RESOLVER_HOSTS = frozenset({"cloudflare-dns.com", "dns.google"})
 
 CACHE_TTL_SECONDS = 300.0
@@ -52,10 +44,9 @@ _installed = False
 
 
 def lookup(host: str) -> List[str]:
-    """Return A records for `host` from DoH, or an empty list.
+    """Return the A records for `host` from DoH, or an empty list.
 
-    Cached for `CACHE_TTL_SECONDS`, including negative answers, so a provider
-    that is genuinely gone is not re-queried on every request.
+    Empty answers are cached too, so a dead site isn't looked up on every request.
     """
     host = (host or "").strip().rstrip(".")
     if not host or host in _RESOLVER_HOSTS:
@@ -98,8 +89,8 @@ def _query(host: str) -> List[str]:
     return []
 
 
-def _patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):  # noqa: A002
-    """Answer from DoH when it can, otherwise defer to the system resolver."""
+def _patched_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    """Use DoH for IPv4 name lookups and fall back to the system resolver otherwise."""
     try:
         name = host.decode() if isinstance(host, bytes) else host
         if name and family in (0, socket.AF_INET) and not _looks_like_an_address(name):
@@ -129,7 +120,6 @@ def _looks_like_an_address(name: str) -> bool:
 
 
 def install() -> bool:
-    """Route name resolution through DoH. Returns True if it took effect."""
     global _installed
     if _installed:
         return True
@@ -140,7 +130,6 @@ def install() -> bool:
 
 
 def uninstall() -> None:
-    """Hand name resolution back to the system resolver."""
     global _installed
     if not _installed:
         return
@@ -159,7 +148,6 @@ def clear_cache() -> None:
 
 
 def apply_from_settings() -> bool:
-    """Turn DoH on or off to match the stored setting. Returns the new state."""
     import db
 
     enabled = (db.get_setting("dns_over_https_enabled") or "1") == "1"

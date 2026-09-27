@@ -57,7 +57,7 @@ def _stub_sites(monkeypatch, sites: dict) -> None:
 
 
 def _stub_stable_results(monkeypatch, pirate_for=None, yts_results=None):
-    """Stub the stable providers. `pirate_for` is a {query_substring: [SearchResult]} map."""
+    """Stub the stable providers. `pirate_for` maps a query substring to its results."""
     pirate_for = pirate_for or {}
     yts_results = yts_results or []
     calls = {"pirate_queries": []}
@@ -109,7 +109,6 @@ def test_multi_site_uses_search_by_category(monkeypatch):
     )
 
     assert results
-    # Category-aware path was taken; vendor row was tagged with "movies".
     assert results[0].magnet_url.startswith("magnet:")
 
 

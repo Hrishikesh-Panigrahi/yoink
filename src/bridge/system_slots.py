@@ -1,9 +1,8 @@
-"""System-integration slots: folder pickers, OS open, commands, notifications."""
-
 from __future__ import annotations
 
 import json
 import os
+import platform
 import subprocess
 import sys
 import webbrowser
@@ -21,15 +20,12 @@ logger = setup_logger("bridge.system")
 
 
 class SystemMixin:
-    """Mixin providing system-integration slots."""
-
     @pyqtSlot(result=str)
     def getSaveFolder(self) -> str:
         return self.save_folder
 
     @pyqtSlot(result=str)
     def pickSaveFolder(self) -> str:
-        """Show a directory picker; persist and return the new folder."""
         try:
             new_dir = QFileDialog.getExistingDirectory(
                 None,
@@ -52,7 +48,6 @@ class SystemMixin:
 
     @pyqtSlot(str)
     def openSaveFolder(self, path: str = "") -> None:
-        """Open a folder in the OS file explorer."""
         target = path or self.save_folder
         try:
             os.startfile(target)  # type: ignore[attr-defined]
@@ -62,7 +57,6 @@ class SystemMixin:
 
     @pyqtSlot()
     def openDataFolder(self) -> None:
-        """Open the user-writable Yoink data folder (logs/db live here)."""
         try:
             os.startfile(app_data_dir())  # type: ignore[attr-defined]
         except Exception as exc:
@@ -71,7 +65,6 @@ class SystemMixin:
 
     @pyqtSlot(str)
     def openPath(self, path: str) -> None:
-        """Open a specific file (or folder) in the OS default handler."""
         target = (path or "").strip()
         if not target:
             return
@@ -88,7 +81,6 @@ class SystemMixin:
 
     @pyqtSlot(str)
     def revealInExplorer(self, path: str) -> None:
-        """Open the OS file manager with the given file/folder selected."""
         target = (path or "").strip()
         if not target:
             return
@@ -106,7 +98,6 @@ class SystemMixin:
 
     @pyqtSlot(str)
     def openExternal(self, url: str) -> None:
-        """Open a URL in the user's default browser."""
         try:
             webbrowser.open(url)
         except Exception as exc:
@@ -139,8 +130,6 @@ class SystemMixin:
 
     @pyqtSlot(result=str)
     def getAboutInfo(self) -> str:
-        """Return version/homepage info shown in the About panel."""
-        import platform
         return json.dumps({
             "version": __version__,
             "homepage": __app_homepage__,
@@ -150,14 +139,13 @@ class SystemMixin:
 
     @pyqtSlot(str, str, str)
     def notify(self, kind: str, title: str, message: str) -> None:
-        """Trigger a native tray notification if enabled."""
         if not self._notifications_enabled():
             return
         self.requestNotification.emit(title or "Yoink", message or "")
 
     @pyqtSlot(result=str)
     def listCommands(self) -> str:
-        """Static palette commands the JS palette can run."""
+        """Entries for the JS command palette. Each `id` is run by `runCommand`."""
         commands = [
             {"id": "pauseAll", "label": "Pause all torrents"},
             {"id": "resumeAll", "label": "Resume all torrents"},

@@ -1,15 +1,10 @@
 """A thin wrapper over libvlc's MediaPlayer.
 
-Kept deliberately small and Qt-free: it knows about a window handle and a file
-path, nothing about widgets. That keeps the parts worth testing — availability
-handling, state mapping, clamping — separable from the parts that need a real
-video surface.
+It stays free of Qt so it can be tested without a real video surface. It only
+knows a window handle and a file path.
 
-Playing a file that is still downloading is the whole point, so the instance is
-built with a generous file cache and VLC's own "file is growing" behaviour is
-relied on: it reads what exists and reports the length it can see. Seeking past
-the downloaded region stalls until those pieces arrive, which is inherent rather
-than something this layer can paper over.
+The file is usually still downloading. Seeking past the downloaded part stalls
+until those pieces arrive, and this layer cannot avoid that.
 """
 
 from __future__ import annotations
@@ -24,8 +19,8 @@ from utils.logger import setup_logger
 
 logger = setup_logger("player.backend")
 
-#: Passed to libvlc at construction. A large file cache smooths over the gaps a
-#: still-downloading file produces; the rest just keeps VLC quiet and headless.
+#: The large caches smooth over gaps in a file that is still downloading. The
+#: other flags keep VLC quiet.
 INSTANCE_ARGS = (
     "--no-video-title-show",
     "--no-snapshot-preview",
@@ -34,12 +29,11 @@ INSTANCE_ARGS = (
     "--network-caching=5000",
 )
 
-#: Reported when the backing library never loaded.
 UNKNOWN_STATE = "unavailable"
 
 
 class PlayerUnavailable(RuntimeError):
-    """Raised when a player is asked for but libvlc could not be loaded."""
+    """Raised when libvlc could not be loaded."""
 
 
 class VlcPlayer:
@@ -58,8 +52,6 @@ class VlcPlayer:
         self._path = ""
         self._source: Optional[GrowingFile] = None
 
-    # ----- Surface --------------------------------------------------------
-
     def attach(self, window_handle: int) -> None:
         """Render into a native window. Call before `play`."""
         handle = int(window_handle)
@@ -70,15 +62,12 @@ class VlcPlayer:
         else:
             self._player.set_xwindow(handle)
 
-    # ----- Transport ------------------------------------------------------
-
     def play(self, path: str = "", expected_size: int = 0) -> bool:
-        """Start (or resume) playback. Passing a path loads it first.
+        """Start or resume playback, loading `path` first if it is new.
 
-        `expected_size` is the file's final length. When it is larger than what
-        is on disk, the media is fed through `GrowingFile` instead of a plain
-        path, so playback waits for missing bytes rather than treating the
-        current end of the file as the end of the stream.
+        `expected_size` is the file's final length. If the file on disk is
+        shorter, it is fed through `GrowingFile` so playback waits for the
+        missing bytes instead of ending at the current end of the file.
         """
         if path and path != self._path:
             self._load(path, expected_size)
@@ -102,8 +91,8 @@ class VlcPlayer:
         self._player.pause()
 
     def stop(self) -> None:
-        # Cancel first: a read blocked waiting for bytes would otherwise keep
-        # libvlc_media_player_stop from ever returning.
+        # Cancel the source first. A read blocked waiting for bytes would
+        # otherwise keep libvlc_media_player_stop from returning.
         self._release_source()
         self._player.stop()
 
@@ -125,8 +114,6 @@ class VlcPlayer:
                 logger.debug(f"{name}.release() failed: {exc}")
             setattr(self, name, None)
 
-    # ----- Position and volume -------------------------------------------
-
     @property
     def path(self) -> str:
         return self._path
@@ -135,11 +122,11 @@ class VlcPlayer:
         return bool(self._player and self._player.is_playing())
 
     def time_ms(self) -> int:
-        """Where playback is now. -1 while nothing is loaded."""
+        """Playback position. -1 while nothing is loaded."""
         return int(self._player.get_time()) if self._player else -1
 
     def duration_ms(self) -> int:
-        """What VLC can currently see. Grows as more of the file lands."""
+        """The length VLC can see so far. It may grow as the file downloads."""
         return int(self._player.get_length()) if self._player else -1
 
     def seek_ms(self, milliseconds: int) -> None:
@@ -163,7 +150,7 @@ class VlcPlayer:
 
 
 def clamp_volume(volume: int) -> int:
-    """libvlc accepts 0-100; anything else is silently ignored, so clamp here."""
+    """libvlc silently ignores values outside 0-100, so clamp before passing one."""
     try:
         return max(0, min(100, int(volume)))
     except (TypeError, ValueError):

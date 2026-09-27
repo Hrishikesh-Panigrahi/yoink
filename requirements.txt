@@ -7,7 +7,7 @@ beautifulsoup4>=4.11.0
 pillow==10.0.0
 aiohttp==3.11.16
 cloudscraper>=1.2.71
-# ctypes binding only — needs a libvlc runtime, bundled by build.py. See
+# Only a ctypes binding: it needs a libvlc runtime, which build.py bundles. See
 # src/player/runtime.py for how one is located at startup.
 python-vlc>=3.0.18
 

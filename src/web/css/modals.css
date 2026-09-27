@@ -1,6 +1,4 @@
-/* modals.css - Base modal styles. */
-
-/* ----- Modal ----- */
+/* Modal */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -14,9 +12,8 @@
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
-  /* The close button is `position: absolute`. Without a positioned ancestor
-   * here it anchored to the full-screen .modal-backdrop instead, which put the
-   * X in the top-right corner of the window rather than on the modal. */
+  /* Anchors the absolutely positioned close button to the modal, not the
+   * full-screen backdrop. */
   position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
@@ -78,3 +75,427 @@
   padding: 18px 28px 24px;
 }
 
+/* File-selection modal */
+.modal-files { max-width: 760px; }
+.modal-files .modal-body { max-height: 60vh; overflow-y: auto; }
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.files-toolbar .muted { margin-left: auto; }
+.files-table { display: flex; flex-direction: column; gap: 4px; }
+.files-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 80px 60px 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-surface-2);
+}
+.files-row.files-head {
+  background: transparent;
+  border-color: transparent;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 4px 10px;
+}
+.files-name {
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files-size, .files-progress {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.files-priority {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.files-check input { accent-color: var(--accent); }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* Movie details modal */
+.modal-details {
+  /* Set width, not just max-width, to override the 520px width from .modal. */
+  width: 900px;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+.details-backdrop {
+  height: 220px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+.details-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, var(--bg-surface) 100%);
+}
+.modal-close {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  border: 0;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 5;
+}
+.modal-close:hover { background: rgba(0,0,0,0.75); }
+.details-body {
+  display: grid;
+  /* minmax(0, 1fr), not 1fr, so the column can shrink below its content. A
+   * long release title would otherwise push the Download button out of view. */
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 24px;
+  padding: 0 28px 28px;
+  position: relative;
+}
+.details-info { min-width: 0; }
+/* Release titles are often one long unbroken word. The padding keeps the end
+ * of the title out from under the close button. */
+.details-info h2 {
+  overflow-wrap: anywhere;
+  padding-right: 44px;
+}
+.details-poster {
+  margin-top: -90px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-elev);
+  background: var(--bg-surface-2);
+  aspect-ratio: 2 / 3;
+}
+.details-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.details-info h2 {
+  margin: 12px 0 4px;
+  font-size: 24px;
+  color: var(--text-strong);
+}
+.details-meta {
+  display: flex;
+  gap: 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.details-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.details-chip {
+  font-size: 11px;
+  padding: 3px 9px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.details-plot {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+.details-links {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.details-section {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 8px 0 10px;
+}
+.details-torrents {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.details-torrent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-surface-2);
+}
+.dt-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  align-items: center;
+  /* min-width: 0 lets the meta shrink so it can't push the Download button out.
+   * Wrapping moves whole items down a line instead of breaking a source name
+   * like "The Pirate Bay" across three. */
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.dt-meta > * { white-space: nowrap; }
+.dt-action { flex: 0 0 auto; }
+.dt-quality {
+  padding: 2px 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 6px;
+  font-weight: 600;
+}
+.dt-seeds { color: var(--green); font-weight: 500; }
+
+@media (max-width: 700px) {
+  .details-body { grid-template-columns: 1fr; }
+  .details-poster { margin-top: -70px; max-width: 140px; }
+}
+
+/* Drag-and-drop overlay */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg-page) 80%, transparent);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: dropFade 0.15s ease;
+}
+@keyframes dropFade { from { opacity: 0; } to { opacity: 1; } }
+.drop-card {
+  background: var(--bg-surface);
+  border: 2px dashed var(--accent);
+  border-radius: 18px;
+  padding: 36px 56px;
+  text-align: center;
+  color: var(--text);
+}
+.drop-card .ic { width: 44px; height: 44px; stroke: var(--accent); margin-bottom: 8px; }
+.drop-card h2 { margin: 0 0 6px; }
+.drop-card p { margin: 0; color: var(--text-muted); }
+.drop-card code {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-page));
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* Safety modal */
+.modal-small { max-width: 480px; }
+.safety-reasons {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.safety-reasons li {
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 4px 0;
+  background: color-mix(in srgb, #f87171 12%, transparent);
+  border-left: 3px solid #f87171;
+  font-size: 13px;
+}
+.safety-reasons li.is-caution {
+  background: color-mix(in srgb, #fbbf24 12%, transparent);
+  border-left-color: #fbbf24;
+}
+
+/* Onboarding wizard */
+.modal-wizard { max-width: 540px; }
+.wizard-progress {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.wizard-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.15s ease;
+}
+.wizard-dot.is-active { background: var(--accent); }
+.wizard-body { min-height: 220px; }
+.wizard-step { display: none; }
+.wizard-step.is-active { display: block; }
+.wizard-step h3 { margin: 4px 0 6px; }
+.wizard-folder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 10px;
+}
+.wizard-picks {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+.wizard-pick {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.wizard-pick[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+}
+.text-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-page);
+  color: var(--text);
+  font-size: 14px;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 14px;
+}
+
+/* Shortcuts panel */
+.shortcuts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+.shortcuts dt { color: var(--accent); font-variant-numeric: tabular-nums; }
+.shortcuts dd { margin: 0; color: var(--text); }
+.shortcuts kbd {
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+}
+
+/* Command palette */
+.palette-backdrop { align-items: flex-start; padding-top: 12vh; }
+.modal-palette {
+  max-width: 560px;
+  width: min(560px, 92vw);
+  padding: 0;
+  overflow: hidden;
+}
+.palette-input {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 16px;
+  padding: 16px 18px;
+  background: var(--bg-surface);
+  outline: none;
+}
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.palette-list li {
+  padding: 10px 18px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+}
+.palette-list li.is-active,
+.palette-list li:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.palette-hint { padding: 8px 18px 12px; margin: 0; border-top: 1px solid var(--border); }
+
+/* Labels editor */
+.labels-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+.label-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-page));
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.label-pill .remove {
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  line-height: 1;
+}
+.labels-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.labels-suggestions .chip { font-size: 12px; padding: 3px 9px; }

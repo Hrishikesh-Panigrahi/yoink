@@ -1,11 +1,6 @@
-"""Tests for `utils.resolver` - DNS-over-HTTPS name resolution.
+"""Tests for `utils.resolver`, the DNS-over-HTTPS resolver.
 
-This module patches `socket.getaddrinfo`, a global, so every test restores it.
-The interesting cases are the ones that must *not* go to a public resolver:
-literal addresses, localhost, and the DoH endpoints themselves, which would
-otherwise recurse forever.
-
-No real DNS queries are made; `_query` is stubbed.
+`_query` is stubbed, so no real DNS queries are made.
 """
 
 from __future__ import annotations
@@ -19,7 +14,7 @@ from utils import resolver
 
 @pytest.fixture(autouse=True)
 def clean_resolver():
-    """Never leave getaddrinfo patched, whatever a test does."""
+    """`install()` patches the global `socket.getaddrinfo`, so always undo it."""
     resolver.uninstall()
     resolver.clear_cache()
     yield
@@ -29,7 +24,7 @@ def clean_resolver():
 
 @pytest.fixture
 def answers(monkeypatch):
-    """Canned DoH answers plus a record of what was asked."""
+    """Stub DoH with canned answers and return the list of hosts it was asked."""
     asked = []
     table = {"1337x.to": ["172.67.188.67", "104.21.40.193"]}
 
@@ -41,7 +36,7 @@ def answers(monkeypatch):
     return asked
 
 
-# ----- Lookup -------------------------------------------------------------
+# Lookup
 
 
 def test_lookup_returns_the_addresses(answers):
@@ -56,7 +51,6 @@ def test_lookup_is_cached(answers):
 
 
 def test_lookup_caches_a_negative_answer_too(answers):
-    # A host that is genuinely gone should not be re-queried per request.
     assert resolver.lookup("gone.example") == []
     assert resolver.lookup("gone.example") == []
     assert answers == ["gone.example"]
@@ -80,7 +74,7 @@ def test_cache_expires(answers, monkeypatch):
 
 
 def test_lookup_never_resolves_its_own_resolvers(answers):
-    # Asking DoH where the DoH endpoint lives is an infinite loop.
+    # Resolving a DoH endpoint through DoH would loop forever.
     for host in resolver._RESOLVER_HOSTS:
         assert resolver.lookup(host) == []
     assert answers == []
@@ -98,7 +92,7 @@ def test_lookup_strips_a_trailing_dot(answers):
     assert answers == ["1337x.to"]
 
 
-# ----- Address literals ---------------------------------------------------
+# Address literals
 
 
 @pytest.mark.parametrize(
@@ -116,7 +110,7 @@ def test_looks_like_an_address(value, expected):
     assert resolver._looks_like_an_address(value) is expected
 
 
-# ----- Installation -------------------------------------------------------
+# Installation
 
 
 def test_install_replaces_getaddrinfo_and_uninstall_restores_it():
@@ -179,7 +173,6 @@ def test_a_failing_lookup_does_not_break_resolution(monkeypatch):
     monkeypatch.setattr(resolver, "_query", explode)
     resolver.install()
 
-    # Must still resolve through the system rather than propagating.
     assert socket.getaddrinfo("localhost", 80)
 
 
@@ -189,12 +182,12 @@ def test_ipv6_requests_are_left_to_the_system(answers):
     try:
         socket.getaddrinfo("1337x.to", 443, socket.AF_INET6)
     except OSError:
-        pass  # the system may have no AAAA record; what matters is the route
+        pass  # the system may have no AAAA record, only the route matters here
 
     assert answers == [], "an AF_INET6 request should not consult the A-record path"
 
 
-# ----- Settings -----------------------------------------------------------
+# Settings
 
 
 def test_apply_from_settings_follows_the_stored_value(monkeypatch):

@@ -1,7 +1,6 @@
-"""Watch-folder support: auto-add .torrent files dropped in a directory.
+"""Helpers for the watch folder, where dropped .torrent files are added automatically.
 
-The actual polling worker lives in :mod:`workers`. This module exposes the
-helpers it calls — listing candidate files and moving processed ones aside.
+The polling loop is `WatchFolderWorker` in `workers`.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ PROCESSED_SUFFIX = ".processed"
 
 
 def discover(folder: str) -> Iterable[str]:
-    """Yield absolute paths of unprocessed .torrent files in ``folder``."""
+    """Paths of the .torrent files in `folder` that have not been processed yet."""
     if not folder:
         return []
     root = Path(folder)
@@ -34,7 +33,7 @@ def discover(folder: str) -> Iterable[str]:
 
 
 def mark_processed(path: str) -> None:
-    """Rename a .torrent file once we've fed it to libtorrent so we don't re-add it."""
+    """Rename the file so the next poll does not add it again."""
     try:
         target = path + PROCESSED_SUFFIX
         if os.path.exists(target):

@@ -1,4 +1,4 @@
-"""Reload torrents persisted across runs."""
+"""Restore torrents saved by earlier runs."""
 
 from __future__ import annotations
 
@@ -15,10 +15,7 @@ logger = setup_logger("torrents.persistence")
 
 
 def load_saved(session: Session) -> int:
-    """Re-add every previously saved torrent to the session.
-
-    Returns the number of torrents restored.
-    """
+    """Re-add every torrent saved in the database. Returns how many were restored."""
     saved = db.list_torrents()
     restored = 0
     for row in saved:

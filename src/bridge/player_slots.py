@@ -1,10 +1,3 @@
-"""Slots for the in-app video player.
-
-`player.window` is imported inside `playInApp` rather than at module scope. That
-import chain ends at libvlc, so hoisting it would make a missing VLC break app
-startup instead of just this one feature.
-"""
-
 from __future__ import annotations
 
 import json
@@ -20,11 +13,9 @@ logger = setup_logger("bridge.player")
 
 
 class PlayerMixin:
-    """Mixin providing in-app playback slots."""
-
     @pyqtSlot(result=str)
     def getPlayerStatus(self) -> str:
-        """Whether playback is possible, and why not when it isn't."""
+        """Whether playback works, and why not if it doesn't. Shape: `player.describe()`."""
         try:
             return json.dumps(player.describe())
         except Exception as exc:
@@ -33,10 +24,7 @@ class PlayerMixin:
 
     @pyqtSlot(str, result=int)
     def getPlayableFile(self, info_hash: str) -> int:
-        """Index of the file a play control would open, or -1 if there is none.
-
-        Read-only: the UI calls it to decide whether to show the control.
-        """
+        """Index of the file a play button would open, or -1. Changes nothing."""
         try:
             index = torrents.playable_file(self.session, info_hash)
         except Exception as exc:
@@ -46,11 +34,11 @@ class PlayerMixin:
 
     @pyqtSlot(str, int, result=str)
     def playInApp(self, info_hash: str, file_index: int = -1) -> str:
-        """Reorder pieces for playback and open the player. Returns status JSON.
+        """Reorder pieces for playback and open the player. Returns stream status JSON.
 
-        Playback starts immediately rather than waiting for the buffer: VLC
-        copes with a short file, and the window shows buffering progress. '{}'
-        means nothing was opened and a toast explains why.
+        The player opens without waiting for the buffer. VLC copes with a short
+        file and the window shows buffering progress. '{}' means nothing opened,
+        and a toast says why.
         """
         if not player.is_available():
             reason = player.describe().get("reason") or "VLC is not available"
@@ -80,13 +68,11 @@ class PlayerMixin:
 
     @pyqtSlot(str, result=str)
     def playFromMagnet(self, magnet: str) -> str:
-        """Add a magnet and play it as soon as enough of the file has arrived.
+        """Add a magnet and open the player once the start of the file has arrived.
 
-        This is the search-result path. Unlike `playInApp`, nothing is known
-        about the torrent yet: the magnet has to be added, the file list waited
-        for, and the head buffered before a player can open anything. All three
-        happen on `StreamPrepareWorker`; progress arrives on `streamProgress`
-        and the window opens by itself when the head is in.
+        Used from search results. `StreamPrepareWorker` waits for the metadata
+        and the first pieces, reports on `streamProgress`, and the window opens
+        by itself when it is done.
         """
         if not player.is_available():
             reason = player.describe().get("reason") or "VLC is not available"
@@ -111,7 +97,6 @@ class PlayerMixin:
 
     @pyqtSlot()
     def cancelStreamPrepare(self) -> None:
-        """Stop waiting for a stream that the user no longer wants."""
         worker = getattr(self, "_stream_worker", None)
         if worker is not None and worker.isRunning():
             worker.stop()
@@ -123,10 +108,7 @@ class PlayerMixin:
         if window is not None:
             window.close()
 
-    # ----- Internals ------------------------------------------------------
-
     def _start_stream_prepare(self, info_hash: str) -> None:
-        """Wait for metadata and the head, then open the player."""
         self.cancelStreamPrepare()
         self._retire_worker(getattr(self, "_stream_worker", None))
 
@@ -135,8 +117,6 @@ class PlayerMixin:
         worker.ready.connect(self._on_stream_ready)
         worker.failed.connect(self._on_stream_failed)
         worker.start()
-        # Held on the bridge: dropping the last reference to a running QThread
-        # lets it be collected mid-run.
         self._stream_worker = worker
 
     def _on_stream_ready(self, info_hash: str, file_index: int) -> None:
@@ -158,10 +138,12 @@ class PlayerMixin:
         )
 
     def _open_player_window(self, status) -> None:
+        # Imported here because these load libvlc. A missing VLC should break
+        # only the player, not app startup.
         from player.backend import VlcPlayer
         from player.window import PlayerWindow
 
-        # One window at a time: opening a second file replaces the first.
+        # One player window at a time: a new file replaces the old one.
         self.closePlayer()
 
         info_hash = status.info_hash
@@ -178,7 +160,7 @@ class PlayerMixin:
                 logger.error(f"Could not leave sequential mode for {info_hash}: {exc}")
 
         window = PlayerWindow(VlcPlayer(), buffer_probe=probe, on_close=on_close)
-        # The final size comes from the torrent, so the player can wait for
-        # bytes that have not arrived rather than stopping at the current EOF.
+        # The full size comes from the torrent, so the player waits for missing
+        # bytes instead of stopping at the current end of the file.
         window.open(status.absolute_path, title=status.path, expected_size=status.size)
         self._player_window = window

@@ -1,10 +1,3 @@
-"""SQLite persistence layer as module-level functions.
-
-The database is `yoink.db` in the user's app data folder (see
-`utils.paths.default_db_path`) unless `TORRENT_DB_PATH` or an explicit path
-says otherwise.
-"""
-
 from __future__ import annotations
 
 import os
@@ -25,9 +18,9 @@ _SessionLocal: Optional[sessionmaker] = None
 
 
 def init_db(db_path: Optional[str] = None) -> Engine:
-    """Create the engine + schema. Safe to call multiple times.
+    """Create the engine and tables. Safe to call more than once.
 
-    Path resolution: explicit arg > `TORRENT_DB_PATH` env var > user data dir.
+    The path is `db_path`, else `TORRENT_DB_PATH`, else `yoink.db` in the app data folder.
     """
     global _engine, _SessionLocal
 
@@ -49,7 +42,7 @@ def init_db(db_path: Optional[str] = None) -> Engine:
 
 
 def dispose_engine() -> None:
-    """Tear down the engine (used by tests)."""
+    """Used by tests."""
     global _engine, _SessionLocal
     if _engine is not None:
         _engine.dispose()
@@ -70,7 +63,6 @@ def _ensure_default_settings() -> None:
 
 
 def get_setting(key: str) -> Optional[str]:
-    """Return a persisted setting value or None."""
     try:
         with _session() as session:
             row = session.query(Setting).filter_by(key=key).first()
@@ -81,7 +73,6 @@ def get_setting(key: str) -> Optional[str]:
 
 
 def get_all_settings() -> dict:
-    """Return all persisted settings as a {key: value} dict."""
     try:
         with _session() as session:
             rows = session.query(Setting).all()
@@ -92,7 +83,6 @@ def get_all_settings() -> dict:
 
 
 def set_setting(key: str, value: str) -> None:
-    """Persist a setting value (insert or update)."""
     try:
         with _session() as session:
             row = session.query(Setting).filter_by(key=key).first()
@@ -108,7 +98,6 @@ def set_setting(key: str, value: str) -> None:
 def save_torrent(
     info_hash: str, name: str, magnet_link: str, save_path: str, size: int = 0
 ) -> None:
-    """Insert or refresh a torrent record so it can be reloaded next launch."""
     try:
         with _session() as session:
             row = session.query(SavedTorrent).filter_by(info_hash=info_hash).first()
@@ -134,7 +123,6 @@ def save_torrent(
 
 
 def update_torrent_status(info_hash: str, status: str) -> None:
-    """Mark a saved torrent as paused/downloading/seeding."""
     try:
         with _session() as session:
             row = session.query(SavedTorrent).filter_by(info_hash=info_hash).first()
@@ -146,7 +134,6 @@ def update_torrent_status(info_hash: str, status: str) -> None:
 
 
 def remove_torrent(info_hash: str) -> bool:
-    """Delete a saved torrent row by info hash."""
     try:
         with _session() as session:
             row = session.query(SavedTorrent).filter_by(info_hash=info_hash).first()
@@ -161,7 +148,6 @@ def remove_torrent(info_hash: str) -> bool:
 
 
 def list_torrents() -> List[SavedTorrent]:
-    """Return all saved torrents (used to restore session on startup)."""
     try:
         with _session() as session:
             return session.query(SavedTorrent).all()

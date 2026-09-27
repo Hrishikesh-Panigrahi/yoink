@@ -1,12 +1,8 @@
 """Tests for `src/player/`.
 
-Most machines running the suite have no libvlc, and that is the interesting
-case: the whole point of `player.runtime` is that a missing runtime produces a
-reason rather than an exception at import time. Discovery is driven against temporary
-directories shaped like a real VLC install, so it is tested without one.
-
-Actual video decoding is not covered here — that needs a real library, a real
-window and a real file.
+Most machines running the suite have no libvlc, so discovery is tested against
+temp directories shaped like a VLC install. Video decoding is not tested here
+because it needs a real libvlc, a window and a media file.
 """
 
 from __future__ import annotations
@@ -23,14 +19,13 @@ from player.window import format_time
 
 @pytest.fixture(autouse=True)
 def clear_runtime_cache():
-    """`load_vlc` caches its outcome; tests must not inherit each other's."""
+    """`load_vlc` caches its result, so reset it around every test."""
     runtime.reset_cache()
     yield
     runtime.reset_cache()
 
 
 def make_vlc_dir(root, name="VLC", library="libvlc.dll", plugins=True):
-    """Build a directory that looks like an installed VLC."""
     directory = root / name
     directory.mkdir(parents=True, exist_ok=True)
     if library:
@@ -47,13 +42,13 @@ def windows(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def no_real_vlc(monkeypatch):
-    """Ignore any VLC actually installed on the machine running these tests."""
+    """Hide any VLC installed on the machine running the tests."""
     monkeypatch.setattr(runtime, "_data_dir", lambda: None)
     monkeypatch.setattr(runtime, "_registry_dirs", list)
     monkeypatch.setattr(runtime, "_WINDOWS_INSTALL_DIRS", ())
 
 
-# ----- Discovery ----------------------------------------------------------
+# Discovery
 
 
 def test_env_var_points_at_a_runtime(monkeypatch, tmp_path, windows):
@@ -112,8 +107,8 @@ def test_a_directory_without_the_library_is_rejected(monkeypatch, tmp_path, wind
 
 
 def test_a_directory_without_plugins_is_rejected(monkeypatch, tmp_path, windows):
-    # libvlc loads but decodes nothing without its plugin tree, so half an
-    # install is worse than none: it would fail at playback instead of startup.
+    # Without its plugins libvlc loads but decodes nothing, so it would fail at
+    # playback instead of at startup.
     broken = make_vlc_dir(tmp_path, "no-plugins", plugins=False)
     monkeypatch.setenv(runtime.DIR_ENV_VAR, str(broken))
     monkeypatch.setattr(runtime, "_registry_dirs", list)
@@ -136,7 +131,7 @@ def test_bundled_dir_is_only_consulted_in_a_frozen_build(monkeypatch):
     assert runtime._bundled_dir() is None
 
 
-# ----- Loading ------------------------------------------------------------
+# Loading
 
 
 def test_load_reports_a_reason_instead_of_raising(monkeypatch, windows):
@@ -160,9 +155,8 @@ def test_load_prepares_the_environment_before_importing(monkeypatch, tmp_path, w
 
     runtime.load_vlc()
 
-    # These two are what python-vlc's own loader reads. Without them it falls
-    # back to `CDLL(".\\libvlc.dll")`, which resolves against the working
-    # directory and finds nothing — the bug this test exists to prevent.
+    # python-vlc's loader reads the first two. Without them it falls back to
+    # `CDLL(".\\libvlc.dll")`, which looks in the working directory and fails.
     assert runtime.os.environ["PYTHON_VLC_LIB_PATH"] == str(directory / "libvlc.dll")
     assert runtime.os.environ["PYTHON_VLC_MODULE_PATH"] == str(directory / "plugins")
     assert runtime.os.environ["VLC_PLUGIN_PATH"] == str(directory / "plugins")
@@ -178,9 +172,8 @@ def test_find_runtime_reports_the_library_path(monkeypatch, tmp_path, windows):
 
 
 def test_load_survives_python_vlc_calling_sys_exit(monkeypatch, tmp_path, windows):
-    # python-vlc calls sys.exit(1) rather than raising when the library it was
-    # handed will not load. SystemExit is a BaseException, so an `except
-    # Exception` guard would let it through and kill the app.
+    # python-vlc calls sys.exit(1) instead of raising when the library will not
+    # load. SystemExit is a BaseException, so `except Exception` would miss it.
     directory = make_vlc_dir(tmp_path)
     monkeypatch.setattr(
         runtime,
@@ -286,7 +279,7 @@ def test_describe_reports_a_working_player(monkeypatch, tmp_path, windows):
     assert info["source"] == "test"
 
 
-# ----- Backend ------------------------------------------------------------
+# Backend
 
 
 def test_constructing_a_player_without_a_runtime_raises(monkeypatch):
@@ -304,7 +297,7 @@ def test_clamp_volume(value, expected):
     assert backend.clamp_volume(value) == expected
 
 
-# ----- Window helpers -----------------------------------------------------
+# Window helpers
 
 
 @pytest.mark.parametrize(
@@ -324,16 +317,14 @@ def test_format_time(milliseconds, expected):
     assert format_time(milliseconds) == expected
 
 
-# ----- Growing-file source ------------------------------------------------
+# Growing-file source
 #
-# VLC's ordinary file access reports end-of-stream at the last byte on disk,
-# which ends a still-downloading torrent early: measured against a real libvlc,
-# a file opened at 25% played exactly 25% and stopped. These cover the read
-# callback that waits instead.
+# VLC's normal file access stops at the last byte on disk, which ends a file
+# that is still downloading. GrowingFile's read callback waits for more instead.
 
 
 class Buffer:
-    """Somewhere for the read callback to memmove into."""
+    """A ctypes buffer for the read callback to copy into."""
 
     def __init__(self, size=4096):
         self.raw = ctypes.create_string_buffer(size)
@@ -366,12 +357,10 @@ def test_source_reports_end_of_stream_at_the_real_end(tmp_path):
     buf = Buffer()
     src.read(None, buf.raw, 6)
 
-    # Everything the torrent will ever contain has been read.
     assert src.read(None, buf.raw, 6) == 0
 
 
 def test_source_waits_for_bytes_that_have_not_arrived(tmp_path):
-    # Only 3 of 6 bytes present: the read must block, not report EOF.
     src, path = growing_file(tmp_path, b"abc", 6, poll_seconds=0.02)
     buf = Buffer()
     assert src.read(None, buf.raw, 3) == 3
@@ -392,7 +381,6 @@ def test_source_waits_for_bytes_that_have_not_arrived(tmp_path):
 
 
 def test_source_gives_up_after_a_stall(tmp_path):
-    # A torrent can simply stop making progress; waiting forever is a hang.
     src, _ = growing_file(tmp_path, b"abc", 6, poll_seconds=0.01, stall_timeout=0.05)
     buf = Buffer()
     src.read(None, buf.raw, 3)
@@ -401,8 +389,8 @@ def test_source_gives_up_after_a_stall(tmp_path):
 
 
 def test_source_cancel_unblocks_a_waiting_read(tmp_path):
-    # libvlc's contract: the callback must return an error when playback stops,
-    # or libvlc_media_player_stop never returns and the UI thread wedges.
+    # The callback must return an error once playback stops, or
+    # libvlc_media_player_stop never returns and the UI thread hangs.
     src, _ = growing_file(tmp_path, b"abc", 6, poll_seconds=0.01, stall_timeout=30)
     buf = Buffer()
     src.read(None, buf.raw, 3)
@@ -419,7 +407,6 @@ def test_source_read_is_capped_by_what_is_available(tmp_path):
     src, _ = growing_file(tmp_path, b"abc", 100)
     buf = Buffer()
 
-    # Asked for 50, only 3 exist: return the 3 rather than waiting for 50.
     assert src.read(None, buf.raw, 50) == 3
 
 
@@ -449,7 +436,7 @@ def test_source_close_is_safe_twice(tmp_path):
     src, _ = growing_file(tmp_path, b"abc", 3)
 
     src.close(None)
-    src.close(None)  # must not raise
+    src.close(None)
 
 
 @pytest.mark.parametrize(
@@ -467,9 +454,10 @@ def test_is_incomplete_is_false_for_a_missing_file(tmp_path):
     assert source.is_incomplete(str(tmp_path / "nope.bin"), 100) is False
 
 
+# Discovery in the data dir
+
+
 def test_a_portable_copy_in_the_data_dir_is_found(monkeypatch, tmp_path, windows):
-    # Installing VLC properly needs administrator rights; dropping a portable
-    # copy into Yoink's own data folder does not.
     portable = make_vlc_dir(tmp_path, "vlc")
     monkeypatch.delenv(runtime.DIR_ENV_VAR, raising=False)
     monkeypatch.setattr(runtime, "_data_dir", lambda: portable)

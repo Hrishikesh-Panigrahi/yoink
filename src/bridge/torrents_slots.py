@@ -1,5 +1,3 @@
-"""Torrent lifecycle slots: add, pause, resume, remove, file selection, labels."""
-
 from __future__ import annotations
 
 import base64
@@ -18,11 +16,8 @@ logger = setup_logger("bridge.torrents")
 
 
 class TorrentsMixin:
-    """Mixin providing torrent-related QWebChannel slots."""
-
     @pyqtSlot(result=str)
     def getDownloads(self) -> str:
-        """Return a snapshot of current downloads as JSON."""
         try:
             payload = [s.to_dict() for s in torrents.list_torrents(self.session)]
             return json.dumps(payload)
@@ -32,7 +27,6 @@ class TorrentsMixin:
 
     @pyqtSlot(str, result=str)
     def addTorrent(self, magnet: str) -> str:
-        """Add a torrent from a magnet link. Returns JSON with hash and duplicate flag."""
         magnet = (magnet or "").strip()
         if not magnet:
             self.toast.emit("error", "No magnet link provided")
@@ -52,7 +46,7 @@ class TorrentsMixin:
 
     @pyqtSlot(str, str, result=str)
     def addTorrentFromBytes(self, name: str, base64_payload: str) -> str:
-        """Add a .torrent dragged in from the browser. ``base64_payload`` is base64-encoded."""
+        """Add a .torrent file dropped onto the window."""
         try:
             raw = base64.b64decode(base64_payload or "", validate=False)
             if not raw:
@@ -75,7 +69,6 @@ class TorrentsMixin:
 
     @pyqtSlot(result=str)
     def pickAndAddTorrentFile(self) -> str:
-        """Open a native file picker and add the selected .torrent file."""
         try:
             file_path, _ = QFileDialog.getOpenFileName(
                 None,
@@ -114,7 +107,6 @@ class TorrentsMixin:
 
     @pyqtSlot(result=int)
     def pauseAll(self) -> int:
-        """Pause every torrent. Returns how many were paused."""
         try:
             count = torrents.pause_all(self.session)
             if count:
@@ -127,7 +119,6 @@ class TorrentsMixin:
 
     @pyqtSlot(result=int)
     def resumeAll(self) -> int:
-        """Resume every torrent. Returns how many were resumed."""
         try:
             count = torrents.resume_all(self.session)
             if count:
@@ -140,7 +131,7 @@ class TorrentsMixin:
 
     @pyqtSlot(str, result=str)
     def getTorrentFiles(self, info_hash: str) -> str:
-        """Return the per-file table for a torrent (empty list while metadata loads)."""
+        """JSON list of the torrent's files. Empty until the metadata has arrived."""
         try:
             files = torrents.list_files(self.session, info_hash)
             return json.dumps([f.to_dict() for f in files])
@@ -178,7 +169,7 @@ class TorrentsMixin:
 
     @pyqtSlot(str, result=str)
     def getDownloadFile(self, info_hash: str) -> str:
-        """Return the absolute path of the largest file in a completed torrent."""
+        """Absolute path of the largest file in the torrent, or '' if not known yet."""
         try:
             handle = self.session.handles.get((info_hash or "").lower())
             if handle is None or not handle.is_valid():
@@ -206,11 +197,9 @@ class TorrentsMixin:
 
     @pyqtSlot(str, int, result=str)
     def startStreaming(self, info_hash: str, file_index: int = -1) -> str:
-        """Reorder a torrent's pieces for playback. Returns status JSON, or '{}'.
+        """Reorder a torrent's pieces for playback. Returns stream status JSON, or '{}'.
 
-        Pass -1 for `file_index` to let the torrents layer pick the largest
-        video file. This only changes the download order — it does not open a
-        player.
+        A `file_index` of -1 picks the largest video file. This does not open a player.
         """
         try:
             status = torrents.start_stream(
@@ -227,7 +216,7 @@ class TorrentsMixin:
 
     @pyqtSlot(str, result=str)
     def getStreamStatus(self, info_hash: str) -> str:
-        """Report buffer progress for a streaming torrent. '{}' when not streaming."""
+        """Buffer progress JSON, or '{}' when the torrent is not streaming."""
         try:
             status = torrents.stream_status(self.session, info_hash)
         except Exception as exc:
@@ -246,7 +235,6 @@ class TorrentsMixin:
 
     @pyqtSlot(str, result=str)
     def pickAndMoveTorrent(self, info_hash: str) -> str:
-        """Pick a new save folder for a single torrent and move its data there."""
         info_hash = (info_hash or "").lower()
         handle = self.session.handles.get(info_hash)
         if handle is None or not handle.is_valid():
@@ -294,7 +282,6 @@ class TorrentsMixin:
 
     @pyqtSlot(result=str)
     def getAllLabels(self) -> str:
-        """Return the union of all labels currently in use."""
         all_settings = db.get_all_settings()
         labels = set()
         for key, value in all_settings.items():

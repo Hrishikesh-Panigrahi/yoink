@@ -1,7 +1,6 @@
-"""Bridge QObject: signals, init, shutdown, and shared private helpers.
+"""The Bridge class: signals, startup, shutdown and helpers the slot mixins share.
 
-All @pyqtSlot methods live in domain-specific mixins under this package.
-Signals stay on this class so PyQt's metaobject system registers them once.
+The slots live in the mixins. Signals are declared here so PyQt registers them once.
 """
 
 from __future__ import annotations
@@ -62,7 +61,7 @@ class Bridge(
     requestNotification = pyqtSignal(str, str)
     metadataEnriched = pyqtSignal(str, str)  # query, JSON list of {key, metadata}
     providerHealth = pyqtSignal(str)  # JSON map of provider key -> status dict
-    clipboardMagnet = pyqtSignal(str)  # detected magnet URI from the OS clipboard
+    clipboardMagnet = pyqtSignal(str)  # magnet URI found on the clipboard
     streamProgress = pyqtSignal(str)  # JSON: phase, message, buffer percentage
 
     def __init__(self, parent: Optional[QObject] = None):
@@ -107,28 +106,21 @@ class Bridge(
         self.schedule_worker = ScheduledBandwidthWorker(self._apply_scheduled_limits)
         self.schedule_worker.start()
 
-    # ----- Private helpers shared across mixins ---------------------------
-
     def _retire_worker(self, worker: Optional[QThread]) -> None:
-        """Hold a superseded worker until its thread has actually ended.
+        """Keep a replaced worker referenced until its thread ends.
 
-        Replacing `self._x_worker` while the old one is still running drops the
-        last Python reference to a live QThread. PyQt keeps its own reference
-        for the duration, so this does not abort the process on 6.11, but the
-        thread then runs unowned and unjoined: nothing can interrupt it, and
-        `shutdown` cannot wait for it before the libtorrent session goes.
-
-        Polling `isRunning()` is the cleanup signal rather than
-        `QThread.finished`, because several of these workers declare their own
-        `finished` signal and shadow Qt's.
+        If the old worker is simply overwritten while it runs, nothing can
+        interrupt it and `shutdown` cannot wait for it before the libtorrent
+        session stops. This polls `isRunning()` because several workers define
+        their own `finished` signal, which hides Qt's.
         """
         alive: list[QThread] = []
         for retired in self._retired_workers:
             if retired.isRunning():
                 alive.append(retired)
             else:
-                # Returns immediately for a thread that has already ended, and
-                # guarantees it is joined before the reference goes away.
+                # Returns at once for an ended thread, and makes sure it is
+                # joined before the reference is dropped.
                 retired.wait(50)
         if worker is not None and worker.isRunning():
             worker.requestInterruption()
@@ -169,7 +161,6 @@ class Bridge(
             self.toast.emit("info", f"Auto-added from watch folder: {os.path.basename(path)}")
 
     def _apply_scheduled_limits(self, window: str) -> None:
-        """Switch live bandwidth caps when entering / leaving the quiet window."""
         if window == "quiet":
             down = self._int_setting("schedule_quiet_down_kb_s", 0)
             up = self._int_setting("schedule_quiet_up_kb_s", 0)
@@ -198,7 +189,6 @@ class Bridge(
         self._kick_metadata_enrich(query, results)
 
     def _kick_metadata_enrich(self, query: str, results: list) -> None:
-        """Fire off TMDB enrichment for the visible page."""
         self._retire_worker(self._metadata_worker)
         worker = MetadataEnrichWorker(query, results)
         worker.enriched.connect(self._on_metadata_enriched)
@@ -221,7 +211,6 @@ class Bridge(
         return {part.strip() for part in raw.split(",") if part.strip()}
 
     def _apply_enabled_providers(self, options: dict) -> dict:
-        """Inject enabled-provider config into the per-search options blob."""
         enabled = self._enabled_provider_set()
         stable_keys = {"yts", "piratebay_stable"}
         enabled_stable = sorted(enabled & stable_keys)
@@ -231,7 +220,7 @@ class Bridge(
         merged = dict(options)
         merged["enabledStable"] = enabled_stable
         if not merged.get("sites") and enabled_vendor:
-            # In MULTI mode, default the site list to the user's selection.
+            # For MULTI mode: no sites picked means the sites enabled in settings.
             merged.setdefault("sites", enabled_vendor)
         return merged
 
@@ -280,7 +269,6 @@ class Bridge(
         return (db.get_setting("minimize_to_tray") or "1") == "1"
 
     def shutdown(self) -> None:
-        """Stop workers and the libtorrent session before quitting."""
         logger.info("Bridge shutting down")
         try:
             self.cancelStreamPrepare()
@@ -311,8 +299,8 @@ class Bridge(
             self._metadata_worker.requestInterruption()
             self._metadata_worker.wait(1000)
 
-        # Superseded workers are still live threads, and some of them touch the
-        # libtorrent session that is about to be stopped below.
+        # Retired workers may still be running, and some of them use the
+        # libtorrent session that is stopped below.
         for retired in self._retired_workers:
             try:
                 retired.requestInterruption()

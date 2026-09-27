@@ -1,24 +1,17 @@
-"""Feeding libvlc from a file that is still being written.
+"""Feed libvlc from a file that is still being written.
 
-VLC's ordinary file access reports end-of-stream the moment it reaches the last
-byte on disk. For a torrent that is still downloading this ends playback early
-and permanently — measured at 25% of a file, VLC played exactly that 25% and
-stopped, while the file went on growing underneath it.
+VLC's normal file access treats the last byte on disk as the end of the stream,
+so a partly downloaded file stops playing early and never picks up again.
+`libvlc_media_new_callbacks` lets us supply our own read and seek. libvlc's docs
+say a read with no data available should sleep, so `read` waits at the current
+end of the file until more bytes arrive.
 
-`libvlc_media_new_callbacks` replaces the access module with our own read/seek
-pair, and libvlc's own documentation spells out the fix: "if no data is
-immediately available, then the callback should sleep". So `read` blocks at the
-current end of the file and retries until the missing bytes land.
+libvlc also needs the read to return an error once playback stops, or
+`libvlc_media_player_stop` never returns and the UI hangs on close. That is what
+`cancel()` and the stall timeout are for.
 
-The same documentation carries the matching warning — the callback must return
-an error when playback is stopped, or `libvlc_media_player_stop` never returns
-and the UI thread wedges on close. Hence `cancel()`, and hence the stall
-timeout: a torrent can simply stop making progress, and a reader that waits
-forever is a hang, not a feature.
-
-The torrent's file size is known up front, which is what makes this workable —
-it is handed to VLC as the real stream length, so duration and seeking behave
-even though most of the bytes have yet to arrive.
+The final size is known from the torrent and reported to VLC as the stream
+length, so duration and seeking work before most of the bytes arrive.
 """
 
 from __future__ import annotations
@@ -32,24 +25,21 @@ from utils.logger import setup_logger
 
 logger = setup_logger("player.source")
 
-#: How long to sleep between checks for newly written bytes.
 POLL_SECONDS = 0.1
 
-#: Give up waiting after this long without the file growing. Reported to VLC as
-#: end-of-stream, which surfaces as playback stopping rather than a frozen UI.
+#: Give up after this long without new data. VLC is told end-of-stream, so
+#: playback stops instead of the UI freezing.
 STALL_TIMEOUT_SECONDS = 30.0
 
-#: libvlc's contract for the read callback.
+#: Return values libvlc expects from the read callback.
 _END_OF_STREAM = 0
 _READ_ERROR = -1
 
 
 class GrowingFile:
-    """A libvlc bitstream source backed by a file that is still downloading.
+    """A libvlc media source backed by a file that is still downloading.
 
-    One instance serves one playback session. The callback objects are held on
-    the instance because ctypes does not keep its own reference — letting them
-    be collected while libvlc still holds the pointers crashes the process.
+    Use one instance per playback.
     """
 
     def __init__(
@@ -66,9 +56,7 @@ class GrowingFile:
         self._position = 0
         self._cancelled = threading.Event()
         self._handle: Optional[object] = None
-        self.waits = 0  # how many times a read had to wait; useful in tests
-
-    # ----- Public -----------------------------------------------------
+        self.waits = 0  # counts reads that had to wait, for tests
 
     def cancel(self) -> None:
         """Unblock any waiting read so `stop()` can return."""
@@ -85,10 +73,8 @@ class GrowingFile:
         except OSError:
             return 0
 
-    # ----- libvlc callbacks -------------------------------------------
-
     def open(self, _opaque, datap, sizep) -> int:
-        """Report the *final* size, not what has arrived, so seeking works."""
+        """Report the final size so VLC can seek into bytes that have not arrived."""
         try:
             self._position = 0
             self._handle = open(self.path, "rb")
@@ -126,7 +112,7 @@ class GrowingFile:
         return len(chunk)
 
     def seek(self, _opaque, offset) -> int:
-        """Seeking past the downloaded region is allowed; the read then waits."""
+        """Seeking past the downloaded part is allowed. The next read waits."""
         self._position = max(0, int(offset))
         return 0
 
@@ -139,12 +125,10 @@ class GrowingFile:
             except Exception as exc:
                 logger.debug(f"GrowingFile close failed: {exc}")
 
-    # ----- Internals --------------------------------------------------
-
     def _wait_for_data(self) -> int:
-        """Bytes readable at the current position. 0 at EOF, -1 when cancelled.
+        """Bytes readable at the current position, blocking while none are.
 
-        Blocks while the file is merely incomplete, which is the whole point.
+        Returns 0 at end of stream and -1 when cancelled.
         """
         waited = 0.0
         while True:
@@ -154,7 +138,7 @@ class GrowingFile:
             if ready > 0:
                 return ready
             if self._position >= self.expected_size:
-                return _END_OF_STREAM  # genuinely the end of the file
+                return _END_OF_STREAM
             if waited >= self.stall_timeout:
                 logger.warning(
                     f"No new data for {self.stall_timeout:.0f}s at byte "
@@ -168,11 +152,10 @@ class GrowingFile:
             waited += self.poll_seconds
 
 
-# python-vlc exports `MediaOpenCb` and friends as plain `c_void_p` subclasses —
-# the real CFUNCTYPE prototypes live in a scope it never exports, so calling
-# `vlc.MediaOpenCb(fn)` raises "cannot be converted to pointer". These mirror
-# libvlc's actual signatures; the thunks are cast to the types the binding
-# declares as its argtypes.
+# python-vlc exposes `MediaOpenCb` and the others as plain `c_void_p` subclasses,
+# so `vlc.MediaOpenCb(fn)` fails with "cannot be converted to pointer". These
+# prototypes match libvlc's real signatures, and `build_media` casts the thunks
+# to the types python-vlc declares.
 OPEN_PROTO = ctypes.CFUNCTYPE(
     ctypes.c_int,
     ctypes.c_void_p,
@@ -192,9 +175,9 @@ CLOSE_PROTO = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 def build_media(vlc_module, instance, source: GrowingFile):
     """Wrap `source` in a libvlc media object.
 
-    Both the thunks and their casts are stashed on the source. libvlc keeps raw
-    pointers to them for the life of playback, and the cast only carries an
-    address — letting either be collected mid-playback kills the process.
+    The thunks and their casts are stored on `source` because libvlc keeps raw
+    pointers to them during playback. If Python collects either one, the
+    process crashes.
     """
     source._thunks = (
         OPEN_PROTO(source.open),
@@ -219,7 +202,7 @@ def build_media(vlc_module, instance, source: GrowingFile):
 
 
 def is_incomplete(path: str, expected_size: int) -> bool:
-    """True when the file on disk is shorter than the torrent says it will be."""
+    """True when the file on disk is shorter than `expected_size`. False if missing."""
     if not expected_size or expected_size <= 0:
         return False
     try:

@@ -1,5 +1,3 @@
-"""Magnet URI builders shared between providers and torrent actions."""
-
 from __future__ import annotations
 
 from typing import Iterable, Optional
@@ -17,7 +15,6 @@ DEFAULT_TRACKERS: tuple[str, ...] = (
 
 
 def build_magnet(info_hash: str, name: str, trackers: Optional[Iterable[str]] = None) -> str:
-    """Build a `magnet:?xt=urn:btih:<hash>` URL with name and trackers."""
     tracker_list = list(trackers) if trackers is not None else list(DEFAULT_TRACKERS)
     tracker_params = "&".join(f"tr={quote(tracker)}" for tracker in tracker_list)
     base = f"magnet:?xt=urn:btih:{info_hash}&dn={quote(name)}"

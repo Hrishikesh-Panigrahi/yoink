@@ -1,5 +1,3 @@
-"""Yoink entrypoint."""
-
 from __future__ import annotations
 
 import os
@@ -19,7 +17,6 @@ logger = setup_logger("yoink", LOG_FILE)
 
 
 def _log_unhandled(exc_type, exc_value, exc_tb) -> None:
-    """`sys.excepthook`: log anything that escapes a Qt slot, and carry on."""
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_tb)
         return
@@ -30,23 +27,17 @@ def _log_unhandled(exc_type, exc_value, exc_tb) -> None:
 
 
 def _install_exception_logger() -> None:
-    """Stop one bad slot from taking the whole app down without a word.
+    """Log an exception that escapes a slot, and keep the app running.
 
-    Every JS-to-Python call, timer and signal handler runs inside `app.exec()`,
-    and an exception that escapes one of them does not propagate out to the
-    `try` in `__main__`: PyQt hands it to `sys.excepthook` and then aborts the
-    process. The default hook prints nothing at all here, so the app vanished
-    with no traceback, no log line and an exit code of 127 - which reads as a
-    crash in whatever was on screen at the time rather than as a Python error.
-
-    Replacing the hook is what prevents the abort as well as recording the
-    cause; PyQt only calls `qFatal` when the hook is still the default one.
+    Exceptions inside `app.exec()` (slots, timers, signal handlers) never reach
+    the `try` in `__main__`. PyQt passes them to `sys.excepthook`, and while
+    that is still the default hook it aborts the process with nothing logged.
     """
     sys.excepthook = _log_unhandled
 
 
 def _extract_payload(argv: list[str]) -> str:
-    """Return a magnet link or .torrent path passed via CLI, if any."""
+    """The first magnet link or .torrent path on the command line, or ''."""
     for arg in argv[1:]:
         if arg.startswith("magnet:") or arg.lower().endswith(".torrent"):
             return arg
@@ -54,7 +45,7 @@ def _extract_payload(argv: list[str]) -> str:
 
 
 def _apply_dns_setting() -> None:
-    """Switch name resolution to DoH unless the user turned it off."""
+    """Use DNS over HTTPS unless the user turned it off."""
     try:
         import db
         from utils import resolver
@@ -62,7 +53,7 @@ def _apply_dns_setting() -> None:
         db.init_db()
         resolver.apply_from_settings()
     except Exception as exc:
-        # Never block startup over this - the system resolver still works.
+        # Not worth blocking startup for. The system resolver still works.
         logger.warning(f"Could not apply the DNS setting: {exc}")
 
 
@@ -75,8 +66,8 @@ def main() -> None:
         logger.info("Handed CLI payload off to existing Yoink instance; exiting")
         return
 
-    # Before the window, because MainWindow builds the Bridge, which starts
-    # workers that reach the network immediately.
+    # Must run before MainWindow: it builds the Bridge, whose workers go
+    # online right away.
     _apply_dns_setting()
 
     app = QApplication(sys.argv)

@@ -1,9 +1,7 @@
-"""Tests for the entrypoint helpers in `src/main.py`.
+"""Tests for the helpers in `src/main.py`.
 
-`main()` itself builds a QApplication and a window, which a unit test does not
-want, so only the pieces around it are covered here. The exception hook is the
-one that matters: without it an exception escaping any slot aborts the process
-with no traceback and no log line at all.
+`main()` itself builds a QApplication and a window, so only the helpers around
+it are tested here.
 """
 
 from __future__ import annotations
@@ -13,8 +11,6 @@ import sys
 import pytest
 
 import main
-
-# ----- CLI payload --------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -32,15 +28,11 @@ def test_extract_payload(argv, expected):
 
 
 def test_extract_payload_ignores_the_program_name():
-    """argv[0] can be a .torrent-looking path; it is never the payload."""
     assert main._extract_payload([r"C:\apps\yoink.torrent"]) == ""
 
 
-# ----- Unhandled exception hook -------------------------------------------
-
-
 def test_installing_the_hook_replaces_the_default(monkeypatch):
-    """PyQt only aborts when the hook is still `sys.__excepthook__`."""
+    """PyQt aborts on an unhandled exception only while the hook is `sys.__excepthook__`."""
     monkeypatch.setattr(sys, "excepthook", sys.__excepthook__)
 
     main._install_exception_logger()
@@ -64,7 +56,6 @@ def test_the_hook_logs_the_whole_traceback(monkeypatch):
 
 
 def test_the_hook_does_not_raise_out_of_itself(monkeypatch):
-    """It runs where nothing can catch it, so it must not throw."""
     monkeypatch.setattr(main.logger, "critical", lambda _msg: None)
 
     try:
@@ -74,7 +65,6 @@ def test_the_hook_does_not_raise_out_of_itself(monkeypatch):
 
 
 def test_keyboard_interrupt_still_reaches_the_default_hook(monkeypatch):
-    """Ctrl-C should keep quitting rather than being logged and swallowed."""
     logged: list[str] = []
     forwarded: list[tuple] = []
     monkeypatch.setattr(main.logger, "critical", logged.append)

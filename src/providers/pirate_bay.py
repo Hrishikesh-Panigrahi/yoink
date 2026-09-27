@@ -1,5 +1,3 @@
-"""apibay.org adapter for The Pirate Bay search."""
-
 from __future__ import annotations
 
 import time
@@ -28,7 +26,6 @@ _HEADERS = {
 
 
 def _throttle() -> None:
-    """Self-imposed 1s rate limit shared across calls."""
     global _last_request_time
     elapsed = time.time() - _last_request_time
     if elapsed < _MIN_REQUEST_INTERVAL:
@@ -37,7 +34,6 @@ def _throttle() -> None:
 
 
 def search_pirate_bay(query: str, page: int = 1, limit: int = 20) -> List[SearchResult]:
-    """Search The Pirate Bay's JSON API and return normalized `SearchResult`s."""
     _throttle()
 
     url = f"{PIRATE_BAY_BASE_URL}/q.php"
@@ -57,10 +53,8 @@ def search_pirate_bay(query: str, page: int = 1, limit: int = 20) -> List[Search
     results: List[SearchResult] = []
     for item in data:
         info_hash = item.get("info_hash") or ""
-        # TPB's JSON endpoint returns a single sentinel row when nothing matches:
-        # {"name": "No results returned", "info_hash": "0000...0", ...}. Treat
-        # all-zero hashes (or the literal name) as "empty" so the UI shows its
-        # own empty state instead of a fake row.
+        # When nothing matches, apibay returns one placeholder row named
+        # "No results returned" with an all-zero info_hash.
         if not info_hash or set(info_hash) <= {"0"}:
             continue
         if (item.get("name") or "").strip().lower() == "no results returned":

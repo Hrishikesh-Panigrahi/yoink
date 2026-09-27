@@ -1,10 +1,4 @@
-"""Cross-platform 'launch at login' helpers.
-
-The Windows path registers/unregisters Yoink under
-``HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run``. On other
-platforms the helpers are best-effort no-ops so the rest of the app
-doesn't need to special-case anything.
-"""
+"""Launch at login through the HKCU Run registry key. On other platforms these do nothing."""
 
 from __future__ import annotations
 
@@ -20,18 +14,16 @@ _VALUE_NAME = "Yoink"
 
 
 def _launch_command() -> str:
-    """Return the command string used to relaunch Yoink at boot."""
     if getattr(sys, "frozen", False):
         return f'"{sys.executable}" --minimized'
     return f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}" --minimized'
 
 
 def is_enabled() -> bool:
-    """Return True if Yoink is registered to launch at login."""
     if sys.platform != "win32":
         return False
     try:
-        import winreg  # noqa: WPS433 - stdlib, win32 only
+        import winreg
 
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
             value, _ = winreg.QueryValueEx(key, _VALUE_NAME)
@@ -43,12 +35,12 @@ def is_enabled() -> bool:
 
 
 def set_enabled(enabled: bool) -> bool:
-    """Enable or disable launch-at-login. Returns the new effective state."""
+    """Turn launch at login on or off. Returns the state read back from the registry."""
     if sys.platform != "win32":
         logger.warning("Autostart toggle requested on non-Windows; ignoring")
         return False
     try:
-        import winreg  # noqa: WPS433 - stdlib, win32 only
+        import winreg
 
         with winreg.OpenKey(
             winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE

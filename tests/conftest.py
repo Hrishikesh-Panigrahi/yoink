@@ -1,11 +1,9 @@
-"""Pytest config: put `src/` on sys.path so flat imports work.
+"""Pytest config: puts `src/` on sys.path so tests can import modules flat.
 
-Also forces `TORRENT_DB_PATH` at a temp file. That happens here, at import
-time, rather than in a fixture: conftest is imported before any test module,
-so it covers anything that reaches for the database while it is still being
-collected. Most test modules point the variable somewhere safe themselves, but
-nothing used to enforce it, and one module that forgot would read and delete
-rows from the real library under `%LOCALAPPDATA%\\Yoink\\yoink.db`.
+`TORRENT_DB_PATH` is pointed at a temp file here, at import time, not in a
+fixture. Conftest is imported before any test module, so the override is
+already in place while tests are collected and nothing can touch the real
+library.
 """
 
 import atexit
@@ -34,11 +32,10 @@ DEFAULT_PIECE_LENGTH = 1024 * 1024
 
 @pytest.fixture(autouse=True)
 def guard_real_database():
-    """Refuse to run a test whose db path has drifted onto the real library.
+    """Fail any test whose `TORRENT_DB_PATH` points at the real library.
 
-    Modules that set `TORRENT_DB_PATH` themselves also restore it, and a
-    restore that pops the variable would silently hand the next module the
-    user's own database. Catch that here instead of after the damage.
+    Some modules set and later restore the variable themselves. A bad restore
+    would hand the next module the user's real database.
     """
     real = os.path.normcase(os.path.abspath(default_db_path()))
     configured = os.environ.get("TORRENT_DB_PATH")
@@ -101,10 +98,10 @@ class FakeStatus:
 
 
 class FakeTorrentHandle:
-    """A stand-in for `lt.torrent_handle` covering what streaming.py calls.
+    """Stand-in for `lt.torrent_handle` covering what streaming.py calls.
 
-    Records the deadlines and flag changes it is given so tests can assert on
-    the order pieces were asked for.
+    Records deadlines and flag changes so tests can check the order pieces
+    were requested in.
     """
 
     def __init__(
@@ -127,7 +124,7 @@ class FakeTorrentHandle:
         self.deadlines = []
         self.clear_calls = 0
 
-    # --- libtorrent surface ---
+    # libtorrent API
 
     def is_valid(self):
         return self._valid
@@ -166,7 +163,7 @@ class FakeTorrentHandle:
     def have_piece(self, piece):
         return piece in self._have
 
-    # --- test helpers ---
+    # Test-only helpers
 
     @property
     def priorities(self):

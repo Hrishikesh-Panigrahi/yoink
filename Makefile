@@ -1,4 +1,4 @@
-# Yoink — common dev commands
+# Yoink dev commands
 #
 # Windows (PowerShell):  make run
 # macOS / Linux:         make run
@@ -24,7 +24,7 @@ endif
 export PYTHONPATH := $(ROOT)$(PATHSEP)$(ROOT)/src
 
 help:
-	@echo Yoink — available targets:
+	@echo Yoink make targets:
 	@echo   make venv          Create .venv
 	@echo   make install       pip install -r requirements.txt
 	@echo   make run           Start the desktop app

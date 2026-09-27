@@ -1,0 +1,61 @@
+/* Breakpoint overrides for every view. Imported last so these rules win over
+ * the other files at equal specificity. */
+
+@media (max-width: 1024px) {
+  .view { padding: 28px 28px; }
+  .result-row { grid-template-columns: 60px 1fr auto; }
+  .result-row .result-action { grid-column: 2 / -1; justify-self: end; }
+  .result-stats { flex-direction: row; align-items: center; min-width: 0; gap: 14px; }
+}
+
+@media (max-width: 760px) {
+  :root { --sidebar-w: 260px; }
+
+  .menu-toggle { display: inline-flex; }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 95;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-elev);
+  }
+  .app.sidebar-open .sidebar { transform: translateX(0); }
+  .sidebar.collapsed { width: var(--sidebar-w); flex-basis: var(--sidebar-w); }
+  .sidebar.collapsed .brand-text,
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .nav-section,
+  .sidebar.collapsed .badge,
+  .sidebar.collapsed .folder-text { display: initial; }
+  .sidebar.collapsed .nav-section { opacity: 1; height: auto; padding: 12px 12px 6px; }
+
+  .view { padding: 20px 16px; }
+  .page-title { font-size: 22px; }
+  .page-header { flex-direction: column; align-items: stretch; gap: 14px; }
+  .header-actions { justify-content: flex-start; }
+
+  .search-row { flex-direction: column; }
+  .search-row .btn-primary { width: 100%; }
+  .filter-control { min-width: 0; flex-basis: 100%; }
+  .filter-control-wide { min-width: 0; flex-basis: 100%; }
+
+  .result-row {
+    grid-template-columns: 60px 1fr;
+    grid-template-areas:
+      "poster main"
+      "stats stats"
+      "action action";
+  }
+  .result-row .poster-wrap { grid-area: poster; }
+  .result-row .result-main { grid-area: main; }
+  .result-row .result-stats { grid-area: stats; flex-direction: row; align-items: center; justify-content: flex-start; gap: 18px; }
+  .result-row .result-action { grid-area: action; width: 100%; }
+
+  .setting-row { grid-template-columns: 1fr; gap: 12px; }
+  .setting-row .segmented,
+  .setting-row .btn,
+  .setting-row .toggle { justify-self: start; }
+
+  .dl-meta { gap: 14px; }
+  .pagination { justify-content: center; }
+}

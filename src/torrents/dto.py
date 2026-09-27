@@ -1,5 +1,3 @@
-"""DTOs describing live torrent state."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,8 +5,6 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class TorrentSnapshot:
-    """A point-in-time snapshot of one torrent for the UI."""
-
     info_hash: str
     name: str
     size: str
@@ -41,14 +37,12 @@ class TorrentSnapshot:
 
 @dataclass(frozen=True)
 class TorrentFile:
-    """One file inside a multi-file torrent."""
-
     index: int
     path: str
-    size: int            # raw bytes for ordering
-    size_str: str        # human-readable
-    progress: float      # 0-100
-    priority: int        # 0 skip, 1 low, 4 normal, 7 high (libtorrent scale)
+    size: int  # bytes
+    size_str: str
+    progress: float  # 0-100
+    priority: int  # libtorrent scale: 0 skip, 1 low, 4 normal, 7 high
 
     def to_dict(self) -> dict:
         return {
@@ -63,18 +57,16 @@ class TorrentFile:
 
 @dataclass(frozen=True)
 class NetworkStats:
-    """Aggregate session-wide throughput in KB/s."""
-
     download_kb_s: float
     upload_kb_s: float
 
 
 @dataclass(frozen=True)
 class StreamPlan:
-    """Which pieces of one file have to arrive first for playback to start.
+    """Pieces of one file that must arrive first for playback to start.
 
-    `head_pieces` and `tail_pieces` never overlap: on a file small enough that
-    the two windows would meet, everything lands in the head.
+    `head_pieces` and `tail_pieces` never overlap. On a file small enough for
+    them to meet, the shared pieces stay in the head.
     """
 
     first_piece: int
@@ -89,16 +81,16 @@ class StreamStatus:
 
     info_hash: str
     file_index: int
-    path: str             # path inside the torrent
-    absolute_path: str    # where it lands on disk
+    path: str  # relative to the save path
+    absolute_path: str
     size: int
     first_piece: int
     last_piece: int
-    head_have: int        # head pieces already downloaded
+    head_have: int  # head pieces downloaded so far
     head_total: int
-    tail_have: int        # tail pieces already downloaded
+    tail_have: int
     tail_total: int
-    sequential: bool      # is the torrent in sequential mode
+    sequential: bool  # torrent is in sequential download mode
 
     @property
     def ready(self) -> bool:

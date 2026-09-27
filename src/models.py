@@ -1,9 +1,4 @@
-"""SQLAlchemy ORM models for Yoink's local SQLite database.
-
-These classes stay as classes because SQLAlchemy's declarative mapper
-requires them. They model two tiny tables: persisted settings and
-saved torrents (so downloads survive restarts).
-"""
+"""SQLAlchemy models for the local SQLite database."""
 
 from __future__ import annotations
 
@@ -16,8 +11,6 @@ Base = declarative_base()
 
 
 class Setting(Base):
-    """Key/value settings (save folder, notification toggles, ...)."""
-
     __tablename__ = "settings"
 
     key = Column(String(50), primary_key=True)
@@ -25,8 +18,6 @@ class Setting(Base):
 
 
 class SavedTorrent(Base):
-    """A torrent the user added; restored on next launch."""
-
     __tablename__ = "torrents"
 
     id = Column(Integer, primary_key=True)
