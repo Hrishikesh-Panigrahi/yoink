@@ -4,6 +4,10 @@ Set up the virtual environment as described in the
 [README](../README.md#how-to-run). `requirements.txt` also installs the test
 and lint tools. Run `make help` to see the Make targets.
 
+For why things are the way they are (removed search sources, how the proxy
+and the Category filter work, how playback works), see
+[DECISIONS.md](DECISIONS.md).
+
 ## Tests and lint
 
 ```powershell

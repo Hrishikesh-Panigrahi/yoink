@@ -14,8 +14,8 @@ app's own logs, UI state through the DevTools protocol.
 
 **A dev run writes to the user's real library** at
 `%LOCALAPPDATA%\Yoink\yoink.db`, the same file the installed app uses. It
-restores their torrents on launch, and anything you click is permanent. A
-stray click on Remove in a dev run deleted a real torrent during one session.
+restores their torrents on launch, and anything you click is permanent, so
+one stray click on Remove deletes a real torrent.
 
 Set `TORRENT_DB_PATH` unless you specifically mean to work on real data:
 
@@ -61,8 +61,8 @@ doubles as proof the web layer loaded and the bridge is answering.
 
 **Use `PrintWindow`, not `CopyFromScreen`.** `CopyFromScreen` copies a screen
 *region*, so it captures whatever is actually on top. On a machine
-where you can't raise the window, that's someone else's application. It captured
-a user's private chat window during one session. `PrintWindow` renders the
+where you can't raise the window, that's someone else's application, and it
+may be private. `PrintWindow` renders the
 target window's own contents and cannot capture anything else.
 
 ```bash
@@ -116,8 +116,7 @@ Three things that will trip you up:
   takes over the shared `qt.webChannelTransport`, so signals stop arriving at
   the handlers the UI modules registered. The visible symptom is a search that spins
   forever, because `searchCompleted` never lands, and it lasts until the
-  page is reloaded, so everything you test afterwards is wrong too. This cost a
-  long debugging detour into a bug that did not exist.
+  page is reloaded, so everything you test afterwards is wrong too.
 
   Drive the UI through the DOM instead: click the real controls and read the
   rendered result:
@@ -152,8 +151,7 @@ python .claude/skills/run-app/scripts/cdp.py a.json --timeout-ms 8000
 The recurring cause in this codebase is a grid or flex item that cannot shrink:
 both default to `min-width: auto`, so a long release title pushes the column
 wider than its track instead of wrapping. `minmax(0, 1fr)` on the track and
-`min-width: 0` on the item is the fix, and it is why the details modal used to
-clip its own Download button.
+`min-width: 0` on the item is the fix.
 
 Also worth knowing: `.modal` sets `width: 520px`, so a wider modal needs
 `width`, not just `max-width`, or it silently stays 520.

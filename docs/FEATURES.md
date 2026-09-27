@@ -86,17 +86,9 @@ It asks libtorrent to download pieces in order, gives priority to both the
 start and the end of the file, and opens the video in a player window while the
 rest keeps downloading.
 
-The end of the file matters as much as the start. MP4 files usually keep their
-index (`moov`) at the end, and MKV files keep their seek points there. Without
-it, the player can't show the length of the video or let you skip ahead.
-
-Downloading in order isn't enough on its own. VLC normally stops playing at the
-last byte that's on disk, so a video that's 25% downloaded plays for 25% and
-then stops. Yoink gets around this by feeding VLC through
-`libvlc_media_new_callbacks` (see `src/player/source.py`). When VLC asks for
-data that hasn't arrived yet, Yoink waits for it instead of reporting the end of
-the file. It also tells VLC the full size of the file up front, so the length
-and seeking work straight away.
+The player shows the video's full length straight away, and playback keeps
+going as more of the file arrives. You can skip around in the parts that have
+already downloaded. How this works is in [DECISIONS.md](DECISIONS.md).
 
 ### Where VLC comes from
 
@@ -116,8 +108,3 @@ with `build.py` includes VLC. Otherwise Yoink looks for it in this order:
 
 If none of those are there, everything else still works and the Play button
 stays hidden. The `getPlayerStatus` bridge call says why.
-
-QtMultimedia was the other option. It wasn't used because on Windows it relies
-on Media Foundation, which struggles with the MKV, HEVC and AC3 files that are
-common on torrent sites. The downside of VLC is that it adds about 40 to 50 MB
-to the build.

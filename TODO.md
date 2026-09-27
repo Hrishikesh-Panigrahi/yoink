@@ -40,10 +40,9 @@ Worst first.
 
 - [ ] **One stray click can delete a torrent.** *Remove* in the ⋮ menu acts
       straight away, and the bin button deletes on a second click within 3
-      seconds, which is easy to do by accident. There's no undo. A real torrent
-      was lost this way during development and only came back because SQLite
-      doesn't wipe deleted rows straight away
-      (`.claude/skills/run-app/scripts/recover_torrents.py`).
+      seconds, which is easy to do by accident. There's no undo. If it
+      happens, `.claude/skills/run-app/scripts/recover_torrents.py` can usually
+      get the torrent back from the database file.
 
       The simplest proper fix: keep removed torrents in a `removed` table for a
       few days and put an Undo button in the toast.
@@ -51,8 +50,7 @@ Worst first.
 - [ ] **One `.text-input` rule changes every input.** The onboarding styles in
       `css/modals.css` include a `.text-input` rule that isn't limited to the
       onboarding modal. It overrides the padding, background and corner radius
-      from `base.css` on every text box in the app, and it's what once made the
-      search icon sit on top of the first letter you typed. Limiting it to
+      from `base.css` on every text box in the app. Limiting it to
       `.modal-wizard` is the fix, but that visibly changes the settings and
       search boxes, so each screen needs checking afterwards.
       `scripts/audit_layout.js` in the run-app skill helps with that.
@@ -68,9 +66,9 @@ Worst first.
 - [ ] **Polish.** There's no fullscreen, no keyboard shortcuts, and the volume
       goes back to 80 every time. The window is meant to be simple, but these
       three make it feel unfinished.
-- [ ] **Test HEVC and AC3.** Those formats are the reason we chose VLC over
-      QtMultimedia, and neither has actually been tried. H.264 video with MP3
-      audio works end to end with a real local swarm.
+- [ ] **Test HEVC and AC3.** Those formats are why Yoink uses VLC (see
+      `docs/DECISIONS.md`), and neither has actually been tried. H.264 video
+      with MP3 audio works end to end with a real local swarm.
 
 ## Housekeeping
 

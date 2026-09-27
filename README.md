@@ -61,20 +61,11 @@ asked for a category directly. For the others, Yoink looks at the category the
 site puts on each result, or failing that the title (`S01E02` means TV,
 `FitGirl` or `Repack` means a game, and so on), and leaves out what doesn't fit.
 
-Sources that had stopped working for everyone, such as YTS, TorrentGalaxy,
-KickAss and MagnetDL, have been removed.
-
 Some internet providers answer DNS lookups for torrent sites with a fake
 address, so every site looks like it's down. To get around that, Yoink looks up
-site addresses over DNS-over-HTTPS (Cloudflare first, then Google). On one
-connection like that, it took the number of working sources from 2 to 11. You
-can switch it off in Settings > Library & app behavior if you'd rather use your
+site addresses over DNS-over-HTTPS (Cloudflare first, then Google). You can
+switch it off in Settings > Library & app behavior if you'd rather use your
 normal DNS.
-
-It does this by replacing `socket.getaddrinfo` (see
-[`src/utils/resolver.py`](src/utils/resolver.py)). Swapping hostnames for raw IP
-addresses in the URLs would have been simpler, but it breaks HTTPS: the
-certificate check, SNI and the `Host` header all need the real hostname.
 
 DNS doesn't fix everything. Some providers also block sites by name when the
 secure connection starts, which is what happens to 1337x, Nyaa and
@@ -87,9 +78,9 @@ results; the Torznab idea in [TODO.md](TODO.md) is about that.
 Put a proxy in Settings > Advanced (`http://host:port`, or just `host:port`)
 and press Save. From then on every search goes through it, including the
 multi-site scrapers and TMDB. Torrent downloads themselves don't, and neither
-do the DNS-over-HTTPS lookups. Only `http://` and `https://` proxies work for
-now; SOCKS would need an extra package. Clear the box and save to go back to a
-direct connection.
+do the DNS-over-HTTPS lookups. Only `http://` and `https://` proxies work;
+SOCKS isn't supported. Clear the box and save to go back to a direct
+connection.
 
 If you don't have a proxy, press **Find a free proxy** next to Save. It takes
 the public lists on GitHub
