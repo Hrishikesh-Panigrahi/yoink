@@ -258,12 +258,29 @@ def test_import_settings_rejects_a_file_without_a_settings_object(
     assert recorder.last("toast")[1] == "error"
 
 
-def test_proxy_round_trips(bridge):
-    bridge.setProxy("  http://127.0.0.1:8080  ", "  Yoink/1.0  ")
+@pytest.fixture
+def no_proxy_left_behind(monkeypatch):
+    from utils import proxy
+
+    for key in proxy._ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(proxy, "_original", None)
+    yield
+    proxy.apply("")
+
+
+def test_proxy_round_trips(bridge, no_proxy_left_behind):
+    assert bridge.setProxy("  http://127.0.0.1:8080  ", "  Yoink/1.0  ") == ""
 
     proxy = json.loads(bridge.getProxy())
     assert proxy["proxyUrl"] == "http://127.0.0.1:8080"
     assert proxy["userAgent"] == "Yoink/1.0"
+
+
+def test_an_unusable_proxy_is_refused_and_not_saved(bridge, no_proxy_left_behind):
+    assert bridge.setProxy("socks5://127.0.0.1:1080", "")
+
+    assert json.loads(bridge.getProxy())["proxyUrl"] == ""
 
 
 def test_schedule_round_trips_and_resets_the_worker_window(bridge):

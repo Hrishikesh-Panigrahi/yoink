@@ -8,6 +8,7 @@ import requests
 
 from search.dto import SearchResult
 from search.enums import Category
+from utils import proxy
 from utils.format import format_size
 from utils.logger import setup_logger
 from utils.magnets import build_magnet
@@ -61,7 +62,8 @@ def search_pirate_bay(
     url = f"{PIRATE_BAY_BASE_URL}/q.php"
     params = {"q": query, "cat": ",".join(codes) or "0", "page": str(page), "limit": str(limit)}
     try:
-        response = requests.get(url, params=params, headers=_HEADERS, timeout=10)
+        headers = {**_HEADERS, "User-Agent": proxy.user_agent(_HEADERS["User-Agent"])}
+        response = requests.get(url, params=params, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
     except Exception as exc:

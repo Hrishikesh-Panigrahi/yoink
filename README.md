@@ -76,11 +76,31 @@ It does this by replacing `socket.getaddrinfo` (see
 addresses in the URLs would have been simpler, but it breaks HTTPS: the
 certificate check, SNI and the `Host` header all need the real hostname.
 
-DNS doesn't fix everything. Some sites are blocked at the connection level and
-still get cut off, and sites behind DDoS-Guard or Cloudflare send back a
-challenge page instead of results. A VPN gets around the first kind. The proxy
-box in Settings > Advanced doesn't do anything yet (see [TODO.md](TODO.md),
-which also has the Torznab idea for the second kind).
+DNS doesn't fix everything. Some providers also block sites by name when the
+secure connection starts, which is what happens to 1337x, Nyaa and
+YourBittorrent in India. For that you need a VPN or a proxy. Sites behind
+DDoS-Guard or Cloudflare can also send back a challenge page instead of
+results; the Torznab idea in [TODO.md](TODO.md) is about that.
+
+## Using a proxy
+
+Put a proxy in Settings > Advanced (`http://host:port`, or just `host:port`)
+and press Save. From then on every search goes through it, including the
+multi-site scrapers and TMDB. Torrent downloads themselves don't, and neither
+do the DNS-over-HTTPS lookups. Only `http://` and `https://` proxies work for
+now; SOCKS would need an extra package. Clear the box and save to go back to a
+direct connection.
+
+If you don't have a proxy, public lists on GitHub such as
+[proxifly/free-proxy-list](https://github.com/proxifly/free-proxy-list),
+[TheSpeedX/PROXY-List](https://github.com/TheSpeedX/PROXY-List) and
+[monosans/proxy-list](https://github.com/monosans/proxy-list) are refreshed
+every few hours. Expect most of them not to work: in one test only 11 of 400
+answered at all, they took several seconds per search, and they tend to
+disappear within a day. The ones that worked got Nyaa past the block, but
+1337x (on Cloudflare) refuses them. A free proxy can see which sites you
+search but not the pages themselves, since those are HTTPS. A VPN is the more
+reliable option.
 
 ## Legal note
 

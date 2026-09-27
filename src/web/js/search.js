@@ -249,7 +249,7 @@ export function bindSearchEvents() {
   });
   els.resetFiltersBtn.addEventListener("click", () => {
     els.regionFilter.value = "any";
-    els.categoryFilter.value = "movies";
+    els.categoryFilter.value = "any";
     els.qualityFilter.value = "any";
     els.sortFilter.value = "relevance";
     els.sourceFilter.value = "multi-default";

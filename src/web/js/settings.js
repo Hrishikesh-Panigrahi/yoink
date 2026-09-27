@@ -281,8 +281,10 @@ export function bindSettingsEvents() {
   }
   if (els.proxySaveBtn) {
     els.proxySaveBtn.addEventListener("click", () => {
-      bridge.setProxy(els.proxyUrl.value || "", els.proxyUa.value || "");
-      toast("success", "Proxy settings saved");
+      bridge.setProxy(els.proxyUrl.value || "", els.proxyUa.value || "", (error) => {
+        if (error) toast("error", error);
+        else toast("success", els.proxyUrl.value ? "Searches now go through the proxy" : "Proxy turned off");
+      });
     });
   }
   if (els.scheduleSaveBtn) {

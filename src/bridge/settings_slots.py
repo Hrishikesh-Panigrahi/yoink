@@ -8,7 +8,7 @@ from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtWidgets import QFileDialog
 
 import db
-from utils import autostart, resolver
+from utils import autostart, proxy, resolver
 from utils.logger import setup_logger
 from version import __version__
 
@@ -117,16 +117,17 @@ class SettingsMixin:
             self.toast.emit("error", f"Import failed: {exc}")
             return ""
 
-    @pyqtSlot(str, str)
-    def setProxy(self, proxy_url: str, user_agent: str) -> None:
-        db.set_setting("proxy_url", (proxy_url or "").strip())
+    @pyqtSlot(str, str, result=str)
+    def setProxy(self, proxy_url: str, user_agent: str) -> str:
+        """Save and apply the proxy. Returns an error message, or "" when it worked."""
+        url = proxy.normalize(proxy_url)
+        error = proxy.apply(url, user_agent)
+        if error:
+            return error
+        db.set_setting("proxy_url", url)
         db.set_setting("user_agent", (user_agent or "").strip())
-        try:
-            from providers import _http  # does not exist yet, so the proxy is only saved
-            _http.apply_proxy_and_ua()
-        except Exception:
-            pass
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
+        return ""
 
     @pyqtSlot(result=str)
     def getProxy(self) -> str:

@@ -2,7 +2,7 @@ import { bridge } from "./state.js";
 import { els } from "./dom.js";
 import { saveFilters } from "./search.js";
 
-const wizard = { step: 1, total: 4, category: "movies" };
+const wizard = { step: 1, total: 4, category: "other" };
 
 function showWizardStep(step) {
   wizard.step = step;

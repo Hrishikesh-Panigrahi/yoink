@@ -82,7 +82,7 @@ class YourBittorrent:
             return None, None
 
     async def search(self, query, page, limit):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             start_time = time.time()
             self.LIMIT = limit
             url = self.BASE_URL + "/?v=&c=&q={}".format(query)
@@ -99,7 +99,7 @@ class YourBittorrent:
         return result
 
     async def trending(self, category, page, limit):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             start_time = time.time()
             self.LIMIT = limit
             idx = None
@@ -114,7 +114,7 @@ class YourBittorrent:
             return await self.parser_result(start_time, url, session, idx)
 
     async def recent(self, category, page, limit):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             start_time = time.time()
             self.LIMIT = limit
             idx = None

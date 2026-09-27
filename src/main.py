@@ -44,17 +44,20 @@ def _extract_payload(argv: list[str]) -> str:
     return ""
 
 
-def _apply_dns_setting() -> None:
-    """Use DNS over HTTPS unless the user turned it off."""
+def _apply_network_settings() -> None:
+    """DNS over HTTPS unless the user turned it off, and the saved proxy if there is one."""
     try:
         import db
-        from utils import resolver
+        from utils import proxy, resolver
 
         db.init_db()
         resolver.apply_from_settings()
+        error = proxy.apply_from_settings()
+        if error:
+            logger.warning(f"Saved proxy not used: {error}")
     except Exception as exc:
-        # Not worth blocking startup for. The system resolver still works.
-        logger.warning(f"Could not apply the DNS setting: {exc}")
+        # Not worth blocking startup for. Searches still work without them.
+        logger.warning(f"Could not apply the network settings: {exc}")
 
 
 def main() -> None:
@@ -68,7 +71,7 @@ def main() -> None:
 
     # Must run before MainWindow: it builds the Bridge, whose workers go
     # online right away.
-    _apply_dns_setting()
+    _apply_network_settings()
 
     app = QApplication(sys.argv)
     app.setApplicationName("Yoink")

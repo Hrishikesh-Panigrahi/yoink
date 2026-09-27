@@ -99,7 +99,7 @@ class Libgen:
             return None, None
 
     async def search(self, query, page, limit):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             start_time = time.time()
             self.LIMIT = limit
             url = (

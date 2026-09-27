@@ -65,7 +65,7 @@ class NyaaSi:
             return None
 
     async def search(self, query, page, limit):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             start_time = time.time()
             self.LIMIT = limit
             url = self.BASE_URL + "/?f=0&c=0_0&q={}&p={}".format(query, page)
@@ -81,7 +81,7 @@ class NyaaSi:
         return results
 
     async def recent(self, category, page, limit):
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(trust_env=True) as session:
             start_time = time.time()
             self.LIMIT = limit
             url = self.BASE_URL

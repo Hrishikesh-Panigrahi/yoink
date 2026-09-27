@@ -19,7 +19,7 @@ import threading
 import time
 from typing import Dict, List, Tuple
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener
 
 from utils.logger import setup_logger
 
@@ -64,12 +64,17 @@ def lookup(host: str) -> List[str]:
     return list(addresses)
 
 
+# DoH always goes direct. Through a proxy set by hostname, looking up the proxy
+# itself would need the proxy.
+_direct = build_opener(ProxyHandler({}))
+
+
 def _query(host: str) -> List[str]:
     for endpoint in DOH_ENDPOINTS:
         url = f"{endpoint}?{urlencode({'name': host, 'type': 'A'})}"
         request = Request(url, headers={"Accept": "application/dns-json"})
         try:
-            with urlopen(request, timeout=LOOKUP_TIMEOUT_SECONDS) as response:
+            with _direct.open(request, timeout=LOOKUP_TIMEOUT_SECONDS) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except Exception as exc:
             logger.debug(f"DoH lookup of {host} via {endpoint} failed: {exc}")

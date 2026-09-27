@@ -15,8 +15,9 @@ source health check exists.
       connection during the HTTPS handshake, and libgen.is doesn't answer. DNS
       is fine at that point, so DNS-over-HTTPS can't help: the block is on the
       site's name. Only The Pirate Bay (its API and its scraper) gets through.
-      A VPN fixes it, and so would the proxy setting once it does something
-      (see below). The lasting fix is one of the two options further down.
+      A VPN fixes it, and so can a proxy in Settings > Advanced: free ones
+      from public lists got Nyaa through, but 1337x refuses them. The lasting
+      fix is one of the two options further down.
 - [ ] **Say when every source failed.** Right now a search where every source
       errored looks exactly like a search with no matches. We already collect
       the health data, so the empty results screen could show it.
@@ -46,13 +47,6 @@ Worst first.
 
       The simplest proper fix: keep removed torrents in a `removed` table for a
       few days and put an Undo button in the toast.
-
-- [ ] **The proxy setting does nothing.** Settings > Advanced saves a proxy URL
-      and a user agent, but no search code ever reads them. `setProxy` in
-      `bridge/settings_slots.py` tries to import `providers._http`, which
-      doesn't exist, and quietly ignores the error. Either route the providers'
-      `requests` calls through the saved proxy and user agent, or hide the
-      setting until that's done.
 
 - [ ] **One `.text-input` rule changes every input.** The onboarding styles in
       `css/modals.css` include a `.text-input` rule that isn't limited to the

@@ -146,6 +146,7 @@ src/
     magnets.py           build_magnet
     logger.py            setup_logger
     resolver.py          DNS-over-HTTPS for source hostnames
+    proxy.py             sending searches through the proxy from Settings
     autostart.py         launch at login
     single_instance.py   keeping to one running copy and passing links to it
 

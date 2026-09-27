@@ -49,11 +49,11 @@ class Category(str, Enum):
     @classmethod
     def from_value(cls, value: str | None) -> "Category":
         if not value:
-            return cls.MOVIES
+            return cls.ANY
         try:
             return cls(value.lower())
         except ValueError:
-            return cls.MOVIES
+            return cls.ANY
 
 
 class Quality(str, Enum):

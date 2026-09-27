@@ -57,7 +57,7 @@ class SearchResult:
 class SearchOptions:
     provider_mode: ProviderMode = ProviderMode.STABLE
     region: Region = Region.ANY
-    category: Category = Category.MOVIES
+    category: Category = Category.ANY
     quality: Quality = Quality.ANY
     sort_by: SortBy = SortBy.RELEVANCE
     min_seeds: int = 0

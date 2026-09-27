@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 from search import categories
 from search.dto import SearchResult
 from search.enums import Category, Region, region_terms
+from utils import proxy
 from utils.logger import setup_logger
 
 logger = setup_logger("providers.torrent_api_py")
@@ -72,6 +73,10 @@ def _load_vendored_sites() -> dict:
 
 _VENDORED_SITES = _load_vendored_sites()
 
+# The vendored scrapers all send one shared headers dict; a custom user agent goes in there.
+_VENDOR_HEADERS = getattr(sys.modules.get("constants.headers"), "HEADER_AIO", None)
+_VENDOR_USER_AGENT = (_VENDOR_HEADERS or {}).get("User-Agent", "")
+
 #: Tests monkeypatch this.
 AVAILABLE_SITES: Dict[str, dict] = dict(_VENDORED_SITES)
 
@@ -118,7 +123,7 @@ def search_multi_site(
     query: str,
     page: int = 1,
     sites: Optional[List[str]] = None,
-    category: Category = Category.MOVIES,
+    category: Category = Category.ANY,
     region: Region = Region.ANY,
     limit_per_site: int = 5,
     timeout_seconds: float = 12.0,
@@ -140,6 +145,8 @@ async def _search_all(
     limit_per_site: int,
     timeout_seconds: float,
 ) -> List[SearchResult]:
+    if _VENDOR_HEADERS is not None:
+        _VENDOR_HEADERS["User-Agent"] = proxy.user_agent(_VENDOR_USER_AGENT)
     selected = sites or list(DEFAULT_SITES)
     tasks = [
         _search_one(site, query, page, category, region, limit_per_site, timeout_seconds)
