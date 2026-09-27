@@ -5,7 +5,7 @@ from typing import Iterable
 
 
 class ProviderMode(str, Enum):
-    STABLE = "stable"  # YTS and Pirate Bay JSON APIs
+    STABLE = "stable"  # The Pirate Bay's JSON API
     MULTI = "multi"    # vendored Torrent-Api-py site scrapers
 
     @classmethod

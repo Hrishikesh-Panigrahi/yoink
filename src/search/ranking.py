@@ -9,17 +9,9 @@ from search.enums import Quality, Region, SortBy, region_terms
 
 # Multipliers on health_score, so curated sources rank a little above scrapers.
 SOURCE_WEIGHTS: dict[str, float] = {
-    "yts": 1.15,
     "the pirate bay": 1.05,
     "1337x": 1.0,
-    "torrentgalaxy": 1.0,
     "nyaa": 1.0,
-    "magnetdl": 0.95,
-    "bitsearch": 0.9,
-    "limetorrents": 0.9,
-    "torlock": 0.9,
-    "kickass": 0.9,
-    "torrentfunk": 0.85,
 }
 
 _QUALITY_TOKENS = (

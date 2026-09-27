@@ -212,7 +212,7 @@ class Bridge(
 
     def _apply_enabled_providers(self, options: dict) -> dict:
         enabled = self._enabled_provider_set()
-        stable_keys = {"yts", "piratebay_stable"}
+        stable_keys = {"piratebay_stable"}
         enabled_stable = sorted(enabled & stable_keys)
         enabled_vendor = sorted(
             key.split(":", 1)[1] for key in enabled if key.startswith("vendor:")

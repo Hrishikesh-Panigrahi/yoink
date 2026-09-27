@@ -10,29 +10,16 @@ Public torrent sites keep changing their addresses, their pages and their bot
 protection. That's why the multi-site scrapers break so often, and why the
 source health check exists.
 
-- [ ] **The multi-site scrapers return nothing.** This is the biggest gap, and
-      DNS-over-HTTPS doesn't help with it. With it on, the four sites that were
-      tested all connect, and all four return zero results:
-
-      - `1337x.to` cuts the connection during the HTTPS handshake. DNS is fine
-        at that point, so it's being blocked by hostname, which the app can't
-        get around by itself. A VPN works. A proxy would too, once the proxy
-        setting actually does something (see below).
-      - `nyaa.si` returns a DDoS-Guard page instead of search results, so
-        there's nothing to read.
-
-      `cloudscraper` is already installed, but only the vendored `magnet_dl`
-      scraper uses it. Trying it in the other scrapers is the cheapest thing to
-      try first. A lasting fix is one of the two options below.
+- [ ] **Most multi-site scrapers are blocked here.** 1337x, Nyaa and
+      YourBittorrent work from other networks, but Indian providers cut the
+      connection during the HTTPS handshake, and libgen.is doesn't answer. DNS
+      is fine at that point, so DNS-over-HTTPS can't help: the block is on the
+      site's name. Only The Pirate Bay (its API and its scraper) gets through.
+      A VPN fixes it, and so would the proxy setting once it does something
+      (see below). The lasting fix is one of the two options further down.
 - [ ] **Say when every source failed.** Right now a search where every source
       errored looks exactly like a search with no matches. We already collect
       the health data, so the empty results screen could show it.
-- [ ] **The Category filter does nothing right now.** Only the multi-site
-      scrapers are told the category, and they return nothing at the moment, so
-      every search ends up at The Pirate Bay. Its search always asks for every
-      category (`cat: "0"` in `providers/pirate_bay.py`), so picking "Games"
-      still returns films and everything else. Mapping each category to Pirate
-      Bay's category numbers would fix it.
 
 Two longer-term options, neither started:
 

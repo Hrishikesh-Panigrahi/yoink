@@ -447,32 +447,32 @@ def test_metadata_enrich_retires_the_previous_worker(bridge, monkeypatch):
 
 
 def test_provider_toggle_is_persisted_and_reflected(bridge, recorder):
-    bridge.setProviderEnabled("yts", False)
+    bridge.setProviderEnabled("piratebay_stable", False)
 
     choices = {c["key"]: c for c in json.loads(bridge.getProviderChoices())}
-    assert choices["yts"]["enabled"] is False
+    assert choices["piratebay_stable"]["enabled"] is False
     assert recorder.named("settingsChanged")
 
-    bridge.setProviderEnabled("yts", True)
+    bridge.setProviderEnabled("piratebay_stable", True)
     choices = {c["key"]: c for c in json.loads(bridge.getProviderChoices())}
-    assert choices["yts"]["enabled"] is True
+    assert choices["piratebay_stable"]["enabled"] is True
 
 
 def test_apply_enabled_providers_splits_stable_from_vendor(bridge):
-    db.set_setting("enabled_providers", "yts,vendor:1337x,vendor:nyaa")
+    db.set_setting("enabled_providers", "piratebay_stable,vendor:1337x,vendor:nyaasi")
 
     merged = bridge._apply_enabled_providers({})
 
-    assert merged["enabledStable"] == ["yts"]
-    assert merged["sites"] == ["1337x", "nyaa"]
+    assert merged["enabledStable"] == ["piratebay_stable"]
+    assert merged["sites"] == ["1337x", "nyaasi"]
 
 
 def test_apply_enabled_providers_keeps_an_explicit_site_list(bridge):
-    db.set_setting("enabled_providers", "yts,vendor:1337x")
+    db.set_setting("enabled_providers", "piratebay_stable,vendor:1337x")
 
-    merged = bridge._apply_enabled_providers({"sites": ["nyaa"]})
+    merged = bridge._apply_enabled_providers({"sites": ["nyaasi"]})
 
-    assert merged["sites"] == ["nyaa"]
+    assert merged["sites"] == ["nyaasi"]
 
 
 def test_search_history_dedupes_newest_first_and_caps_at_twenty(bridge):

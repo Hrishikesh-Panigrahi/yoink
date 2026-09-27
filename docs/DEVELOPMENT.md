@@ -131,10 +131,10 @@ src/
     enums.py             ProviderMode, Region, Category, Quality, SortBy
     dto.py               SearchResult, SearchOptions, SearchPage
     ranking.py           query expansion, scoring, removing duplicates
+    categories.py        working out a result's category when a site can't filter
     safety.py            warnings for suspicious results
 
   providers/             one module per source
-    yts.py               search_yts
     pirate_bay.py        search_pirate_bay
     torrent_api_py.py    the multi-site scrapers in vendor/
     health.py            ping_all, which marks each source working, slow or down

@@ -10,7 +10,7 @@ from typing import Dict
 
 from providers import torrent_api_py
 from providers.pirate_bay import search_pirate_bay
-from providers.yts import search_yts
+from search.enums import Category
 from utils.logger import setup_logger
 
 logger = setup_logger("providers.health")
@@ -54,7 +54,6 @@ def ping_all(timeout_seconds: float = 12.0, *, force: bool = False) -> Dict[str,
 
 def _probe_specs() -> Dict[str, tuple[str, callable]]:
     specs: Dict[str, tuple[str, callable]] = {
-        "yts": ("YTS", lambda: search_yts(_PROBE_QUERY, 1)),
         "piratebay_stable": (
             "The Pirate Bay",
             lambda: search_pirate_bay(_PROBE_QUERY, 1, 1),
@@ -64,7 +63,8 @@ def _probe_specs() -> Dict[str, tuple[str, callable]]:
         specs[f"vendor:{key}"] = (
             key,
             (lambda k=key: torrent_api_py.search_multi_site(
-                _PROBE_QUERY, 1, sites=[k], limit_per_site=1, timeout_seconds=8.0
+                _PROBE_QUERY, 1, sites=[k], category=Category.ANY,
+                limit_per_site=1, timeout_seconds=8.0,
             )),
         )
     return specs

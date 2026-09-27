@@ -6,7 +6,7 @@ import providers.torrent_api_py as torrent_api_py
 from providers.torrent_api_py import search_multi_site
 from search import search
 from search.dto import SearchOptions, SearchResult
-from search.enums import ProviderMode, Region
+from search.enums import Category, ProviderMode, Region
 
 
 class FakeProvider:
@@ -56,25 +56,43 @@ def _stub_sites(monkeypatch, sites: dict) -> None:
     monkeypatch.setattr(torrent_api_py, "AVAILABLE_SITES", sites)
 
 
-def _stub_stable_results(monkeypatch, pirate_for=None, yts_results=None):
-    """Stub the stable providers. `pirate_for` maps a query substring to its results."""
+def _stub_stable_results(monkeypatch, pirate_for=None):
+    """Stub The Pirate Bay. `pirate_for` maps a query substring to its results."""
     pirate_for = pirate_for or {}
-    yts_results = yts_results or []
-    calls = {"pirate_queries": []}
+    calls = {"pirate_queries": [], "categories": []}
 
-    def fake_pirate(query, page=1, limit=20):
+    def fake_pirate(query, page=1, limit=20, category=Category.ANY):
         calls["pirate_queries"].append(query)
+        calls["categories"].append(category)
         for needle, payload in pirate_for.items():
             if needle in query.lower():
                 return list(payload)
         return []
 
-    def fake_yts(query, limit=20):
-        return list(yts_results)
-
     monkeypatch.setattr("providers.pirate_bay.search_pirate_bay", fake_pirate)
-    monkeypatch.setattr("providers.yts.search_yts", fake_yts)
     return calls
+
+
+class MixedProvider:
+    _name = "Mixed"
+
+    async def search(self, query, page, limit):
+        rows = [
+            ("Grounded PC Game Repack", "Games"),
+            ("Grounded 2024 1080p WEB-DL", "Movies"),
+            ("Grounded S01E01 720p", ""),
+            ("Grounded", ""),
+        ]
+        return {"data": [
+            {"name": name, "category": label, "seeders": "5", "magnet": f"magnet:?xt=urn:btih:{i}"}
+            for i, (name, label) in enumerate(rows)
+        ]}
+
+
+def _mixed_site(monkeypatch, key="mixed"):
+    _stub_sites(monkeypatch, {
+        key: {"website": MixedProvider, "categories": [], "search_by_category": False, "limit": 10}
+    })
 
 
 def test_multi_site_scoring_prefers_region_match(monkeypatch):
@@ -206,3 +224,74 @@ def test_multi_falls_back_to_stable_when_empty(monkeypatch):
 
     assert page.total == 1
     assert page.results[0].title.startswith("Cocktail 2")
+
+
+def test_multi_site_filters_rows_by_category(monkeypatch):
+    _mixed_site(monkeypatch)
+
+    titles = [r.title for r in search_multi_site(
+        "grounded", sites=["mixed"], category=Category.GAMES, limit_per_site=10
+    )]
+
+    # The unlabelled, unrecognisable "Grounded" row is kept rather than guessed at.
+    assert sorted(titles) == ["Grounded", "Grounded PC Game Repack"]
+
+
+def test_multi_site_uses_titles_when_rows_have_no_label(monkeypatch):
+    _mixed_site(monkeypatch)
+
+    titles = [r.title for r in search_multi_site(
+        "grounded", sites=["mixed"], category=Category.TV, limit_per_site=10
+    )]
+
+    assert sorted(titles) == ["Grounded", "Grounded S01E01 720p"]
+
+
+def test_libgen_rows_count_as_books(monkeypatch):
+    _mixed_site(monkeypatch, key="libgen")
+
+    movies = search_multi_site("grounded", sites=["libgen"], category=Category.MOVIES, limit_per_site=10)
+    books = search_multi_site("grounded", sites=["libgen"], category=Category.BOOKS, limit_per_site=10)
+
+    # Rows with their own label keep it; unlabelled libgen rows are books.
+    assert [r.title for r in movies] == ["Grounded 2024 1080p WEB-DL"]
+    assert sorted(r.title for r in books) == ["Grounded", "Grounded S01E01 720p"]
+
+
+def test_falls_back_to_stable_when_the_category_filters_everything(monkeypatch):
+    _stub_sites(monkeypatch, {
+        "fake": {"website": FakeProvider, "categories": ["movies"], "search_by_category": False, "limit": 10}
+    })
+    game = SearchResult(
+        title="Grounded PC Game", size="5 GB", seeds=50, peers=5, date="2025-01-01",
+        source="The Pirate Bay", magnet_url="magnet:?xt=urn:btih:game",
+    )
+    calls = _stub_stable_results(monkeypatch, pirate_for={"cocktail": [game]})
+
+    page = search(
+        "cocktail",
+        options=SearchOptions(provider_mode=ProviderMode.MULTI, sites=["fake"], category=Category.GAMES),
+    )
+
+    assert [r.title for r in page.results] == ["Grounded PC Game"]
+    assert calls["categories"] == [Category.GAMES]
+
+
+def test_all_enabled_sites_also_searches_the_pirate_bay(monkeypatch):
+    _stub_sites(monkeypatch, {
+        "fake": {"website": FakeProvider, "categories": ["movies"], "search_by_category": False, "limit": 10}
+    })
+    tpb = SearchResult(
+        title="Cocktail 2 from the Pirate Bay API", size="2 GB", seeds=30, peers=3, date="2025-01-01",
+        source="The Pirate Bay", magnet_url="magnet:?xt=urn:btih:tpb",
+    )
+    _stub_stable_results(monkeypatch, pirate_for={"cocktail": [tpb]})
+
+    page = search("cocktail 2", options=SearchOptions.from_dict({
+        "providerMode": "multi", "sites": ["fake"], "includeStable": True,
+    }))
+
+    titles = {r.title for r in page.results}
+    assert "Cocktail 2 from the Pirate Bay API" in titles
+    assert len(titles) == 3
+

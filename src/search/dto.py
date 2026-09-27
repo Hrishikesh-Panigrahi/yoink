@@ -63,8 +63,10 @@ class SearchOptions:
     min_seeds: int = 0
     sites: Optional[List[str]] = None
     limit_per_site: int = 5
-    # Any of "yts" and "piratebay_stable". None means both are on.
+    # The stable providers that are on ("piratebay_stable"). None means all of them.
     enabled_stable: Optional[List[str]] = None
+    # Search the stable providers alongside the sites, not only when the sites find nothing.
+    include_stable: bool = False
 
     @classmethod
     def from_dict(cls, data: Optional[dict]) -> "SearchOptions":
@@ -101,6 +103,7 @@ class SearchOptions:
             sites=sites,
             limit_per_site=limit_per_site,
             enabled_stable=enabled_stable,
+            include_stable=bool(data.get("includeStable")),
         )
 
 

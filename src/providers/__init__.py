@@ -3,20 +3,16 @@
 from providers.torrent_api_py import available_sites, site_configs
 
 STABLE_PROVIDERS: tuple[tuple[str, str], ...] = (
-    ("yts", "YTS"),
     ("piratebay_stable", "The Pirate Bay"),
 )
 
-#: YTS is off by default because yts.mx no longer has a DNS A record. Leaving it
-#: on adds two 10-second connect timeouts to every search.
 DEFAULT_STABLE_PROVIDERS: tuple[str, ...] = ("piratebay_stable",)
 
-#: These must match the keys `site_configs()` returns. MagnetDL is left out
-#: because it is by far the slowest source to answer.
+#: These must match the keys `site_configs()` returns.
 DEFAULT_VENDOR_PROVIDERS: tuple[str, ...] = (
     "1337x",
-    "tgx",
     "nyaasi",
+    "ybt",
 )
 
 

@@ -1,18 +1,19 @@
 # Features
 
 Everything here works today and can be reached from the app. For where search
-results come from and why YTS is off, see the
-[README](../README.md#sources-and-dns).
+results come from, see the [README](../README.md#sources-and-dns).
 
 ## Search
 
-- Two ways to search. "All my enabled sites" is the default and searches every
-  site you've turned on. "Stable APIs only" asks The Pirate Bay's API directly,
-  which is the fastest. You can turn YTS on as a stable source, but it's off by
-  default.
+- Two ways to search. "All my enabled sites" is the default and searches The
+  Pirate Bay plus every site you've turned on. "Stable APIs only" asks only The
+  Pirate Bay's API, which is the fastest.
 - Filters for region (Bollywood, Hollywood, South Indian, Korean, anime),
   category (movies, TV, anime, music, games, apps, books) and quality. You can
   sort by relevance, seeders, size or date.
+- The category filter works on every source. Sites that support it are asked
+  for the category; for the rest, Yoink goes by the category the site gives
+  each result, or by the title.
 - Results are scored on seeders, quality and which site they came from.
   Duplicates are merged by infohash, so the same release doesn't show up five
   times.

@@ -17,7 +17,7 @@ def make_result(
     title: str,
     *,
     seeds: int = 0,
-    source: str = "yts",
+    source: str = "the pirate bay",
     magnet: str | None = None,
     quality: str = "1080p",
     size: str = "1.5 GB",
@@ -118,15 +118,15 @@ class TestSort:
 
 class TestHealthScore:
     def test_token_match_beats_no_match(self):
-        match = make_result("The Matrix 1080p", seeds=10, source="yts")
-        miss = make_result("Random Thing 1080p", seeds=10, source="yts")
+        match = make_result("The Matrix 1080p", seeds=10)
+        miss = make_result("Random Thing 1080p", seeds=10)
         assert health_score(match, "matrix", Region.ANY) > health_score(miss, "matrix", Region.ANY)
 
     def test_source_weight_breaks_ties(self):
-        yts = make_result("Foo", seeds=10, source="yts")
-        weak = make_result("Foo", seeds=10, source="torrentfunk")
-        assert health_score(yts, "foo", Region.ANY) > health_score(weak, "foo", Region.ANY)
+        known = make_result("Foo", seeds=10, source="the pirate bay")
+        unknown = make_result("Foo", seeds=10, source="some other site")
+        assert health_score(known, "foo", Region.ANY) > health_score(unknown, "foo", Region.ANY)
 
     def test_known_sources_have_weights(self):
-        for key in ("yts", "the pirate bay", "1337x"):
+        for key in ("the pirate bay", "1337x", "nyaa"):
             assert key in SOURCE_WEIGHTS

@@ -28,7 +28,7 @@ class TestSafety:
     def test_safe_when_trusted_group(self):
         result = evaluate({
             "title": "The Matrix 1999 1080p BluRay x264-YTS",
-            "source": "yts",
+            "source": "1337x",
             "seeds": 200,
             "size": "1.5 GB",
             "magnet": "magnet:?xt=urn:btih:abc",

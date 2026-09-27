@@ -62,7 +62,6 @@
   white-space: nowrap;
 }
 .meta.source { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-.meta.source.yts { color: var(--purple); background: var(--purple-soft); }
 .meta.quality { color: var(--green); background: var(--green-soft); }
 .meta.genre { color: var(--text); background: var(--bg-elev); }
 .meta.rating.high { color: var(--green); background: var(--green-soft); }

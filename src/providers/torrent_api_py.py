@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from search import categories
 from search.dto import SearchResult
 from search.enums import Category, Region, region_terms
 from utils.logger import setup_logger
@@ -76,16 +77,14 @@ AVAILABLE_SITES: Dict[str, dict] = dict(_VENDORED_SITES)
 
 DEFAULT_SITES: tuple[str, ...] = (
     "1337x",
-    "tgx",
-    "torlock",
-    "kickass",
-    "limetorrent",
-    "torrentfunk",
-    "bitsearch",
-    "magnetdl",
-    "yts",
+    "libgen",
+    "nyaasi",
     "piratebay",
+    "ybt",
 )
+
+#: Sites whose results carry no category label but are all one kind.
+_SITE_LABELS = {"libgen": "books"}
 
 _CATEGORY_FOR_VENDOR = {
     Category.ANY: "",
@@ -174,13 +173,14 @@ async def _search_one(
     vendor_category = _CATEGORY_FOR_VENDOR.get(category, "")
 
     provider = provider_cls()
+    site_filters = bool(
+        vendor_category
+        and cfg.get("search_by_category")
+        and vendor_category in (cfg.get("categories") or [])
+        and hasattr(provider, "search_by_category")
+    )
     try:
-        if (
-            vendor_category
-            and cfg.get("search_by_category")
-            and vendor_category in (cfg.get("categories") or [])
-            and hasattr(provider, "search_by_category")
-        ):
+        if site_filters:
             response = await asyncio.wait_for(
                 provider.search_by_category(query, vendor_category, page, limit),
                 timeout=timeout_seconds,
@@ -204,6 +204,9 @@ async def _search_one(
             continue
         result = _row_to_result(item, source_name)
         if not result.title or not result.magnet_url:
+            continue
+        label = str(item.get("category") or "") or _SITE_LABELS.get(site, "")
+        if not site_filters and not categories.matches(category, label, result.title):
             continue
         score = _score_vendor_row(item, query, region, category, result)
         out.append((score, result))

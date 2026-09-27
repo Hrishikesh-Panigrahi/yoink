@@ -50,13 +50,19 @@ and an installer too if Inno Setup is installed. The details are in
 
 ## Sources and DNS
 
-By default a search goes to the sites turned on in Settings > Sources (1337x,
-TorrentGalaxy and Nyaa). If none of them return anything, Yoink falls back to
-The Pirate Bay's API. Picking "Stable APIs only" in the source filter goes
-straight to The Pirate Bay.
+A normal search ("All my enabled sites") goes to The Pirate Bay's API and to
+the sites turned on in Settings > Sources. Those are 1337x, Nyaa and
+YourBittorrent by default, and you can also turn on The Pirate Bay's own site
+and libgen (books). "Stable APIs only" in the source filter skips the sites and
+only asks The Pirate Bay's API, which is the fastest.
 
-YTS is turned off by default. `yts.mx` doesn't resolve any more, and leaving it
-on added about 20 seconds of timeouts to every search.
+The Category filter works with all of them. The Pirate Bay and 1337x can be
+asked for a category directly. For the others, Yoink looks at the category the
+site puts on each result, or failing that the title (`S01E02` means TV,
+`FitGirl` or `Repack` means a game, and so on), and leaves out what doesn't fit.
+
+Sources that had stopped working for everyone, such as YTS, TorrentGalaxy,
+KickAss and MagnetDL, have been removed.
 
 Some internet providers answer DNS lookups for torrent sites with a fake
 address, so every site looks like it's down. To get around that, Yoink looks up

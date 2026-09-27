@@ -7,6 +7,7 @@ from typing import List
 import requests
 
 from search.dto import SearchResult
+from search.enums import Category
 from utils.format import format_size
 from utils.logger import setup_logger
 from utils.magnets import build_magnet
@@ -25,6 +26,24 @@ _HEADERS = {
 }
 
 
+# The Pirate Bay's category numbers for each of ours. A top-level code such as
+# "400" also covers everything under it (401, 402, ...).
+_CATEGORY_CODES = {
+    Category.MOVIES: ("201", "202", "207", "209", "210", "211"),
+    Category.TV: ("205", "208", "212"),
+    # There is no anime category, so anime means any film or TV category.
+    Category.ANIME: ("201", "202", "205", "207", "208", "209", "211", "212", "299"),
+    Category.MUSIC: ("101", "104", "203"),
+    Category.GAMES: ("400",),
+    Category.APPS: ("300",),
+    Category.BOOKS: ("102", "601", "602"),
+}
+
+
+def _in_category(code: str, codes: tuple[str, ...]) -> bool:
+    return any(code == c or (c.endswith("00") and code[:1] == c[:1]) for c in codes)
+
+
 def _throttle() -> None:
     global _last_request_time
     elapsed = time.time() - _last_request_time
@@ -33,11 +52,14 @@ def _throttle() -> None:
     _last_request_time = time.time()
 
 
-def search_pirate_bay(query: str, page: int = 1, limit: int = 20) -> List[SearchResult]:
+def search_pirate_bay(
+    query: str, page: int = 1, limit: int = 20, category: Category = Category.ANY
+) -> List[SearchResult]:
     _throttle()
 
+    codes = _CATEGORY_CODES.get(category, ())
     url = f"{PIRATE_BAY_BASE_URL}/q.php"
-    params = {"q": query, "cat": "0", "page": str(page), "limit": str(limit)}
+    params = {"q": query, "cat": ",".join(codes) or "0", "page": str(page), "limit": str(limit)}
     try:
         response = requests.get(url, params=params, headers=_HEADERS, timeout=10)
         response.raise_for_status()
@@ -58,6 +80,10 @@ def search_pirate_bay(query: str, page: int = 1, limit: int = 20) -> List[Search
         if not info_hash or set(info_hash) <= {"0"}:
             continue
         if (item.get("name") or "").strip().lower() == "no results returned":
+            continue
+        # apibay already filters by `cat`; this keeps out anything it lets through.
+        code = str(item.get("category") or "")
+        if codes and code and not _in_category(code, codes):
             continue
         try:
             results.append(

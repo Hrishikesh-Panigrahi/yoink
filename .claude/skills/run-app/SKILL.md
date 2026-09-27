@@ -160,14 +160,12 @@ Also worth knowing: `.modal` sets `width: 520px`, so a wider modal needs
 
 ## Slow or empty searches are usually the network
 
-The default search goes to the vendored sites enabled in Settings → Sources
-(1337x, TorrentGalaxy, Nyaa) and falls back to The Pirate Bay's API (via
-`apibay.org`) when they return nothing. YTS is off by default: `yts.mx` no
-longer resolves at all.
+The default search goes to The Pirate Bay's API (via `apibay.org`) plus the
+vendored sites enabled in Settings → Sources (1337x, Nyaa, YourBittorrent).
 
 On a connection that blocks torrent hosts (common with Indian ISPs), the
-vendored sites reset the TLS handshake or answer with a DDoS-Guard page, so
-their rows come back empty and only the Pirate Bay fallback shows up. That
+vendored sites reset the TLS handshake, so their rows come back empty and only
+the Pirate Bay results show up. That
 looks like a broken search and is not one.
 
 Check reachability before assuming the app is broken:

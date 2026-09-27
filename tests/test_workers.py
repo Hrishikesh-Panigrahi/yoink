@@ -216,13 +216,13 @@ def test_metadata_lookup_returns_none_when_tmdb_has_nothing(monkeypatch):
 
 
 def test_health_worker_forwards_the_status_map(monkeypatch):
-    monkeypatch.setattr(health, "ping_all", lambda: {"yts": {"ok": True}})
+    monkeypatch.setattr(health, "ping_all", lambda: {"piratebay_stable": {"ok": True}})
     worker = workers.ProviderHealthWorker()
     received = collect(worker.finished)
 
     worker.run()
 
-    assert received == [{"yts": {"ok": True}}]
+    assert received == [{"piratebay_stable": {"ok": True}}]
 
 
 def test_health_worker_emits_an_empty_map_on_failure(monkeypatch):

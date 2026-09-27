@@ -75,7 +75,7 @@ def evaluate(result_dict: dict) -> dict:
         reasons.append("Very large file (over 40 GB)")
         score -= 5
 
-    if any(group in title for group in _GOOD_GROUPS) or source in {"yts", "the pirate bay"}:
+    if any(group in title for group in _GOOD_GROUPS) or source == "the pirate bay":
         score += 15
         reasons.append("Trusted release group / source")
 

@@ -32,7 +32,7 @@ export function resetSearchView() {
   els.searchEmpty.hidden = false;
   els.searchEmpty.querySelector("h3").textContent = "Find something to yoink";
   els.searchEmpty.querySelector("p").innerHTML =
-    'Type a title above and press <kbd>Enter</kbd>. Stable search uses The Pirate Bay and YTS; advanced search uses Torrent-Api-py.';
+    'Type a title above and press <kbd>Enter</kbd>. Stable search uses The Pirate Bay; advanced search uses Torrent-Api-py.';
 }
 
 export function renderResults(results) {
@@ -53,7 +53,7 @@ function showNoResults() {
   els.resultsList.hidden = true;
   els.searchEmpty.hidden = false;
   els.searchEmpty.querySelector("h3").textContent = "No results";
-  els.searchEmpty.querySelector("p").textContent = "Try a different title, change the region, or switch source to Torrent-Api-py.";
+  els.searchEmpty.querySelector("p").textContent = "Try a different title, category or region, or switch to another source.";
   els.pagination.hidden = true;
 }
 
@@ -100,7 +100,6 @@ function fillMeta(node, r) {
 
   const source = node.querySelector(".meta.source");
   source.textContent = r.source;
-  if ((r.source || "").toUpperCase() === "YTS") source.classList.add("yts");
 
   node.querySelector(".meta.size").textContent = r.size || "?";
 

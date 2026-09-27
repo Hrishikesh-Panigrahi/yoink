@@ -11,10 +11,7 @@ function currentSearchOptions() {
   const sourceMap = {
     "multi-default": undefined,           // bridge picks the user's enabled vendor list
     "torrent-api-py-all": null,           // search every vendored site
-    "movies-core": ["1337x", "tgx", "yts", "bitsearch"],
     "1337x": ["1337x"],
-    "tgx": ["tgx"],
-    "yts": ["yts"],
   };
   const shared = {
     region: els.regionFilter.value,
@@ -27,6 +24,7 @@ function currentSearchOptions() {
   }
   const options = {
     providerMode: "multi",
+    includeStable: sourceValue === "multi-default",
     ...shared,
     limitPerSite: sourceValue === "torrent-api-py-all" ? 4 : 8,
   };

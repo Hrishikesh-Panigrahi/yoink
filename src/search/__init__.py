@@ -28,7 +28,6 @@ def search(
     # A top-level import would be circular.
     from providers.pirate_bay import search_pirate_bay
     from providers.torrent_api_py import available_sites, search_multi_site
-    from providers.yts import search_yts
 
     options = options or SearchOptions()
     query = (query or "").strip()
@@ -46,28 +45,26 @@ def search(
             region=options.region,
             limit_per_site=options.limit_per_site,
         )
+        if options.include_stable:
+            raw = raw + _run_stable(query, options, limit, search_pirate_bay)
         if raw:
             return _finalize(raw, query, options, page, limit)
         logger.warning("Torrent-Api-py returned no usable rows; falling back to stable APIs")
 
-    stable_raw = _run_stable(query, options, limit, search_pirate_bay, search_yts)
+    stable_raw = _run_stable(query, options, limit, search_pirate_bay)
     return _finalize(stable_raw, query, options, page, limit)
 
 
-def _run_stable(query, options, limit, search_pirate_bay, search_yts) -> List[SearchResult]:
-    queries = expand_region_queries(query, options.region)
+def _run_stable(query, options, limit, search_pirate_bay) -> List[SearchResult]:
+    enabled = options.enabled_stable
+    if enabled is not None and "piratebay_stable" not in enabled:
+        return []
     per_query_limit = max(limit, 20)
     collected: List[SearchResult] = []
-
-    enabled = options.enabled_stable
-    use_piratebay = enabled is None or "piratebay_stable" in enabled
-    use_yts = enabled is None or "yts" in enabled
-
-    if use_piratebay:
-        for candidate in queries:
-            collected.extend(search_pirate_bay(candidate, 1, per_query_limit))
-    if use_yts:
-        collected.extend(search_yts(query, per_query_limit))
+    for candidate in expand_region_queries(query, options.region):
+        collected.extend(
+            search_pirate_bay(candidate, 1, per_query_limit, category=options.category)
+        )
     return collected
 
 
