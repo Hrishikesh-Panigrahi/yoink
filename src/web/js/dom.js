@@ -168,6 +168,7 @@ export function cacheEls() {
   els.proxyUrl = $("#proxyUrl");
   els.proxyUa = $("#proxyUa");
   els.proxySaveBtn = $("#proxySaveBtn");
+  els.proxyFindBtn = $("#proxyFindBtn");
 
   els.scheduleEnabled = $("#scheduleEnabled");
   els.scheduleStart = $("#scheduleStart");

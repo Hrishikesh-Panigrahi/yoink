@@ -11,6 +11,7 @@ import db
 from utils import autostart, proxy, resolver
 from utils.logger import setup_logger
 from version import __version__
+from workers import FreeProxyWorker
 
 logger = setup_logger("bridge.settings")
 
@@ -128,6 +129,27 @@ class SettingsMixin:
         db.set_setting("user_agent", (user_agent or "").strip())
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
         return ""
+
+    @pyqtSlot()
+    def findFreeProxy(self) -> None:
+        """Test free proxies in the background. Progress arrives on `freeProxyProgress`;
+        the one chosen is saved and applied, then reported on `freeProxyFound`."""
+        if self._proxy_worker and self._proxy_worker.isRunning():
+            return
+        worker = FreeProxyWorker()
+        worker.progress.connect(
+            lambda tested, total, working: self.freeProxyProgress.emit(
+                json.dumps({"tested": tested, "total": total, "working": working})
+            )
+        )
+        worker.finished.connect(self._on_free_proxy)
+        worker.start()
+        self._proxy_worker = worker
+
+    def _on_free_proxy(self, result) -> None:
+        if result and self.setProxy(result["proxy"], db.get_setting("user_agent") or ""):
+            result = None
+        self.freeProxyFound.emit(json.dumps(result or {}))
 
     @pyqtSlot(result=str)
     def getProxy(self) -> str:

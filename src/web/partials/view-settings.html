@@ -495,13 +495,16 @@
                 </span>
                 <div>
                   <span class="setting-title">Proxy & user agent</span>
-                  <span class="setting-desc">Route provider HTTP traffic through a proxy. Use an <code>http://</code> or <code>https://</code> proxy. SOCKS isn't supported yet.</span>
+                  <span class="setting-desc">Send searches through an <code>http://</code> or <code>https://</code> proxy (SOCKS isn't supported yet). No proxy? <em>Find a free proxy</em> tries public lists from GitHub. Free proxies are slow, can see which sites you search, and stop working after a while.</span>
                 </div>
               </div>
               <div class="advanced-row" style="flex-direction:column;align-items:stretch;width:100%;">
                 <input type="text" id="proxyUrl" class="text-input" placeholder="http://user:pass@host:port" />
                 <input type="text" id="proxyUa" class="text-input" placeholder="Custom user-agent (optional)" />
-                <button class="btn btn-primary" id="proxySaveBtn" style="align-self:flex-start;">Save proxy settings</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-primary" id="proxySaveBtn">Save proxy settings</button>
+                  <button class="btn btn-ghost" id="proxyFindBtn">Find a free proxy</button>
+                </div>
               </div>
             </div>
 

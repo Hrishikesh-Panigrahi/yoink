@@ -157,6 +157,7 @@ def build_exe(with_player: bool = True) -> None:
         "--hidden-import=torrents.dto",
         "--hidden-import=torrents.streaming",
         "--hidden-import=feeds",
+        "--hidden-import=free_proxies",
         "--hidden-import=player",
         "--hidden-import=player.runtime",
         "--hidden-import=player.backend",

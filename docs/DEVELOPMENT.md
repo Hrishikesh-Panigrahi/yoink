@@ -100,6 +100,7 @@ src/
   db.py                  SQLite helpers (init_db, get/set_setting, ...)
   models.py              database tables (Setting, SavedTorrent)
   feeds.py               RSS feed settings, what's been seen, fetching
+  free_proxies.py        finding a working free proxy from public lists
   version.py             version number and repo URL
 
   bridge/                everything the web page can call in Python, by area

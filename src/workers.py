@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+import free_proxies
 import torrents
 from providers import health, tmdb
 from search import search as run_search
@@ -104,6 +105,22 @@ class ProviderHealthWorker(QThread):
         except Exception as exc:  # pragma: no cover
             logger.exception(f"Health worker failed: {exc}")
             self.finished.emit({})
+
+
+class FreeProxyWorker(QThread):
+    progress = pyqtSignal(int, int, int)  # tested, total, working
+    finished = pyqtSignal(object)  # free_proxies.find() result, or None
+
+    def run(self) -> None:
+        try:
+            result = free_proxies.find(
+                on_progress=self.progress.emit, should_stop=self.isInterruptionRequested
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.exception(f"Free proxy search failed: {exc}")
+            result = None
+        if not self.isInterruptionRequested():
+            self.finished.emit(result)
 
 
 class DownloadsPollWorker(QThread):

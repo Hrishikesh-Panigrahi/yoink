@@ -27,6 +27,7 @@ from utils import autostart
 from utils.logger import setup_logger
 from workers import (
     DownloadsPollWorker,
+    FreeProxyWorker,
     MetadataEnrichWorker,
     NetworkSpeedWorker,
     ProviderHealthWorker,
@@ -61,6 +62,8 @@ class Bridge(
     requestNotification = pyqtSignal(str, str)
     metadataEnriched = pyqtSignal(str, str)  # query, JSON list of {key, metadata}
     providerHealth = pyqtSignal(str)  # JSON map of provider key -> status dict
+    freeProxyProgress = pyqtSignal(str)  # JSON: tested, total, working
+    freeProxyFound = pyqtSignal(str)  # JSON: proxy, latency, reachesBlocked, tested; {} if none
     clipboardMagnet = pyqtSignal(str)  # magnet URI found on the clipboard
     streamProgress = pyqtSignal(str)  # JSON: phase, message, buffer percentage
 
@@ -77,6 +80,7 @@ class Bridge(
         self._search_worker: Optional[SearchWorker] = None
         self._metadata_worker: Optional[MetadataEnrichWorker] = None
         self._health_worker: Optional[ProviderHealthWorker] = None
+        self._proxy_worker: Optional[FreeProxyWorker] = None
         self._completion_announced: set[str] = set()
         self._player_window = None
         self._stream_worker: Optional[StreamPrepareWorker] = None
@@ -298,6 +302,10 @@ class Bridge(
         if self._metadata_worker is not None and self._metadata_worker.isRunning():
             self._metadata_worker.requestInterruption()
             self._metadata_worker.wait(1000)
+
+        if self._proxy_worker is not None and self._proxy_worker.isRunning():
+            self._proxy_worker.requestInterruption()
+            self._proxy_worker.wait(1000)
 
         # Retired workers may still be running, and some of them use the
         # libtorrent session that is stopped below.

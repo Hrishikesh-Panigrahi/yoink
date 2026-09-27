@@ -91,16 +91,21 @@ do the DNS-over-HTTPS lookups. Only `http://` and `https://` proxies work for
 now; SOCKS would need an extra package. Clear the box and save to go back to a
 direct connection.
 
-If you don't have a proxy, public lists on GitHub such as
-[proxifly/free-proxy-list](https://github.com/proxifly/free-proxy-list),
+If you don't have a proxy, press **Find a free proxy** next to Save. It takes
+the public lists on GitHub
+([proxifly/free-proxy-list](https://github.com/proxifly/free-proxy-list),
 [TheSpeedX/PROXY-List](https://github.com/TheSpeedX/PROXY-List) and
-[monosans/proxy-list](https://github.com/monosans/proxy-list) are refreshed
-every few hours. Expect most of them not to work: in one test only 11 of 400
-answered at all, they took several seconds per search, and they tend to
-disappear within a day. The ones that worked got Nyaa past the block, but
-1337x (on Cloudflare) refuses them. A free proxy can see which sites you
-search but not the pages themselves, since those are HTTPS. A VPN is the more
-reliable option.
+[monosans/proxy-list](https://github.com/monosans/proxy-list)), tries a few
+hundred at once and uses the first one that also gets past the block (it
+checks with Nyaa). That usually takes 10 to 40 seconds. If none get past it
+within 45 seconds, it uses the fastest one that works at all.
+
+Don't expect too much from free proxies. Only a few percent of those lists
+answer, searches through them are slower, and they tend to stop working
+within a day, so you may need to press the button again. 1337x (on
+Cloudflare) refuses them. A free proxy can see which sites you search but not
+the pages themselves, since those are HTTPS. A VPN is the more reliable
+option.
 
 ## Legal note
 

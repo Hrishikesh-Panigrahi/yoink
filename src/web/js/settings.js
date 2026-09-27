@@ -127,6 +127,28 @@ function applySettings(s) {
 export function connectSettingsSignals() {
   bridge.saveFolderChanged.connect(showSaveFolder);
 
+  if (bridge.freeProxyProgress) {
+    bridge.freeProxyProgress.connect((raw) => {
+      const p = JSON.parse(raw || "{}");
+      els.proxyFindBtn.textContent = `Testing ${p.tested} of ${p.total}, ${p.working} working...`;
+    });
+  }
+  if (bridge.freeProxyFound) {
+    bridge.freeProxyFound.connect((raw) => {
+      const found = JSON.parse(raw || "{}");
+      els.proxyFindBtn.disabled = false;
+      els.proxyFindBtn.textContent = "Find a free proxy";
+      if (!found.proxy) {
+        toast("error", "No free proxy answered right now. Try again in a while.");
+        return;
+      }
+      els.proxyUrl.value = found.proxy;
+      toast("success", found.reachesBlocked
+        ? `Using ${found.proxy} (${found.latency}s). It gets past the block.`
+        : `Using ${found.proxy} (${found.latency}s). It works, but blocked sites may still fail.`);
+    });
+  }
+
   bridge.settingsChanged.connect((payload) => {
     try { applySettings(JSON.parse(payload)); } catch (e) {}
   });
@@ -285,6 +307,13 @@ export function bindSettingsEvents() {
         if (error) toast("error", error);
         else toast("success", els.proxyUrl.value ? "Searches now go through the proxy" : "Proxy turned off");
       });
+    });
+  }
+  if (els.proxyFindBtn) {
+    els.proxyFindBtn.addEventListener("click", () => {
+      els.proxyFindBtn.disabled = true;
+      els.proxyFindBtn.textContent = "Getting proxy lists...";
+      bridge.findFreeProxy();
     });
   }
   if (els.scheduleSaveBtn) {

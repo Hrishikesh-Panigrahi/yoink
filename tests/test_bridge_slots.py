@@ -33,6 +33,8 @@ SIGNAL_NAMES = (
     "requestNotification",
     "metadataEnriched",
     "providerHealth",
+    "freeProxyProgress",
+    "freeProxyFound",
     "clipboardMagnet",
 )
 
@@ -129,6 +131,7 @@ def bridge(lt_session, monkeypatch, tmp_path):
     obj._search_worker = None
     obj._metadata_worker = None
     obj._health_worker = None
+    obj._proxy_worker = None
     obj._completion_announced = set()
     obj._player_window = None
     obj._stream_worker = None
@@ -983,3 +986,20 @@ def test_shutdown_continues_past_a_failing_worker(bridge, monkeypatch):
     bridge.shutdown()
 
     assert bridge.network_worker.stops == 1
+
+
+def test_a_found_free_proxy_is_saved_and_applied(bridge, recorder, no_proxy_left_behind):
+    from utils import proxy
+
+    bridge._on_free_proxy({"proxy": "http://203.0.113.7:8080", "latency": 1.2, "reachesBlocked": True, "tested": 40})
+
+    assert json.loads(bridge.getProxy())["proxyUrl"] == "http://203.0.113.7:8080"
+    assert proxy.active() == "http://203.0.113.7:8080"
+    assert json.loads(recorder.last("freeProxyFound")[1])["reachesBlocked"] is True
+
+
+def test_no_free_proxy_reports_an_empty_result(bridge, recorder, no_proxy_left_behind):
+    bridge._on_free_proxy(None)
+
+    assert recorder.last("freeProxyFound") == ("freeProxyFound", "{}")
+    assert json.loads(bridge.getProxy())["proxyUrl"] == ""

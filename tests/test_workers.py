@@ -756,3 +756,22 @@ def test_swarm_reads_zeroes_for_a_missing_handle(monkeypatch):
     worker = stream_worker(monkeypatch, {})
 
     assert worker._swarm() == (0, 0, 0.0)
+
+
+# FreeProxyWorker
+
+
+def test_free_proxy_worker_reports_progress_and_the_result(monkeypatch):
+    def fake_find(on_progress, should_stop):
+        on_progress(10, 400, 1)
+        return {"proxy": "http://203.0.113.7:8080"}
+
+    monkeypatch.setattr(workers.free_proxies, "find", fake_find)
+    worker = workers.FreeProxyWorker()
+    progress = collect(worker.progress)
+    finished = collect(worker.finished)
+
+    worker.run()
+
+    assert progress == [(10, 400, 1)]
+    assert finished == [{"proxy": "http://203.0.113.7:8080"}]

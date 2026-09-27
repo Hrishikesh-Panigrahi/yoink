@@ -65,7 +65,8 @@ seed at the same time, and set a seed ratio after which a torrent pauses.
 - Optional launch at login.
 - A command palette and keyboard shortcuts.
 - Export and import your settings.
-- An HTTP or HTTPS proxy for searches, with an optional custom user agent (see the
+- An HTTP or HTTPS proxy for searches, with an optional custom user agent, and a
+  button that finds a working free one for you (see the
   [README](../README.md#using-a-proxy)).
 - Settings are kept in a SQLite file in `%LOCALAPPDATA%\Yoink\`. There's no
   account and no telemetry.
