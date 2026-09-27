@@ -1,8 +1,8 @@
 """Tests for `src/player/`.
 
-No libvlc is installed on a CI runner, and that is the interesting case: the
-whole point of `player.runtime` is that a missing runtime produces a reason
-rather than an exception at import time. Discovery is driven against temporary
+Most machines running the suite have no libvlc, and that is the interesting
+case: the whole point of `player.runtime` is that a missing runtime produces a
+reason rather than an exception at import time. Discovery is driven against temporary
 directories shaped like a real VLC install, so it is tested without one.
 
 Actual video decoding is not covered here — that needs a real library, a real

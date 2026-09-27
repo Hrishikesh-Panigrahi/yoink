@@ -63,8 +63,8 @@ def vlc_bundle_args(sep: str, required: bool) -> list[str]:
         )
         if required:
             raise SystemExit(f"build: {message}\n  Pass --no-player to build without it.")
-        # ASCII only: this is piped in CI, where Windows falls back to cp1252
-        # and a non-ASCII print raises UnicodeEncodeError mid-build.
+        # ASCII only: when output is piped, Windows falls back to cp1252 and a
+        # non-ASCII print raises UnicodeEncodeError mid-build.
         print(f"build: WARNING - {message}")
         return []
 

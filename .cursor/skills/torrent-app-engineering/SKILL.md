@@ -20,7 +20,7 @@ Yoink is a PyQt6 shell hosting a `QWebEngineView`: the UI is HTML/CSS/JS in `src
    - `utils/` — stateless helpers
 
    Most bugs and features live cleanly in one layer. If a change seems to span three, that's a signal the abstraction is wrong, not that the task is big.
-3. Set up the environment: Windows, `.venv`, `pip install -r requirements-dev.txt`, `PYTHONPATH=$PWD;$PWD/src`.
+3. Set up the environment: Windows, `.venv`, `pip install -r requirements.txt`, `PYTHONPATH=$PWD;$PWD/src`.
 4. Never touch the real library at `%LOCALAPPDATA%\Yoink\yoink.db` during dev work. Set `TORRENT_DB_PATH` to a temp file before launching the app; the test suite already does this in `tests/conftest.py`.
 
 ## Making a change

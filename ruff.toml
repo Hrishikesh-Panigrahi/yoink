@@ -1,4 +1,4 @@
-# Ruff config. Run `make lint` locally; CI runs the same check.
+# Ruff config. Run `make lint` or `python -m ruff check .`.
 #
 # The rule set is deliberately small: the things a reviewer should never have to
 # spend attention on. Style modernisation (UP) and refactor hints (SIM) are left

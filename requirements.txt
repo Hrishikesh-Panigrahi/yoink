@@ -10,3 +10,8 @@ cloudscraper>=1.2.71
 # ctypes binding only — needs a libvlc runtime, bundled by build.py. See
 # src/player/runtime.py for how one is located at startup.
 python-vlc>=3.0.18
+
+# Tests and lint. Not imported by the app, so they stay out of a built exe.
+pytest>=7.4.0
+responses>=0.24.0
+ruff>=0.16.0

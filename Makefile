@@ -26,11 +26,11 @@ export PYTHONPATH := $(ROOT)$(PATHSEP)$(ROOT)/src
 help:
 	@echo Yoink — available targets:
 	@echo   make venv          Create .venv
-	@echo   make install       pip install runtime + dev requirements
+	@echo   make install       pip install -r requirements.txt
 	@echo   make run           Start the desktop app
 	@echo   make run-minimized Start hidden to tray (--minimized)
 	@echo   make test          Run pytest
-	@echo   make lint          Run ruff (same check as CI)
+	@echo   make lint          Run ruff
 	@echo   make lint-fix      Run ruff with --fix
 	@echo   make compose-html  Re-assemble src/web/index.html from partials
 	@echo   make build         PyInstaller exe + Inno Setup installer (Windows)
@@ -42,7 +42,6 @@ venv:
 
 install: venv
 	$(PIP) install -r requirements.txt
-	$(PIP) install -r requirements-dev.txt
 
 run: compose-html
 	$(PYTHON) src/main.py
