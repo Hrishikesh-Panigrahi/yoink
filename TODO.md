@@ -1,169 +1,17 @@
 # TODO
 
 Known work, roughly in the order it matters. Nothing here is in progress.
-
-## Before the site is public
-
-- [ ] **Turn on GitHub Pages.** Settings → Pages, source *Deploy from a branch*,
-      branch `main`, folder `/docs`. The page is written and committed. Skip
-      this if it is already switched on.
-
-      The stable `Yoink-Setup.exe` alias does now exist: `v2.0.1` was tagged
-      after the workflow step that creates it, so the download button's no-JS
-      fallback resolves.
-- [x] **Broke the update loop.** `v2.0.1` was tagged without bumping
-      `src/version.py`, so the workflow built `Yoink-Setup-2.0.0.exe` and
-      published it as the `v2.0.1` release. The updater compares the newest tag
-      against `__version__`, so an installed copy reported 2.0.0, was offered
-      2.0.1, installed it, still reported 2.0.0, and was offered it again.
-      Fixed by bumping to `2.0.2` and tagging that.
-
-      Worth remembering: **bump `src/version.py` in the same commit you tag.**
-      Tagging without it publishes a release whose binary disagrees with the
-      tag, and the updater has no way to tell.
-- [x] **Fixed the release version parsing.** `v2.1.0` published as
-      `Yoink-Setup-__version__.exe`, with `__version__` registered as the
-      installer's version in Add/Remove Programs. The workflow's
-      `Select-String -Pattern "__version__"` matched the module docstring as
-      well as the assignment — `src/version.py` mentions the name in its own
-      docs — so splitting on `=` across both matches picked the *name* out of
-      the second line instead of the value.
-
-      `build.py --print-version` is now the only parser, CI calls it, and it
-      fails the build if the answer is not a version. Covered by
-      `tests/test_build_version.py`, including the exact docstring shape that
-      broke it. `v2.1.1` is the corrected release.
-
-      The lesson generalises: anything CI parses out of a source file wants a
-      test, because the failure only shows up in a published artifact.
-
-## Distribution
-
-- [ ] **Code signing.** Yoink is unsigned, so SmartScreen warns on first run.
-      The download page explains this rather than hiding it, which is the right
-      short-term answer, but a certificate would remove the friction entirely.
-      When one is available, sign before the workflow's "Add stable-named
-      installer alias" step, or the alias becomes a copy of the unsigned build,
-      and regenerate `SHA256SUMS.txt` afterwards.
-- [ ] **Android.** Nothing in this repo builds an APK. This is a second product
-      rather than another build target: PyQt6 does not run on Android and
-      Buildozer only covers Kivy, so it means a Kotlin UI over `libtorrent4j`,
-      or Flutter with a native torrent layer. None of the Python carries over
-      except the search and ranking logic, which would have to be reimplemented
-      from `src/search/`. Play Store allows torrent clients but scrutinises
-      them, so plan for a sideloaded APK or F-Droid. The landing page already
-      shows an Android button automatically once a release contains a `.apk`,
-      so no site work is needed when one appears.
-- [ ] **Real screenshots.** The landing page uses a hand-written mock of the
-      interface, labelled as a mock. Actual screenshots of the running app
-      would be more convincing and more honest.
-
-## Features
-
-- [x] **Play video in the app.** A **Play** button on any download whose
-      torrent holds a video opens it in an in-app window while it is still
-      downloading. All three pieces are in:
-
-      - **Piece ordering.** `src/torrents/streaming.py` sets libtorrent's
-        `sequential_download` flag and deadlines the head *and* the tail. The
-        tail matters because MP4 keeps `moov` at the end unless written for
-        streaming and Matroska keeps its cues there, so a player that cannot
-        see the tail reports an unknown duration and refuses to seek.
-      - **The player.** libVLC through `python-vlc`, in `src/player/`.
-      - **The control.** `.dl-play` on the download row, shown only when a
-        runtime exists and `getPlayableFile` finds a video.
-
-      **The codec decision was libVLC**, and the cost was accepted knowingly:
-      roughly 40-50 MB of plugin tree in the installer, and the build is no
-      longer one self-contained exe in the strict sense. QtMultimedia was
-      rejected because Media Foundation is patchy on exactly the MKV, HEVC and
-      AC3 mix torrents ship — a player that fails on half the library is worse
-      than no player.
-
-      `python-vlc` is only a ctypes binding, and `import vlc` *raises* when no
-      runtime is present, so it is never imported at module scope. Everything
-      goes through `player.runtime.load_vlc()`, which returns a reason instead.
-      Discovery order: `YOINK_VLC_DIR`, the copy bundled beside a frozen build,
-      a portable copy under `%LOCALAPPDATA%\Yoink\vlc`, then an installed VLC
-      via registry and Program Files. With none of them the app runs normally
-      and the button stays hidden. `build.py` fails rather than shipping a dead
-      button; `--no-player` opts out.
-
-      Verified against real libvlc 3.0.23: runtime discovery, H.264 decode and
-      rendering into the Qt surface, the audio clock, playing a file that grows
-      underneath the player, and closing the window mid-stream without hanging.
-
-      Three things that verification caught, all fixed:
-
-      - Setting `VLC_PLUGIN_PATH` and calling `add_dll_directory` is *not*
-        enough. python-vlc's own loader reads `PYTHON_VLC_LIB_PATH` and
-        `PYTHON_VLC_MODULE_PATH`, and without them falls back to
-        `CDLL(".\\libvlc.dll")` — a relative path resolved against the working
-        directory, so it looked for the library in the repo root.
-      - python-vlc calls `sys.exit(1)` instead of raising when the library will
-        not load. `SystemExit` is a `BaseException`, so the `except Exception`
-        guard would have let it through and killed the app.
-      - `vlc.MediaOpenCb` and friends are exported as bare `c_void_p`
-        subclasses; the real CFUNCTYPE prototypes live in a scope python-vlc
-        never exports, so `vlc.MediaOpenCb(fn)` raises "cannot be converted to
-        pointer". `player/source.py` declares the prototypes itself and casts.
-
-      Since verified end to end against a real two-peer swarm on localhost: a
-      torrent added, the head buffered, the window opened by itself, and libvlc
-      reported `Playing` at 105/5065 ms with a real rendered frame. Still
-      unverified: HEVC and AC3 specifically.
-
-      One thing that verification changed. "Buffering 0%" with no further
-      explanation was indistinguishable from a dead swarm, and the worker waited
-      ten minutes before saying anything — which reads exactly like a broken
-      player, and was reported as one. It now names the hold-up ("Looking for
-      peers...", "connected to 2, waiting for data", "Buffering 40% at 250
-      KB/s") and gives up after 45 seconds without progress with the seed and
-      peer counts in the message.
-
-- [x] **Play straight from a search result.** The download-row Play button
-      needed a torrent already in the session; a search result is only a magnet.
-      `StreamPrepareWorker` closes the gap by waiting on the three things that
-      have to happen first — the file list arriving over DHT, the switch to
-      sequential order, and the head actually reaching disk, since libtorrent
-      only creates the file when it first writes — then opening the window
-      itself. It reports which of the three it is on, so the control says
-      "Buffering 40%" rather than spinning.
-
-      It does not wait for the tail as well. That would stall on a slow swarm,
-      and the tail keeps arriving on its own deadline.
+Finished items are removed rather than ticked; git history has them.
 
 ## Search back end
 
 Public torrent sites change domains, markup and bot protection constantly,
-which is why the long-tail providers behind `ProviderMode.MULTI` are flaky and
+which is why the vendored providers behind `ProviderMode.MULTI` are flaky and
 why the health check exists at all.
 
-- [x] **DNS-over-HTTPS.** Some networks answer DNS for torrent indexes with a
-      sinkhole rather than the real address. Measured on one connection,
-      `yts.mx`, `1337x.to`, `torrentgalaxy.to`, `thepiratebay.org` and
-      `magnetdl.com` all resolved to the same unrelated IP, so every probe timed
-      out. `src/utils/resolver.py` resolves through Cloudflare and Google over
-      HTTPS instead, and reachable providers went from **2 to 11**.
-
-      It patches `socket.getaddrinfo`, not the HTTP layer. Rewriting URLs to raw
-      IPs is the obvious first idea and it is wrong: it breaks SNI, the Host
-      header and certificate validation all at once. Replacing only the
-      name-to-address step leaves all three intact and covers `requests`,
-      `urllib` and `aiohttp` without any of them knowing. On by default,
-      toggleable in Settings.
-
-- [x] **Dropped YTS from the defaults.** `yts.mx` publishes no A record at all
-      any more — not blocked, gone — and left on it cost every search two
-      10-second connect timeouts before any results appeared.
-
-- [x] **Fixed the default vendor provider keys.** They read `"nyaaSi"` and
-      `"magnet_dl"`, which match nothing `site_configs()` returns, so Nyaa was
-      never enabled by default despite the intent. Now `nyaasi`, and it is on.
-
 - [ ] **The vendored scrapers return nothing.** This is the real remaining gap
-      and DNS does not touch it. With DoH on, all four sampled sites connect and
-      all four return zero rows:
+      and DNS-over-HTTPS does not touch it. With DoH on, all four sampled sites
+      connect and all four return zero rows:
 
       - `1337x.to` resets the connection mid-handshake. DNS is correct by then,
         so this is blocking on the TLS SNI, which nothing inside the process can
@@ -172,8 +20,12 @@ why the health check exists at all.
         results, so there is nothing to parse.
 
       `cloudscraper` is already a dependency but only `src/vendor/`'s
-      `magnet_dl` uses it. Wiring it into the other adapters is the cheap
-      experiment; fixing it properly is the Torznab item below.
+      `magnet_dl` uses it. Wiring it into the other adapters is the cheapest
+      experiment with the largest possible payoff; fixing it properly is one of
+      the two items below.
+- [ ] **Say when every provider failed.** A search where all providers error
+      looks identical to one that genuinely has no matches. The health data is
+      already collected; surface it on the empty state.
 
 Two durable ways out, neither started:
 
@@ -187,58 +39,9 @@ Two durable ways out, neither started:
       crawls the DHT directly and exposes GraphQL, so there is no scraping at
       all. Same daemon problem.
 
-Older notes on both live in `todo.txt`, which this file supersedes.
-
 ## Known bugs, found but not fixed
 
-These were all reproduced during the player work and left alone deliberately,
-either because the fix was out of scope for that change or because it needs a
-decision. Ordered by how much damage each can do.
-
-- [x] **An exception in any slot killed the app silently.** This turned out to
-      be what "the interpreter exits with no output" actually was, and it was
-      never specific to search. Every JS call, timer and signal handler runs
-      inside `app.exec()`, so an exception escaping one of them does not
-      propagate out to the `try` in `__main__`. PyQt hands it to
-      `sys.excepthook` and then aborts the process, and the default hook prints
-      *nothing at all* here: no traceback, no log line, exit code 127. A
-      one-line typo in a slot was indistinguishable from a hard crash in
-      whatever was on screen.
-
-      `main._install_exception_logger()` replaces the hook, which both records
-      the traceback and prevents the abort — PyQt only calls `qFatal` while the
-      hook is still `sys.__excepthook__`. Verified against a real event loop: a
-      slot that raises now logs a full traceback and the app carries on.
-      `KeyboardInterrupt` still goes to the default hook so Ctrl-C keeps
-      quitting. Covered by `tests/test_main.py`, which is also the first
-      coverage `main.py` has had.
-
-- [x] **Two overlapping searches leaked a running `QThread`.**
-      `SearchMixin.search` overwrote `self._search_worker` while the previous
-      one was still running, dropping the last Python reference to a live
-      thread. `Bridge._retire_worker` now interrupts the superseded worker and
-      holds it in a list pruned on `isRunning()`, joining each one with
-      `wait()` before its reference goes; `shutdown` drains the list.
-      `_kick_metadata_enrich` and `_start_stream_prepare` had the same shape and
-      use the same helper. `SearchWorker.run` checks
-      `isInterruptionRequested()` before emitting, so a superseded search no
-      longer overwrites the newer query's results or toasts an error over them
-      — until now `requestInterruption` was called but did nothing at all.
-
-      One correction to the original note: PyQt 6.11 keeps a reference to a
-      running `QThread` of its own, so dropping the last Python one does not by
-      itself abort the process — twelve overlapping searches survived it. The
-      leak was real and the fix stands, but the crash it was blamed for was the
-      missing excepthook above.
-
-- [x] **`pytest` without `TORRENT_DB_PATH` wrote to the real library.**
-      `tests/conftest.py` now points it at a temp file at *import* time rather
-      than from a fixture, so it is set before any test module is imported, and
-      an autouse fixture fails the test if the variable has drifted back onto
-      `%LOCALAPPDATA%\Yoink\yoink.db` — which is what a module restoring a
-      variable that was never set used to do to whichever module ran next.
-      Verified by running the full suite with the variable unset: the real
-      database's mtime does not move.
+Ordered by how much damage each can do.
 
 - [ ] **Remove is one stray click from destroying a torrent.** The kebab's
       *Remove* fires immediately, and *Cancel* arms on the first click and
@@ -264,50 +67,15 @@ decision. Ordered by how much damage each can do.
       Correct given the design, but a poor experience. Re-issuing
       `set_piece_deadline` around the seek target would make it work properly.
 
-## Worth doing next
-
-- [ ] **Wire `cloudscraper` into the remaining adapters.** It is already a
-      dependency and only `src/vendor/`'s `magnet_dl` uses it. `nyaa.si` answers
-      with a DDoS-Guard interstitial that a plain `requests` call cannot get
-      past, so most of the vendored providers return zero rows even when the
-      network is fine. Cheapest experiment with the largest possible payoff.
-
-- [ ] **Say when every provider failed.** A search where all providers error
-      looks identical to one that genuinely has no matches. The health data is
-      already collected; surface it on the empty state.
+## Player
 
 - [ ] **Player polish.** No fullscreen, no keyboard shortcuts, and the volume
       resets to 80 every time. The window is deliberately minimal, but those
       three are what makes it feel unfinished.
-
 - [ ] **Verify HEVC and AC3.** They are the reason libVLC was chosen over
       QtMultimedia and neither has actually been played. H.264 with MP3 audio is
       confirmed working end to end against a real local swarm.
 
 ## Housekeeping
 
-- [x] **Added a linter.** `ruff.toml` selects pycodestyle, pyflakes, import
-      order, bugbear and comprehension rules at 100 columns, with `src/vendor/`
-      excluded because that tree is vendored. CI runs it as its own Linux job —
-      ruff is pure Python, so it does not need a Windows runner or the PyQt6 and
-      libtorrent wheels — which keeps lint and test failures as separate signals.
-      `make lint` runs the same check locally.
-
-      Style modernisation (`UP`) and refactor hints (`SIM`) are deliberately
-      off. Turning them on adds ~150 findings, nearly all mechanical rewrites of
-      `Optional[X]` and `List[X]`; that is a rename pass, not a lint gate, and
-      it should be its own commit if anyone wants it.
-- [x] **Covered the bridge slots and the workers.** `tests/test_bridge_slots.py`
-      and `tests/test_workers.py` add 89 tests, taking the suite from 60 to 149.
-
-      Both avoid Qt machinery rather than mocking it. The bridge tests build the
-      object with `__new__` plus a hand-run `QObject.__init__`, so no libtorrent
-      session or worker threads start, then attach one shared real session and
-      fake workers — every slot under test is the real implementation, and
-      signals still deliver because PyQt does direct connections without a
-      running `QApplication`. The worker tests call `run()` on the test thread
-      instead of `start()`, so emissions arrive synchronously; the polling
-      workers are stopped from inside their own signal handler to bound the
-      loop to one pass.
-
-      Still uncovered: `main.py`, `main_window.py`, and the `src/web/` JS.
+- [ ] **Test coverage.** `main_window.py` and the `src/web/` JS have no tests.

@@ -1,17 +1,20 @@
 ---
-description: PyQt6 UI and UX standards for Yoink
-globs: src/gui/**/*.py
+description: UI and UX standards for Yoink's web UI and its Qt shell
+globs: src/web/**,src/main_window.py,src/player/window.py,src/bridge/**/*.py
 alwaysApply: false
 ---
 
-# PyQt UI Standards
+# UI Standards
 
-- Design around user tasks: search, inspect, add, monitor, pause/resume, choose files, set download folder, and remove safely.
+- The UI is HTML/CSS/JS in `src/web/`, rendered by `QWebEngineView`. Qt widgets are only the shell (`main_window.py`: window, tray) and the video window (`player/window.py`).
+- `src/web/index.html` is generated. Edit `src/web/index.template.html` or a file in `src/web/partials/`, then run `python build.py --compose-html`. Never hand-edit `index.html`.
+- All UI logic lives in `src/web/js/main.js`, one closure. `bridge`, `state` and `els` are closed over, not global.
+- JS talks to Python only through the `bridge` object. Slots live in `src/bridge/*_slots.py`, take and return simple values (JSON strings for anything structured), and push async results back as signals. Never construct a second `QWebChannel`: it steals the transport and signals stop arriving.
+- Design around user tasks: search, inspect, add, monitor, pause/resume, choose files, play while downloading, set download folder, and remove safely.
 - Keep the main window calm: clear primary actions, visible download status, useful empty states, and no noisy controls before the user needs them.
-- Use progressive disclosure. Put advanced torrent details, file priorities, peers, trackers, and logs behind details panels or tabs.
-- Never freeze the UI. Use `QThread`, signals, timers, or async workers for search, metadata loading, network checks, and filesystem work.
+- Use progressive disclosure. Put advanced torrent details, file priorities, peers and trackers behind details panels or modals.
+- Never freeze the UI. A slot that does network, filesystem or libtorrent metadata work hands it to a `QThread` worker in `workers.py` and returns immediately.
 - Every destructive action needs a clear confirmation that states whether downloaded files will be deleted.
 - Surface errors in user language first, with technical detail available in logs.
-- Keep UI state explicit: selected torrent, active search, current filter, default save path, and network status should be easy to reason about.
-- Prefer reusable small widgets/components over one giant `MainWindow` method.
-- Test UI behavior through focused methods where possible; avoid tests that require the real database or network.
+- Styles live in `src/web/css/`, imported by `styles.css` in order, with theme tokens in `tokens.css`. Scope new rules to their view so a later file cannot override them by import order.
+- After touching layout or CSS, run the run-app skill's `scripts/audit_layout.js` against each view and modal.

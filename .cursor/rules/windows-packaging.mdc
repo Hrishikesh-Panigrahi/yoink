@@ -1,16 +1,17 @@
 ---
-description: Windows packaging rules for the Yoink desktop build
-globs: build.py,setup.py,requirements*.txt,*.spec,src/resources/**
+description: Windows packaging rules for building Yoink yourself
+globs: build.py,installer/**,requirements*.txt,*.spec,src/resources/**
 alwaysApply: false
 ---
 
 # Windows Packaging
 
-- Prefer Python 3.11 for Windows builds unless `libtorrent` wheels are verified for a newer Python.
-- Build from a clean virtual environment and pin or record dependency versions when producing a release.
-- Include Qt plugins, app icons, and `src/resources` explicitly in PyInstaller configuration.
-- Keep runtime data outside the executable folder: database, logs, and downloads should live in user-writable locations.
+- Yoink has no published releases. `python build.py` is how anyone gets an exe: it composes `src/web/index.html`, runs PyInstaller `--onefile` into `dist/Yoink.exe`, then builds `dist/Yoink-Setup-<version>.exe` from `installer/yoink.iss` if Inno Setup's `ISCC` is available.
+- The version comes from `src/version.py`, read by `build._read_version()`, which matches only a line that *starts* with `__version__` because the docstring mentions it too.
+- Bundle `src/web`, `src/resources` and `src/vendor` as data, and a libvlc runtime (`libvlc.dll` plus `plugins/`) unless `--no-player` is passed. The build must fail rather than ship a player that cannot run.
+- List first-party packages as hidden imports explicitly rather than relying on PyInstaller's detection.
+- Keep runtime data outside the executable folder: the database, logs and fast-resume files live under `%LOCALAPPDATA%\Yoink\`, and downloads in a user-chosen folder.
 - Do not package test databases, logs, virtual environments, or downloaded content.
+- The installer is per-user (`PrivilegesRequired=lowest`) and x64 only. Keep file associations under `HKCU\Software\Classes` and remove them on uninstall; never delete downloads or the data folder on uninstall.
+- Builds are unsigned, so SmartScreen warns on first run. Say so plainly in user-facing docs.
 - Validate a packaged build on a clean Windows user profile, not only from the development checkout.
-- For a user-facing installer, prefer a signed installer such as Inno Setup or WiX after PyInstaller produces the app folder/exe.
-- Document Windows Defender/SmartScreen expectations if the app is unsigned.

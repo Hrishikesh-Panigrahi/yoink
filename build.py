@@ -107,9 +107,7 @@ def _read_version() -> str:
     Anchored to the start of the line on purpose. The module docstring also
     mentions ``__version__``, and a looser match picks that line up too - which
     is exactly how the v2.1.0 installer shipped as `Yoink-Setup-__version__.exe`
-    with `__version__` registered as its version in Add/Remove Programs. Callers
-    that need this from a shell should use `--print-version` rather than
-    re-implementing it.
+    with `__version__` registered as its version in Add/Remove Programs.
     """
     text = (SRC / "version.py").read_text(encoding="utf-8")
     for line in text.splitlines():
@@ -176,7 +174,6 @@ def build_exe(with_player: bool = True) -> None:
         "--hidden-import=torrents.dto",
         "--hidden-import=torrents.streaming",
         "--hidden-import=feeds",
-        "--hidden-import=bridge",
         "--hidden-import=player",
         "--hidden-import=player.runtime",
         "--hidden-import=player.backend",
@@ -199,13 +196,11 @@ def build_exe(with_player: bool = True) -> None:
         "--hidden-import=utils.magnets",
         "--hidden-import=utils.autostart",
         "--hidden-import=utils.single_instance",
-        "--hidden-import=utils.updater",
         # Third-party
         "--hidden-import=libtorrent",
         "--hidden-import=sqlalchemy",
         "--hidden-import=requests",
         "--hidden-import=bs4",
-        "--hidden-import=PIL",
         "--hidden-import=aiohttp",
         "--hidden-import=vlc",
     ]
@@ -254,16 +249,7 @@ def main() -> None:
         action="store_true",
         help="Build without bundling VLC. The in-app player will not work.",
     )
-    parser.add_argument(
-        "--print-version",
-        action="store_true",
-        help="Print the version from src/version.py and exit (for CI).",
-    )
     args = parser.parse_args()
-
-    if args.print_version:
-        print(VERSION)
-        return
 
     if args.compose_html:
         compose_html()

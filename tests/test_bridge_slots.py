@@ -33,7 +33,6 @@ SIGNAL_NAMES = (
     "requestNotification",
     "metadataEnriched",
     "providerHealth",
-    "updateAvailable",
     "clipboardMagnet",
 )
 
@@ -130,7 +129,6 @@ def bridge(lt_session, monkeypatch, tmp_path):
     obj._search_worker = None
     obj._metadata_worker = None
     obj._health_worker = None
-    obj._update_worker = None
     obj._completion_announced = set()
     obj._player_window = None
     obj._stream_worker = None

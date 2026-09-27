@@ -1,4 +1,4 @@
-"""System-integration slots: folder pickers, OS open, updates, commands, notifications."""
+"""System-integration slots: folder pickers, OS open, commands, notifications."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ import torrents
 from utils.logger import setup_logger
 from utils.paths import app_data_dir
 from version import __app_homepage__, __version__
-from workers import UpdateCheckWorker
 
 logger = setup_logger("bridge.system")
 
@@ -138,16 +137,6 @@ class SystemMixin:
         self.watch_worker.update_folder("")
         self.settingsChanged.emit(json.dumps(self._settings_dict()))
 
-    @pyqtSlot()
-    def checkForUpdates(self) -> None:
-        """Async update check; result lands on `updateAvailable`."""
-        if self._update_worker and self._update_worker.isRunning():
-            return
-        worker = UpdateCheckWorker()
-        worker.finished.connect(self._on_update_check)
-        worker.start()
-        self._update_worker = worker
-
     @pyqtSlot(result=str)
     def getAboutInfo(self) -> str:
         """Return version/homepage info shown in the About panel."""
@@ -174,7 +163,6 @@ class SystemMixin:
             {"id": "resumeAll", "label": "Resume all torrents"},
             {"id": "openSaveFolder", "label": "Open downloads folder"},
             {"id": "openDataFolder", "label": "Open data folder (logs / db)"},
-            {"id": "checkForUpdates", "label": "Check for updates"},
             {"id": "pickSaveFolder", "label": "Change downloads folder..."},
             {"id": "refreshProviderHealth", "label": "Refresh provider health"},
         ]
@@ -187,7 +175,6 @@ class SystemMixin:
             "resumeAll": lambda: self.resumeAll(),
             "openSaveFolder": lambda: self.openSaveFolder(""),
             "openDataFolder": lambda: self.openDataFolder(),
-            "checkForUpdates": lambda: self.checkForUpdates(),
             "pickSaveFolder": lambda: self.pickSaveFolder(),
             "refreshProviderHealth": lambda: self.refreshProviderHealth(),
         }

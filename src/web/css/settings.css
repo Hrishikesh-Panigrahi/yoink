@@ -938,8 +938,7 @@
 .view-settings .key-input input { min-width: 280px; }
 
 /* About card metadata lines */
-.view-settings #aboutPlatform,
-.view-settings #aboutUpdateStatus {
+.view-settings #aboutPlatform {
   padding: 0 26px 18px;
   margin: 0;
 }

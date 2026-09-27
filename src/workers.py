@@ -108,21 +108,6 @@ class ProviderHealthWorker(QThread):
             self.finished.emit({})
 
 
-class UpdateCheckWorker(QThread):
-    """Check GitHub Releases for a newer build."""
-
-    finished = pyqtSignal(object)  # update dict or None
-
-    def run(self) -> None:
-        try:
-            from utils.updater import check_for_update
-
-            self.finished.emit(check_for_update())
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.exception(f"Update check worker failed: {exc}")
-            self.finished.emit(None)
-
-
 class DownloadsPollWorker(QThread):
     """Poll the torrent session once per interval and push snapshots."""
 

@@ -4,11 +4,15 @@
 
 Yoink is a desktop torrent client for Windows. The shell is PyQt6, the UI is
 HTML/CSS/JS in a web view wired to Python over `QWebChannel`, and the torrent
-engine is libtorrent. Search hits YTS and The Pirate Bay directly by default,
-with optional multi-site scraping through a vendored copy of
-[Torrent-Api-py](https://github.com/Ryuk-me/Torrent-Api-py).
+engine is libtorrent. Search fans out across the sites enabled in Settings →
+Sources through a vendored copy of
+[Torrent-Api-py](https://github.com/Ryuk-me/Torrent-Api-py), and falls back to
+The Pirate Bay's API when those return nothing.
 
-Public site and downloads: <https://hrishikesh-panigrahi.github.io/yoink/>
+**Yoink is self-hosted.** There are no published downloads: you run it from
+source, or build your own exe and installer on your own machine. Both are
+covered below.
+
 Known outstanding work: [`TODO.md`](TODO.md)
 
 ## Features
@@ -17,8 +21,10 @@ Everything below is implemented and reachable from the UI.
 
 ### Search
 
-- **Two provider modes.** `stable` queries the YTS and Pirate Bay APIs directly
-  and is the default. `multi` fans out across the vendored scrapers.
+- **Two provider modes.** `multi` searches the vendored scrapers you have
+  enabled and is the default ("All my enabled sites"). `stable` queries The
+  Pirate Bay's API directly and is the fastest. YTS can be switched on as a
+  stable source, but is off by default (see [Sources and DNS](#sources-and-dns)).
 - **Filters.** Region (Bollywood, Hollywood, South Indian, Korean, anime),
   category (movies, TV, anime, music, games, apps, books), quality, and sort by
   relevance, seeds, size or newest.
@@ -44,6 +50,8 @@ Everything below is implemented and reachable from the UI.
 - Labels for grouping a library.
 - Fast-resume data is written per torrent, so progress survives a restart.
 - Open the finished file or reveal it in Explorer.
+- Play a video while it is still downloading (see
+  [below](#playing-a-file-while-it-downloads)).
 
 ### Automation
 
@@ -69,13 +77,17 @@ at once, and a seed ratio limit that pauses a torrent once it is reached.
 - Command palette and keyboard shortcuts.
 - Export and import settings.
 - Proxy support (`http`, `https`, `socks5`) with a custom user agent.
-- Update check against GitHub Releases.
 - Settings live in a SQLite file under `%LOCALAPPDATA%\Yoink\`. No account, no
   telemetry.
 
-## Run from source
+## How to run
+
+You need Windows 10 or 11 (x64) and Python 3.10 or newer (CI tests on 3.11). VLC is optional and
+only needed for the in-app player.
 
 ```powershell
+git clone https://github.com/Hrishikesh-Panigrahi/yoink.git
+cd yoink
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements-dev.txt
@@ -83,8 +95,19 @@ $env:PYTHONPATH = "$PWD;$PWD\src"
 python src\main.py
 ```
 
-On macOS/Linux, activate the venv the usual way and use
-`PYTHONPATH=$PWD:$PWD/src`.
+Add `--minimized` to start in the tray with no window. On macOS/Linux, activate
+the venv the usual way and use `PYTHONPATH=$PWD:$PWD/src`.
+
+With GNU Make installed, `make install` then `make run` does the same thing.
+`make help` lists the other targets (`test`, `lint`, `build`, `clean`, ...).
+
+A run from source uses the same library as any other copy on the machine,
+`%LOCALAPPDATA%\Yoink\yoink.db`. To keep a trial run away from it, point
+`TORRENT_DB_PATH` at another file first:
+
+```powershell
+$env:TORRENT_DB_PATH = "$env:TEMP\yoink-dev.db"
+```
 
 `src/web/index.html` is generated from `src/web/index.template.html` and the
 files in `src/web/partials/`. If you edit a partial, regenerate it:
@@ -93,29 +116,75 @@ files in `src/web/partials/`. If you edit a partial, regenerate it:
 python build.py --compose-html
 ```
 
-## Make targets
+### Where Yoink keeps its data
 
-There is a `Makefile` if you prefer it. `make help` lists everything; the useful
-ones are `install`, `run`, `compose-html`, `test`, `lint`, `build` and `clean`.
+Nothing mutable is written next to the code or the executable.
 
-## Run the tests
+| What | Where |
+| --- | --- |
+| Database and settings | `%LOCALAPPDATA%\Yoink\yoink.db` |
+| Logs | `%LOCALAPPDATA%\Yoink\logs\yoink.log` |
+| Fast-resume data | `%LOCALAPPDATA%\Yoink\resume\<infohash>.fastresume` |
+| Downloads | user-chosen folder, defaults to `Downloads` |
+
+`src/utils/paths.py` resolves these, falling back to `%APPDATA%` and then
+`~/AppData/Local` if `%LOCALAPPDATA%` is missing.
+
+## Build your own exe and installer
+
+```powershell
+python build.py
+```
+
+That does three things in order:
+
+1. **Composes the HTML** from the partials, as above.
+2. **Builds `dist/Yoink.exe`** with PyInstaller `--onefile` (installed for you
+   if missing), bundling `src/web/`, `src/resources/`, `src/vendor/` and a VLC
+   runtime. The exe is portable and runs from anywhere.
+3. **Builds `dist/Yoink-Setup-<version>.exe`** with Inno Setup, if `ISCC` is on
+   PATH or in its default install folder. Otherwise the step is skipped and the
+   exe is still usable.
+
+Flags: `--exe-only` skips the installer, and `--no-player` builds without VLC.
+Without that flag the build fails when it can't find a VLC runtime, rather
+than shipping a Play button that does nothing. It looks in `YOINK_VLC_DIR`,
+then `C:\Program Files\VideoLAN\VLC`. The version comes from `src/version.py`.
+
+The installer (`installer/yoink.iss`) is per-user and x64 only, so Windows does
+not ask for an administrator password. It can optionally add a desktop shortcut
+and register `magnet:` links and `.torrent` files, all under
+`HKCU\Software\Classes`. Uninstalling removes the program files and those
+associations, and leaves downloads and the data folder alone.
+
+The build is unsigned, so SmartScreen warns the first time you run it.
+
+## Development
 
 ```powershell
 .venv\Scripts\python.exe -m pytest
+.venv\Scripts\python.exe -m ruff check .
 ```
 
 `tests/conftest.py` puts `src/` on `sys.path`, so tests use the same flat
 imports as the app (`from torrents import ...`, `from search import search`).
+It also points `TORRENT_DB_PATH` at a temp file, so the suite never touches
+your real library.
 
-`.github/workflows/ci.yml` runs the same suite on Windows with Python 3.11 on
-every push. The release workflow runs it too, so a failing test blocks a
-release.
+`ruff.toml` holds the lint config: pycodestyle, pyflakes, import order, bugbear
+and comprehension rules at a 100-column limit, with `src/vendor/` excluded
+because that tree is vendored third-party code. `ruff check . --fix` applies
+the mechanical fixes.
+
+`.github/workflows/ci.yml` runs both on pull requests and on pushes to `main`:
+ruff on Linux, and the test suite on Windows with Python 3.11, as separate jobs.
 
 ## Sources and DNS
 
-Search runs against the stable APIs (The Pirate Bay) plus whichever vendored
-sites are enabled in Settings → Sources. Defaults are The Pirate Bay, 1337x,
-TorrentGalaxy and Nyaa.
+The default search goes to the vendored sites enabled in Settings → Sources,
+which are 1337x, TorrentGalaxy and Nyaa out of the box, and falls back to The
+Pirate Bay if they return nothing. "Stable APIs only" in the source filter
+skips the vendored sites.
 
 YTS is **off** by default: `yts.mx` no longer publishes an A record, and leaving
 it on cost every search two 10-second connect timeouts before any results
@@ -125,8 +194,8 @@ Some networks answer DNS for torrent indexes with a sinkhole address instead of
 the real one, which makes every source look permanently offline. Yoink resolves
 source hostnames over DNS-over-HTTPS (Cloudflare, then Google) rather than
 trusting the local resolver — on one such connection that took reachable
-providers from 2 to 11. Turn it off in Settings → Advanced to use your system
-resolver.
+providers from 2 to 11. Turn it off in Settings → Library & app behavior to use
+your system resolver.
 
 It works by replacing `socket.getaddrinfo` (see
 [`src/utils/resolver.py`](src/utils/resolver.py)), not by rewriting URLs to raw
@@ -145,8 +214,7 @@ magnet, waits for the file list, switches to sequential pieces and buffers the
 head before opening the player — the button reports which of those it is on.
 
 The download-row button behaves the same way once the torrent is already added.
-It
-switches libtorrent to sequential order, deadlines the head *and* the tail of
+It switches libtorrent to sequential order, deadlines the head *and* the tail of
 the file, and opens the file in an in-app window — you do not have to wait for
 the download to finish.
 
@@ -164,13 +232,13 @@ file and waits for the missing bytes. The torrent's final size is handed to VLC
 as the real stream length, so duration and seeking behave from the start.
 
 Playback is libVLC via [`python-vlc`](https://pypi.org/project/python-vlc/).
-That package is only a ctypes binding — it needs an actual VLC runtime, which
-released builds carry inside the exe. Running from source, Yoink looks for one
+That package is only a ctypes binding — it needs an actual VLC runtime, which an
+exe from `build.py` carries inside it. Running from source, Yoink looks for one
 in this order:
 
 1. `YOINK_VLC_DIR`, if you point it at a folder holding `libvlc.dll` and
    `plugins/`.
-2. The copy bundled beside a frozen build.
+2. The copy bundled inside a frozen build.
 3. A portable copy under `%LOCALAPPDATA%\Yoink\vlc` — installing VLC properly
    needs administrator rights, and unzipping VLC's official
    [portable build](https://www.videolan.org/vlc/download-windows.html) here
@@ -178,98 +246,11 @@ in this order:
 4. An installed VLC, via the registry then `C:\Program Files\VideoLAN\VLC`.
 
 With none of those, everything else works and the Play button simply stays
-hidden; `getPlayerStatus` reports why. `build.py` refuses to build without a
-runtime to bundle rather than shipping a dead button — pass `--no-player` if
-that is what you actually want.
+hidden; `getPlayerStatus` reports why.
 
 QtMultimedia was the alternative and was rejected: on Windows it goes through
 Media Foundation, which is patchy on exactly the MKV, HEVC and AC3 combinations
-torrents ship. The cost of libVLC is roughly 40-50 MB of plugins in the
-installer.
-
-## Lint
-
-```powershell
-.venv\Scripts\python.exe -m ruff check .
-```
-
-`ruff.toml` holds the config: pycodestyle, pyflakes, import order, bugbear and
-comprehension rules at a 100-column limit, with `src/vendor/` excluded because
-that tree is vendored third-party code. `ruff check . --fix` applies the
-mechanical fixes. CI runs the same check as its own job, so lint and test
-failures show up as separate signals.
-
-## Package for Windows
-
-```powershell
-python build.py
-```
-
-That composes the HTML, runs PyInstaller with `--onefile` to produce
-`dist/Yoink.exe`, then builds `dist/Yoink-Setup-<version>.exe` with Inno Setup
-if `ISCC` is on PATH. It bundles `src/web/`, `src/resources/`, `src/vendor/` and
-the VLC runtime. Pass `--exe-only` to skip the installer step. See
-[`docs/WINDOWS_DISTRIBUTION.md`](docs/WINDOWS_DISTRIBUTION.md) for the runtime
-data layout, signing notes and the release checklist.
-
-## Download and hosting
-
-Public Windows builds are hosted on
-[GitHub Releases](https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest).
-Pushing a `v*` tag runs `.github/workflows/release.yml`, which publishes four
-assets:
-
-| Asset | Purpose |
-| --- | --- |
-| `Yoink-Setup.exe` | Stable filename. What the landing page links to. |
-| `Yoink-Setup-<version>.exe` | Same installer, version-stamped for archiving. |
-| `Yoink.exe` | Portable single-file build, no installer. |
-| `SHA256SUMS.txt` | Checksums for every binary in the release. |
-
-An Android APK can ride along too. Nothing in this repo builds one, so it has
-to come from elsewhere: either drop it into `dist/` before the release job
-reaches its checksum step, or attach it to the published release by hand. Either
-way it gets picked up, and if it's in `dist/` it lands in `SHA256SUMS.txt` with
-the rest.
-
-The landing page keeps its Android button hidden and only shows it when the
-newest release actually contains a `.apk`, so a Windows-only release doesn't
-leave a dead button on the site. Nothing to edit on the page when you add one.
-
-`Yoink-Setup.exe` is just a copy of the versioned installer. It exists so there
-is one filename that never changes, which lets these URLs work forever:
-
-```
-https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink-Setup.exe
-https://github.com/Hrishikesh-Panigrahi/yoink/releases/latest/download/Yoink.exe
-```
-
-They redirect to the newest release, and GitHub sends them with
-`Content-Disposition: attachment`, so clicking one downloads the file rather
-than opening a page. Don't put the version-stamped name in any public link. It
-breaks the next time you tag.
-
-### Landing page
-
-The site is one file, [`docs/index.html`](docs/index.html). No build step, no
-dependencies. To host it:
-
-1. **Settings → Pages**, source **Deploy from a branch**.
-2. Branch `main`, folder `/docs`. Save.
-3. It goes live at `https://hrishikesh-panigrahi.github.io/yoink/`.
-
-The download buttons use the static URLs above, so they work without
-JavaScript. On load a script hits the Releases API to fill in the version,
-file size and date, and repoints the buttons at the exact assets. If that call
-fails or gets rate-limited nothing breaks; the static links still work.
-
-Note that **the download only works once you have a tagged release**, since
-`Yoink-Setup.exe` doesn't exist until the workflow builds it. Bump
-`src/version.py` and push a tag:
-
-```bash
-git tag v2.0.1 && git push origin v2.0.1
-```
+torrents ship. The cost of libVLC is roughly 40-50 MB of plugins in the build.
 
 ## Legal note
 
@@ -281,29 +262,37 @@ region.
 
 ```
 src/
-  main.py                entrypoint
+  main.py                entrypoint, exception logging
   main_window.py         QMainWindow, system tray, web view host
   workers.py             QThread workers behind the bridge's async signals
   db.py                  SQLite helpers (init_db, get/set_setting, ...)
   models.py              SQLAlchemy ORM (Setting, SavedTorrent)
-  version.py             __version__, app name, repo and release API URLs
+  version.py             __version__ and the repo URL
 
   bridge/                JS <-> Python RPC surface, split by area
     core.py              Bridge(QObject), signals, worker wiring
     search_slots.py      search, provider health, history
     torrents_slots.py    add/pause/resume/remove, per-file priorities, labels
+    player_slots.py      player status, play a download or a magnet in app
     settings_slots.py    settings, proxy, schedule, import/export
-    system_slots.py      folders, notifications, updates, command palette
+    system_slots.py      folders, notifications, about info, command palette
     feeds_slots.py       RSS subscriptions
 
   torrents/              libtorrent layer (functions, one small Session class)
     session.py           create_session / stop_session / set_save_path
     actions.py           add_magnet / add_torrent_file / pause / resume / remove
     state.py             list_torrents -> TorrentSnapshot DTOs
+    streaming.py         sequential order and head/tail deadlines for playback
     persistence.py       restore torrents on startup
     resume.py            fast-resume file read/write
     watch.py             watch-folder discovery
     dto.py               TorrentSnapshot, NetworkStats
+
+  player/                in-app video playback over libvlc
+    runtime.py           find a VLC runtime, import vlc safely
+    source.py            feed libvlc from a file that is still growing
+    backend.py           thin MediaPlayer wrapper
+    window.py            the player window and its controls
 
   search/                search orchestrator (function `search()`)
     enums.py             ProviderMode, Region, Category, Quality, SortBy
@@ -325,11 +314,12 @@ src/
     paths.py             normalize_path, user-writable app data dirs
     magnets.py           build_magnet
     logger.py            setup_logger
+    resolver.py          DNS-over-HTTPS for provider hostnames
     autostart.py         launch at login
     single_instance.py   single-instance guard and CLI handoff
-    updater.py           GitHub Releases update check
 
-  web/                   HTML/CSS/JS for the embedded UI, built from partials/
+  web/                   the embedded UI: js/main.js, css/, and partials/ that
+                         build.py composes into index.html
   resources/             app icon and its generator
   vendor/torrent_api_py/ upstream scrapers, untouched
 ```

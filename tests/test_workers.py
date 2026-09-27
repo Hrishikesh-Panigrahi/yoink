@@ -240,36 +240,6 @@ def test_health_worker_emits_an_empty_map_on_failure(monkeypatch):
     assert received == [{}]
 
 
-# ----- UpdateCheckWorker --------------------------------------------------
-
-
-def test_update_worker_forwards_the_payload(monkeypatch):
-    from utils import updater
-
-    monkeypatch.setattr(updater, "check_for_update", lambda: {"latest": "9.9.9"})
-    worker = workers.UpdateCheckWorker()
-    received = collect(worker.finished)
-
-    worker.run()
-
-    assert received == [{"latest": "9.9.9"}]
-
-
-def test_update_worker_emits_none_on_failure(monkeypatch):
-    from utils import updater
-
-    def explode():
-        raise RuntimeError("github down")
-
-    monkeypatch.setattr(updater, "check_for_update", explode)
-    worker = workers.UpdateCheckWorker()
-    received = collect(worker.finished)
-
-    worker.run()
-
-    assert received == [None]
-
-
 # ----- DownloadsPollWorker ------------------------------------------------
 
 

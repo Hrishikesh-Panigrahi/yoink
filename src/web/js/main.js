@@ -1,18 +1,9 @@
 /* Yoink - Frontend entry module.
  *
  * Loaded as a native ES module (`<script type="module">`). All UI wiring,
- * search/downloads rendering, theming and modals currently live in this
- * file as a single closure (`App`). Domain-specific sibling modules under
- * `src/web/js/` (theme.js, util.js, search.js, downloads.js, ...) act as
- * documented landing zones for future incremental extraction; main.js is
- * deliberately the only module that owns runtime side-effects today so the
- * QWebChannel boot path stays predictable.
+ * search/downloads rendering, theming and modals live in this file as a
+ * single closure (`App`), which keeps the QWebChannel boot path predictable.
  */
-
-import "./bridge.js";
-import "./theme.js";
-import "./util.js";
-import "./toasts.js";
 
 const App = (() => {
   let bridge = null;
@@ -73,7 +64,6 @@ const App = (() => {
     els.sortFilter = $("#sortFilter");
     els.sourceFilter = $("#sourceFilter");
     els.resetFiltersBtn = $("#resetFiltersBtn");
-    els.resultsBody = $("#resultsBody");
     els.searchEmpty = $("#searchEmpty");
     els.searchLoader = $("#searchLoader");
     els.searchLoaderText = $("#searchLoaderText");
@@ -124,8 +114,6 @@ const App = (() => {
     els.sidebarVersion = $("#sidebarVersion");
     els.aboutHomepage = $("#aboutHomepage");
     els.aboutPlatform = $("#aboutPlatform");
-    els.aboutUpdateStatus = $("#aboutUpdateStatus");
-    els.checkUpdatesBtn = $("#checkUpdatesBtn");
     els.settingsNavItems = $$(".settings-nav-item");
     els.changeFolderBtn = $("#changeFolderBtn");
     els.addTorrentBtn = $("#addTorrentBtn");
@@ -1989,39 +1977,6 @@ const App = (() => {
       });
     }
 
-    if (bridge.updateAvailable) {
-      bridge.updateAvailable.connect((payloadStr) => {
-        let info = {};
-        try { info = JSON.parse(payloadStr || "{}"); } catch (e) {}
-        if (info && info.latest) {
-          const message = `Update available: ${info.latest} (you have ${info.current})`;
-          if (els.aboutUpdateStatus) {
-            const checksumLink = info.checksumUrl
-              ? ` - <a href="#" id="aboutChecksumLink">checksums</a>`
-              : "";
-            els.aboutUpdateStatus.innerHTML = `${escapeHtml(message)} - <a href="#" id="aboutReleaseLink">download</a>${checksumLink}`;
-            const link = document.getElementById("aboutReleaseLink");
-            if (link) {
-              link.addEventListener("click", (e) => {
-                e.preventDefault();
-                bridge.openExternal(info.downloadUrl || info.url);
-              });
-            }
-            const checksum = document.getElementById("aboutChecksumLink");
-            if (checksum) {
-              checksum.addEventListener("click", (e) => {
-                e.preventDefault();
-                bridge.openExternal(info.checksumUrl);
-              });
-            }
-          }
-          toast("success", message);
-        } else if (els.aboutUpdateStatus) {
-          els.aboutUpdateStatus.textContent = "You're on the latest version.";
-        }
-      });
-    }
-
     if (bridge.providerHealth) {
       bridge.providerHealth.connect((payloadStr) => {
         try {
@@ -2115,7 +2070,6 @@ const App = (() => {
     loadFeeds();
     loadProxy();
     loadSchedule();
-    if (bridge.checkForUpdates) bridge.checkForUpdates();
   }
 
   function setupSettingsScrollspy() {
@@ -2443,13 +2397,6 @@ const App = (() => {
         els.refreshHealthBtn.disabled = true;
         els.refreshHealthBtn.textContent = "Checking...";
         bridge.refreshProviderHealth();
-      });
-    }
-
-    if (els.checkUpdatesBtn) {
-      els.checkUpdatesBtn.addEventListener("click", () => {
-        if (els.aboutUpdateStatus) els.aboutUpdateStatus.textContent = "Checking GitHub...";
-        bridge.checkForUpdates();
       });
     }
 

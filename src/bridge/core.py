@@ -35,7 +35,6 @@ from workers import (
     ScheduledBandwidthWorker,
     SearchWorker,
     StreamPrepareWorker,
-    UpdateCheckWorker,
     WatchFolderWorker,
 )
 
@@ -63,7 +62,6 @@ class Bridge(
     requestNotification = pyqtSignal(str, str)
     metadataEnriched = pyqtSignal(str, str)  # query, JSON list of {key, metadata}
     providerHealth = pyqtSignal(str)  # JSON map of provider key -> status dict
-    updateAvailable = pyqtSignal(str)  # JSON dict; "{}" when none
     clipboardMagnet = pyqtSignal(str)  # detected magnet URI from the OS clipboard
     streamProgress = pyqtSignal(str)  # JSON: phase, message, buffer percentage
 
@@ -80,7 +78,6 @@ class Bridge(
         self._search_worker: Optional[SearchWorker] = None
         self._metadata_worker: Optional[MetadataEnrichWorker] = None
         self._health_worker: Optional[ProviderHealthWorker] = None
-        self._update_worker: Optional[UpdateCheckWorker] = None
         self._completion_announced: set[str] = set()
         self._player_window = None
         self._stream_worker: Optional[StreamPrepareWorker] = None
@@ -216,12 +213,6 @@ class Bridge(
 
     def _on_search_failed(self, query: str, error: str) -> None:
         self.searchError.emit(error)
-
-    def _on_update_check(self, payload) -> None:
-        try:
-            self.updateAvailable.emit(json.dumps(payload or {}))
-        except Exception as exc:
-            logger.error(f"updateAvailable emit failed: {exc}")
 
     def _enabled_provider_set(self) -> set[str]:
         raw = db.get_setting("enabled_providers")

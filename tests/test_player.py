@@ -289,12 +289,6 @@ def test_describe_reports_a_working_player(monkeypatch, tmp_path, windows):
 # ----- Backend ------------------------------------------------------------
 
 
-def test_create_player_returns_none_without_a_runtime(monkeypatch):
-    monkeypatch.setattr(backend, "load_vlc", lambda: (None, "no VLC here"))
-
-    assert backend.create_player() is None
-
-
 def test_constructing_a_player_without_a_runtime_raises(monkeypatch):
     monkeypatch.setattr(backend, "load_vlc", lambda: (None, "no VLC here"))
 

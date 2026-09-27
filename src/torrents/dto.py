@@ -82,10 +82,6 @@ class StreamPlan:
     head_pieces: tuple[int, ...]
     tail_pieces: tuple[int, ...]
 
-    @property
-    def required_pieces(self) -> tuple[int, ...]:
-        return self.head_pieces + self.tail_pieces
-
 
 @dataclass(frozen=True)
 class StreamStatus:

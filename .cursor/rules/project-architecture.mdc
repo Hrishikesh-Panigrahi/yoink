@@ -5,15 +5,15 @@ alwaysApply: true
 
 # Yoink Architecture
 
-- Yoink is a PyQt6 desktop app with a web-based UI (`QWebEngineView` + `QWebChannel`). Backend: libtorrent + SQLAlchemy/SQLite. Frontend assets live in `src/web/`.
-- The codebase is intentionally flat under `src/`. Top-level modules: `main.py`, `main_window.py`, `bridge.py`, `workers.py`, `db.py`, `models.py`. Packages: `torrents/`, `search/`, `providers/`, `utils/`, `web/`, `vendor/`, `resources/`.
-- Prefer module-level functions over service/manager classes. Classes are reserved for what frameworks require: PyQt subclasses (`MainWindow`, `Bridge`, `QThread` workers), SQLAlchemy ORM models, and the small `Session` dataclass that holds the libtorrent handle cache.
+- Yoink is a PyQt6 desktop app whose UI is HTML/CSS/JS in a `QWebEngineView`, wired to Python over `QWebChannel`. Backend: libtorrent + SQLAlchemy/SQLite. Frontend assets live in `src/web/`.
+- The codebase is flat under `src/`. Top-level modules: `main.py`, `main_window.py`, `workers.py`, `db.py`, `models.py`, `version.py`. Packages: `bridge/` (JS-facing slots, one mixin per area), `torrents/`, `search/`, `providers/`, `player/`, `feeds/`, `utils/`, `web/`, `vendor/`, `resources/`.
+- Prefer module-level functions over service/manager classes. Classes are reserved for what frameworks or native handles require: PyQt subclasses (`MainWindow`, `PlayerWindow`, `Bridge` and its mixins, `QThread` workers), SQLAlchemy ORM models, the small `Session` dataclass that holds the libtorrent handle cache, and the libvlc wrappers in `player/`.
 - Use enums (in `search/enums.py`) instead of magic strings for fixed value sets, and `@dataclass(frozen=True)` DTOs (in `search/dto.py`, `torrents/dto.py`) for data crossing module boundaries.
-- Shared helpers go in `utils/` (`format`, `paths`, `magnets`, `logger`). Add a new util module only when the helper is used in 2+ places.
-- Tests import flat (`from torrents import ...`, `from search import search`). `tests/conftest.py` adds `src/` to `sys.path`.
-- App launch uses `PYTHONPATH=$PWD;$PWD/src` (or `src/` on `sys.path`). Do not introduce `src.*` imports.
+- Shared helpers go in `utils/` (`format`, `paths`, `magnets`, `logger`, `resolver`, ...). Add a new util module only when the helper is used in 2+ places.
+- Imports are flat (`import db`, `from torrents import ...`, `from search import search`) in the app and in tests. `tests/conftest.py` adds `src/` to `sys.path`; the app is launched with `PYTHONPATH=$PWD;$PWD/src`. Do not introduce `src.*` imports.
 - Normalize filesystem paths with `utils.paths.normalize_path` before persistence or libtorrent calls.
-- Vendored upstream code lives under `src/vendor/torrent_api_py/`. The adapter at `providers/torrent_api_py.py` **appends** (not inserts) the vendor root to `sys.path` so vendored packages like `torrents/` and `helper/` cannot shadow our top-level packages.
-- Tests must not use the real `torrent.db`; set `TORRENT_DB_PATH` or call `db.init_db(path)` with a temp file.
+- Never `import vlc` at module scope: it raises when no libvlc runtime is installed. Go through `player.runtime.load_vlc()`, which returns a reason instead.
+- Vendored upstream code lives under `src/vendor/torrent_api_py/` and is not edited or linted. The vendored project has its own `torrents/` package, so the adapter at `providers/torrent_api_py.py` puts the vendor root first on `sys.path` only while importing the site registry, stashes our `torrents.*` entries in `sys.modules` and evicts the vendored ones afterwards, then leaves the vendor root at the *end* of `sys.path`. Keep that dance intact, or the vendored `torrents/` shadows ours.
+- The real library is `%LOCALAPPDATA%\Yoink\yoink.db`. Tests and dev runs must not touch it: `tests/conftest.py` points `TORRENT_DB_PATH` at a temp file, and a manual run should set `TORRENT_DB_PATH` too.
 - Keep persisted data backwards-compatible unless the user explicitly approves a migration.
 - Prefer small, behavior-preserving refactors before UI or packaging work.

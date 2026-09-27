@@ -1,7 +1,8 @@
 """SQLite persistence layer as module-level functions.
 
-Schema and default path stay backwards compatible with the previous
-`DatabaseManager` so existing `torrent.db` files keep working.
+The database is `yoink.db` in the user's app data folder (see
+`utils.paths.default_db_path`) unless `TORRENT_DB_PATH` or an explicit path
+says otherwise.
 """
 
 from __future__ import annotations

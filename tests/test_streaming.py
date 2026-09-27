@@ -142,13 +142,6 @@ def test_plan_rejects_a_nonsense_layout():
         streaming.plan_stream(file_offset=0, file_size=MB, piece_length=MB, num_pieces=0)
 
 
-def test_required_pieces_is_head_then_tail():
-    plan = streaming.plan_stream(
-        file_offset=0, file_size=1000 * MB, piece_length=MB, num_pieces=1000
-    )
-
-    assert plan.required_pieces == plan.head_pieces + plan.tail_pieces
-
 
 # ----- start_stream -------------------------------------------------------
 

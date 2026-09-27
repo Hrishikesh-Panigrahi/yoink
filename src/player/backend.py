@@ -151,9 +151,6 @@ class VlcPlayer:
     def volume(self) -> int:
         return int(self._player.audio_get_volume()) if self._player else 0
 
-    def set_muted(self, muted: bool) -> None:
-        self._player.audio_set_mute(bool(muted))
-
     def state(self) -> str:
         """VLC's state as a plain lowercase string (`playing`, `ended`, ...)."""
         if not self._player:
@@ -171,12 +168,3 @@ def clamp_volume(volume: int) -> int:
         return max(0, min(100, int(volume)))
     except (TypeError, ValueError):
         return 0
-
-
-def create_player() -> Optional[VlcPlayer]:
-    """Build a player, or return None with the reason logged."""
-    try:
-        return VlcPlayer()
-    except PlayerUnavailable as exc:
-        logger.warning(f"Player unavailable: {exc}")
-        return None

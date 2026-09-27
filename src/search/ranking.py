@@ -131,11 +131,6 @@ def _quality_rank(quality: str) -> int:
     return 0
 
 
-def score_result(result: SearchResult, query: str, region: Region) -> float:
-    """Backward-compatible legacy scorer (kept for older callers)."""
-    return health_score(result, query, region)
-
-
 def health_score(result: SearchResult, query: str, region: Region) -> float:
     """Combined relevance + reliability score in roughly the 0-500 range.
 
